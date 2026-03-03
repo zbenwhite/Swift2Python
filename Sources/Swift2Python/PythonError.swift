@@ -1,0 +1,94 @@
+//
+//  PythonError.swift
+//  Swift2Python
+//
+//  Created by Ben White on 2/23/26.
+//
+
+import Foundation
+
+/// Errors thrown by the Swift2Python package when interacting with the Python runtime.
+public enum PythonError: Error, CustomStringConvertible, LocalizedError {
+    
+    case notInitialized
+    case alreadyInitialized
+    case libraryNotFound
+    case symbolNotFound(String)
+    case allocationFailed(String)
+    case versionDetectionFailed
+    case versionParseFailed(String)
+//    case unsupportedVersion(major: Int, minor: Int)
+    case nullPointer(String)
+    case stringConversionFailed(String)
+    
+    // ── Finalization-specific case ───────────────────────────────────────────
+    /// `Py_FinalizeEx()` returned a non-zero status during shutdown.
+    /// - Parameter status: The exact return value from `Py_FinalizeEx()`
+    ///   - `0`     = success (should not throw)
+    ///   - `> 0`   = unclean shutdown (e.g. unhandled exceptions during atexit)
+    ///   - `< 0`   = serious error (rare)
+    case finalizationFailed(status: CInt)
+    
+    // MARK: - CustomStringConvertible
+        
+    public var description: String {
+        switch self {
+        case .notInitialized:
+            return "Python runtime not initialized"
+        case .alreadyInitialized:
+            return "Python runtime already initialized"
+        case .libraryNotFound:
+            return "Could not load libpython shared library"
+        case .symbolNotFound(let name):
+            return "Symbol not found in libpython: \(name)"
+        case .allocationFailed(let context):
+            return "Memory allocation failed: \(context)"
+        case .versionDetectionFailed:
+            return "Failed to detect Python version"
+        case .versionParseFailed(let raw):
+            return "Failed to parse Python version from: \(raw)"
+//        case .unsupportedVersion(let major, let minor):
+//            return "Python \(major).\(minor) is unsupported (minimum 3.8 required)"
+        case .nullPointer(let context):
+            return "Python C API returned NULL pointer: \(context)"
+        case .stringConversionFailed(let context):
+            return "Failed to convert Python string (wchar_t*) to Swift String: \(context)"
+        case .finalizationFailed(let status):
+            if status < 0 {
+                return "Py_FinalizeEx failed with error status \(status) (serious shutdown error)"
+            } else {
+                return "Py_FinalizeEx returned warning status \(status) (unclean shutdown – check for unhandled exceptions or resource leaks)"
+            }
+        }
+    }
+        
+    // MARK: - LocalizedError
+        
+    public var errorDescription: String? {
+        description
+    }
+        
+    public var failureReason: String? {
+        switch self {
+        case .finalizationFailed(let status):
+            if status < 0 {
+                return "Python interpreter shutdown encountered a critical error."
+            } else {
+                return "Python interpreter did not shut down cleanly."
+            }
+        default:
+            return nil
+        }
+    }
+        
+    // Optional: help provide recovery suggestion
+    public var recoverySuggestion: String? {
+        switch self {
+        case .finalizationFailed:
+            return "Call finalize() earlier in a controlled manner (e.g. on app exit). Check Python logs or stderr for details on pending exceptions."
+        default:
+            return nil
+        }
+    }
+}
+
