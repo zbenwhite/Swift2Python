@@ -24,6 +24,39 @@ public actor PythonInterpreter {
         }
     }
     
+    // Because a.name and some other stuff can't be async, they are only avail
+    @dynamicMemberLookup
+    private struct SafePythonObject {
+        private let interpreter: PythonInterpreter
+        
+        //
+        // a.name
+        public subscript(dynamicMember name: String) -> SafePythonObject {
+            // a.name
+            get {
+                fatalError("Placeholder to tell xcode to shut up")
+            }
+            // a.name = value
+            nonmutating set {
+                fatalError("Placeholder to tell xcode to shut up")
+                //try await interpreter.setObjectAttribute(self, name, newValue)
+            }
+        }
+        
+        //
+        // a[key]
+        subscript(key: PendingPythonConvertible...) -> SafePythonObject {
+            // a[key]
+            get {
+                fatalError("Placeholder to tell xcode to shut up")
+            }
+            // a[key] = value
+            nonmutating set {
+                fatalError("Placeholder to tell xcode to shut up")
+            }
+        }
+    }
+    
     private let runtime = PythonRuntime.shared
     private let logger: Logger = Logger(label: "swift2python.PythonInterpreter")
     
@@ -69,6 +102,22 @@ public actor PythonInterpreter {
         return pyBoolFromLong.function(value ? 1 : 0)
     }
     
+    private func pyDict_New() async throws -> UnsafeMutableRawPointer? {
+        logger.trace("CPyton wrapper called: pyDict_New")
+        // Signature: PyObject *PyDict_New()
+        let pyDictNew = try await runtime.loadSendableSymbol( "PyDict_New", as: (@convention(c) () -> UnsafeMutableRawPointer?).self)
+        return pyDictNew.function()
+    }
+    
+    private func pyDict_SetItem(_ dictPtr: UnsafeMutableRawPointer, _ keyPtr: UnsafeMutableRawPointer, _ valuePtr: UnsafeMutableRawPointer) async throws -> Int32 {
+        logger.trace("CPyton wrapper called: pyDict_SetItem")
+        // Signature: int PyDict_SetItem(PyObject *p, PyObject *key, PyObject *val)
+        let pyDictSetItem = try await runtime.loadSendableSymbol( "PyDict_SetItem",
+                    as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32).self
+        )
+        return pyDictSetItem.function(dictPtr, keyPtr, valuePtr)
+    }
+    
     private func pyFloat_FromDouble(_ value: Double) async throws -> UnsafeMutableRawPointer? {
         logger.trace("CPyton wrapper called: pyFloat_FromDouble")
         let pyFloatFromDouble = try await runtime.loadSendableSymbol("PyFloat_FromDouble",
@@ -86,7 +135,7 @@ public actor PythonInterpreter {
     private func pyImport_AddModule(pointer: UnsafeMutableRawPointer) async throws {
         logger.trace("CPyton wrapper called: pyImport_AddModule")
         let pyAdd = try await runtime.loadSendableSymbol("PyImport_AddModule",
-                                                         as: (@convention(c) (UnsafeMutableRawPointer) -> Void).self)
+                    as: (@convention(c) (UnsafeMutableRawPointer) -> Void).self)
         pyAdd.function(pointer)
     }
     
@@ -95,6 +144,20 @@ public actor PythonInterpreter {
         let pyImport = try await runtime.loadSendableSymbol("PyImport_ImportModule",
                     as: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?).self)
         return module.withCString({ pyImport.function($0) })
+    }
+    
+    private func pyList_New(_ length: Int) async throws -> UnsafeMutableRawPointer? {
+        logger.trace("CPyton wrapper called: pyList_New")
+        let pyListNew = try await runtime.loadSendableSymbol("PyList_New",
+                    as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self)
+        return pyListNew.function(length)
+    }
+    
+    private func pyList_SetItem(_ listPtr: UnsafeMutableRawPointer, _ index: Int, _ valuePtr: UnsafeMutableRawPointer) async throws -> Int32 {
+        logger.trace("CPyton wrapper called: pyList_SetItem")
+        let pyListSetItem = try await runtime.loadSendableSymbol("PyList_SetItem",
+                    as: (@convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Int32).self)
+        return pyListSetItem.function(listPtr, index, valuePtr)
     }
     
     private func pyLong_FromLong(_ value: Int) async throws -> UnsafeMutableRawPointer? {
@@ -255,6 +318,59 @@ public actor PythonInterpreter {
         // Register the pointer in our actor's internal hashtable
         let id = registerPythonObjectPointer(ptr)
         return PythonObject(id: id, interpreter: self)
+    }
+    
+    public func convertArrayToPython(_ val: [PendingPythonConvertible]) async throws -> PythonObject {
+        guard let listPtr = try await pyList_New(val.count)  else {
+            throw PythonError.nullPointer("Failed to convert list: \(val)")
+        }
+        for (index, element) in val.enumerated() {
+            let valuePythonObject = try await element.toPythonObject(interpreter: self)
+            let valuePtr = pythonObjectRegistry[valuePythonObject.id]
+            _ = try await pyList_SetItem(listPtr, index, valuePtr!)
+        }
+        
+        // Register the pointer in our actor's internal hashtable
+        let id = registerPythonObjectPointer(listPtr)
+        return PythonObject(id: id, interpreter: self)
+    }
+    
+    public func convertDictionaryToPython<K, V>(_ dict: [K: V]) async throws -> PythonObject
+            where K: PendingPythonConvertible & Hashable, V: PendingPythonConvertible {
+        guard let dictPtr = try await pyDict_New()  else {
+            throw PythonError.nullPointer("Failed to convert dictionary")
+        }
+        
+        for (key, value) in dict {
+            let keyObj = try await key.toPythonObject(interpreter: self)
+            let valueObj = try await value.toPythonObject(interpreter: self)
+            let keyPtr = pythonObjectRegistry[keyObj.id]!
+            let valuePtr = pythonObjectRegistry[valueObj.id]!
+            _ = try await pyDict_SetItem(dictPtr, keyPtr, valuePtr)
+        }
+        
+        // Register the pointer in our actor's internal hashtable
+        let id = registerPythonObjectPointer(dictPtr)
+        return PythonObject(id: id, interpreter: self)
+    }
+    
+    public func getObjectAttribute(_ obj: PythonObject, _ name: String) async throws -> PythonObject {
+        let objPtr = pythonObjectRegistry[obj.id]!
+        let valuePtr = try await pyObject_GetAttrString(objPtr, name)
+        let id = registerPythonObjectPointer(valuePtr!)
+        return PythonObject(id: id, interpreter: self)
+    }
+    
+    public func setObjectAttribute(_ obj: PythonObject, _ name: String, _ value: PythonObject) async throws {
+        let objPtr = pythonObjectRegistry[obj.id]!
+        let valuePtr = pythonObjectRegistry[value.id]!
+        _ = try await pyObject_SetAttrString(objPtr, name, valuePtr)
+    }
+    
+    func withIsolatedContext<T>(
+        _ body: @Sendable (isolated PythonInterpreter) throws -> T
+    ) async rethrows -> T {
+        try body(self)
     }
 }
 
