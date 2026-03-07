@@ -7,8 +7,7 @@
 
 import Foundation
 
-@dynamicMemberLookup
-public struct PythonObject: Sendable {
+public struct PythonObject: Sendable, PendingPythonConvertible {
     
     /// Helper to bridge Swift ARC to the Actor's registry
     private final class LifetimeTracker: Sendable {
@@ -39,31 +38,20 @@ public struct PythonObject: Sendable {
         self.lifetime = LifetimeTracker(id: id, interpreter: interpreter)
     }
     
-    
-    //
-    // a.name
-    public subscript(dynamicMember name: String) -> PythonObject {
-        // a.name
-        get {
-            fatalError("Placeholder to tell xcode to shut up")
-        }
-        // a.name = value
-        nonmutating set {
-            fatalError("Placeholder to tell xcode to shut up")
-        }
+    // Implement PendingPythonConvertible protocol
+    public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        return self
     }
     
+    // a.name
+    // (can't do actual a.name because we need try await and they're not available for a.name)
+    public func get(attrName: String) async throws -> PythonObject {
+        return try await interpreter.getObjectAttribute(self, attrName)
+    }
     
-    //
-    // a[key]
-    subscript(key: PendingPythonConvertible...) -> PythonObject {
-        // a[key]
-        get {
-            fatalError("Placeholder to tell xcode to shut up")
-        }
-        // a[key] = value
-        nonmutating set {
-            fatalError("Placeholder to tell xcode to shut up")
-        }
+    // a.name = value
+    // (can't do actual a.name = value because we need try await ...)
+    public func set(attrName: String, value: PendingPythonConvertible) async throws {
+        try await interpreter.setObjectAttribute(self, attrName, value.toPythonObject(interpreter: self.interpreter))
     }
 }
