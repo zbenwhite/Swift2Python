@@ -40,6 +40,19 @@ public actor PythonRuntime {
     // Cached symbols (lazy-loaded inside actor)
     private var cachedSymbols: [String: Any] = [:]
     
+    
+    // Special stuff only for deinit:
+    
+    // Store this because deinit calls it and it must be sendable
+    private var _sendablePyFinalizeEx: SendableCPythonFunction<@convention(c) () -> CInt>? = nil
+    
+    private struct SendablePythonLibHandle: @unchecked Sendable {
+        public let handle: PythonLibraryHandle
+        init(_ handle: PythonLibraryHandle) { self.handle = handle }
+    }
+    
+    private var _sendablePythonLibraryHandle: SendablePythonLibHandle? = nil
+    
     /// Converts a null-terminated `wchar_t*` from the Python C API to a Swift `String`.
     ///
     /// Handles platform differences:
@@ -74,57 +87,57 @@ public actor PythonRuntime {
     
 //    // ── CPyton wrappers ───────────────────────────────────────────────
     
-    public func py_DecRef(_ pointer: UnsafeMutableRawPointer) throws {
-        logger.trace("CPyton wrapper called: py_DecRef")
-        let decrementRefCount = try loadSymbol("Py_DecRef", as: (@convention(c) (UnsafeMutableRawPointer) -> Void).self)
-        decrementRefCount(pointer)
-    }
+//    public func py_DecRef(_ pointer: UnsafeMutableRawPointer) throws {
+//        logger.trace("CPyton wrapper called: py_DecRef")
+//        let decrementRefCount = try loadSymbol("Py_DecRef", as: (@convention(c) (UnsafeMutableRawPointer) -> Void).self)
+//        decrementRefCount(pointer)
+//    }
     
     private func py_FinalizeEx() throws -> CInt {
         logger.trace("CPyton wrapper called: py_FinalizeEx")
         let pyFinalize = try loadSymbol("Py_FinalizeEx", as: (@convention(c) () -> CInt).self)
         return pyFinalize()
     }
-    
-    private func py_GetExecPrefix() throws -> String? {
-        logger.trace("CPython wrapper called: py_GetExecPrefix")
-        // Signature: wchar_t* Py_GetExecPrefix(void);
-        let fn = try loadSymbol("Py_GetExecPrefix", as: (@convention(c) () -> UnsafePointer<wchar_t>?).self)
-        let ptr = fn()
-        return wideCharToString(ptr)
-    }
-    
-    private func py_GetPath() throws -> String? {
-        logger.trace("CPython wrapper called: py_GetPath")
-        // Signature: wchar_t* Py_GetPath(void);
-        let fn = try loadSymbol("Py_GetPath", as: (@convention(c) () -> UnsafePointer<wchar_t>?).self)
-        let ptr = fn()
-        return wideCharToString(ptr)
-    }
+//    
+//    private func py_GetExecPrefix() throws -> String? {
+//        logger.trace("CPython wrapper called: py_GetExecPrefix")
+//        // Signature: wchar_t* Py_GetExecPrefix(void);
+//        let fn = try loadSymbol("Py_GetExecPrefix", as: (@convention(c) () -> UnsafePointer<wchar_t>?).self)
+//        let ptr = fn()
+//        return wideCharToString(ptr)
+//    }
+//    
+//    private func py_GetPath() throws -> String? {
+//        logger.trace("CPython wrapper called: py_GetPath")
+//        // Signature: wchar_t* Py_GetPath(void);
+//        let fn = try loadSymbol("Py_GetPath", as: (@convention(c) () -> UnsafePointer<wchar_t>?).self)
+//        let ptr = fn()
+//        return wideCharToString(ptr)
+//    }
 
-    private func py_GetPrefix() throws -> String? {
-        logger.trace("CPython wrapper called: py_GetPrefix")
-        // Signature: wchar_t* Py_GetPrefix(void);
-        let fn = try loadSymbol("Py_GetPrefix", as: (@convention(c) () -> UnsafePointer<wchar_t>?).self)
-        let ptr = fn()
-        return wideCharToString(ptr)
-    }
-    
-    private func py_GetProgramFullPath() throws -> String? {
-        logger.trace("CPython wrapper called: py_GetProgramFullPath")
-        // Signature: wchar_t* Py_GetProgramFullPath(void);
-        let fn = try loadSymbol("Py_GetProgramFullPath", as: (@convention(c) () -> UnsafePointer<wchar_t>?).self)
-        let ptr = fn()
-        return wideCharToString(ptr)
-    }
-    
-    private func py_GetProgramFName() throws -> String? {
-        logger.trace("CPython wrapper called: py_GetProgramName")
-        // Signature: wchar_t* py_GetProgramName(void);
-        let fn = try loadSymbol("Py_GetProgramName", as: (@convention(c) () -> UnsafePointer<wchar_t>?).self)
-        let ptr = fn()
-        return wideCharToString(ptr)
-    }
+//    private func py_GetPrefix() throws -> String? {
+//        logger.trace("CPython wrapper called: py_GetPrefix")
+//        // Signature: wchar_t* Py_GetPrefix(void);
+//        let fn = try loadSymbol("Py_GetPrefix", as: (@convention(c) () -> UnsafePointer<wchar_t>?).self)
+//        let ptr = fn()
+//        return wideCharToString(ptr)
+//    }
+//    
+//    private func py_GetProgramFullPath() throws -> String? {
+//        logger.trace("CPython wrapper called: py_GetProgramFullPath")
+//        // Signature: wchar_t* Py_GetProgramFullPath(void);
+//        let fn = try loadSymbol("Py_GetProgramFullPath", as: (@convention(c) () -> UnsafePointer<wchar_t>?).self)
+//        let ptr = fn()
+//        return wideCharToString(ptr)
+//    }
+//    
+//    private func py_GetProgramFName() throws -> String? {
+//        logger.trace("CPython wrapper called: py_GetProgramName")
+//        // Signature: wchar_t* py_GetProgramName(void);
+//        let fn = try loadSymbol("Py_GetProgramName", as: (@convention(c) () -> UnsafePointer<wchar_t>?).self)
+//        let ptr = fn()
+//        return wideCharToString(ptr)
+//    }
     
     private func py_Initialize() throws {
         logger.trace("CPyton wrapper called: py_Initialize")
@@ -141,13 +154,37 @@ public actor PythonRuntime {
         return result != 0
     }
     
-    private func pyRun_SimpleString(_ code: String) throws -> CInt {
-        logger.trace("CPyton wrapper called: pyRun_SimpleString")
-        let pyExec = try loadSymbol("PyRun_SimpleString", as: (@convention(c) (UnsafePointer<CChar>?) -> CInt).self)
-        return code.withCString { cStringPtr in
-            pyExec(cStringPtr)
+    private func py_GetProgramFullPath() throws -> String? {
+        logger.trace("CPython wrapper called: py_GetProgramFullPath")
+        // The C signature is: const char *Py_GetProgramFullPath(void);
+        let getProgramFullPath = try loadSymbol("Py_GetProgramFullPath", as: (@convention(c) () -> UnsafePointer<CChar>?).self)
+        if let cString = getProgramFullPath() {
+            return String(cString: cString)
+        }
+        else {
+            return nil
         }
     }
+    
+    private func py_GetVersion() throws -> String? {
+        logger.trace("CPython wrapper called: py_GetVersion")
+        // The C signature is: const char *Py_GetVersion(void);
+        let getVersion = try loadSymbol("Py_GetVersion", as: (@convention(c) () -> UnsafePointer<CChar>?).self)
+        if let cString = getVersion() {
+            return String(cString: cString)
+        }
+        else {
+            return nil
+        }
+    }
+    
+//    private func pyRun_SimpleString(_ code: String) throws -> CInt {
+//        logger.trace("CPyton wrapper called: pyRun_SimpleString")
+//        let pyExec = try loadSymbol("PyRun_SimpleString", as: (@convention(c) (UnsafePointer<CChar>?) -> CInt).self)
+//        return code.withCString { cStringPtr in
+//            pyExec(cStringPtr)
+//        }
+//    }
     
  
 //    private func pyErr_Occurred() throws {
@@ -218,18 +255,86 @@ public actor PythonRuntime {
     }
     
     private static func defaultPythonLibraryPaths() -> [String] {
-        // macOS: /opt/homebrew/bin/python3.14 → libpython3.14.dylib, etc.
-        // Linux: /usr/lib/libpython3.14.so
-        // Windows: python314.dll
-        []
+        var paths: [String] = []
+
+        // Common Homebrew locations (Apple Silicon & Intel)
+        let brewPrefixes = [
+            "/opt/homebrew",
+            "/usr/local"
+        ]
+
+        let versions = ["3.13", "3.14", "3.12", "3.11"]  // newest first
+
+        for prefix in brewPrefixes {
+            for ver in versions {
+                let dotted = ver.replacingOccurrences(of: ".", with: "")
+                paths.append("\(prefix)/opt/python@\(ver)/Frameworks/Python.framework/Versions/\(ver)/lib/libpython\(ver).dylib")
+                paths.append("\(prefix)/opt/python@\(ver)/lib/libpython\(ver).dylib")
+                paths.append("\(prefix)/Cellar/python@\(ver)/\(ver).*/Frameworks/Python.framework/Versions/\(ver)/lib/libpython\(ver).dylib")
+                paths.append("\(prefix)/lib/libpython\(dotted).dylib")
+                paths.append("\(prefix)/lib/libpython\(ver).dylib")
+            }
+        }
+
+        // System Python (macOS) – usually not full-featured, but sometimes useful
+        paths.append("/Library/Frameworks/Python.framework/Versions/3.13/lib/libpython3.13.dylib")
+
+        // Last resort: assume python3-config --ldflags gives us clues
+        return paths
     }
     
-    private func detectFreeThreadedMode() throws -> Bool {
-        return false
-    }
-    
-    private func detectPythonVersion() throws -> Bool {
-        return false
+//    private func detectFreeThreadedMode() throws -> Bool {
+//        let sys = try PythonRuntime.import("sys")
+//
+//        if let isGilEnabled = sys._is_gil_enabled {
+//            // Callable → free-threaded capable build
+//            let gilEnabled = Bool(isGilEnabled()) ?? true
+//            return !gilEnabled  // true = free-threaded mode active (GIL off)
+//        }
+//
+//        // Fallback for detection of capability
+//        let versionStr = String(sys.version)
+//        return versionStr.lowercased().contains("free-threading")
+//    }
+//    
+    private func detectPythonVersion() throws {
+        logger.trace("detectPythonVersion() called.")
+        guard let versionString = try py_GetVersion() else {
+            logger.error("Python version string not returned by py_GetVersion() ")
+            return
+        }
+        
+        logger.trace("py_GetVersion() raw string: \(versionString)")
+        
+        // Take only the first token (up to first space)
+        guard let versionPart = versionString.split(separator: " ").first else {
+            logger.error("Python version string expected to start with version: \(versionString)")
+            return
+        }
+            
+        // Split on dots: "3.13.1" → ["3", "13", "1"]
+        let components = versionPart.split(separator: ".").map { String($0) }
+            
+        guard components.count >= 2,
+              let major = Int(components[0]),
+              let minor = Int(components[1])
+        else {
+            logger.error("Python version string expected to start with version in the form major.minor.micro: \(versionString)")
+            return
+        }
+            
+        // Micro is optional in some dev builds (e.g. "3.14.0a5+"), treat as 0 if missing
+        let micro: Int
+        if components.count >= 3 {
+            // Strip any trailing non-digits (like "0a5+" → try "0")
+            let microStr = components[2].prefix(while: { $0.isNumber })
+            micro = Int(microStr) ?? 0
+        } else {
+            micro = 0
+        }
+        
+        self.version = (major, minor, micro)
+        logger.debug("Detected Python version from C API: \(major).\(minor).\(micro)")
     }
     
     private func performInitialization(libraryPath: String? = nil) async throws {
@@ -265,15 +370,19 @@ public actor PythonRuntime {
         // Add python path here
         try py_Initialize()
         
+        // Save stuff for deinit
+        if let pythonLibraryHandle = self.pythonLibraryHandle {
+            self._sendablePythonLibraryHandle = SendablePythonLibHandle(pythonLibraryHandle)
+        }
         // Load the finalize function because we need it for deinit
-        _ = try loadSymbol("Py_FinalizeEx", as: (@convention(c) () -> CInt).self)
+        self._sendablePyFinalizeEx = try loadSendableSymbol("Py_FinalizeEx", as: (@convention(c) () -> CInt).self)
         
-        self.version = try detectPythonVersion()
-        
-        self.isFreeThreaded = try detectFreeThreadedMode()
-        
+        try detectPythonVersion()
+//
+//        self.isFreeThreaded = try detectFreeThreadedMode()
+//        
         isReady = true
-        logger.debug("Python \(version!.major).\(version!.minor).\(version!.micro) initialized – free-threaded: \(isFreeThreaded)")
+//        logger.debug("Python \(version!.major).\(version!.minor).\(version!.micro) initialized – free-threaded: \(isFreeThreaded)")
     }
     
     public func initialize(libraryPath: String? = nil) async throws {
@@ -287,18 +396,28 @@ public actor PythonRuntime {
         try await performInitialization(libraryPath: libraryPath)
     }
     
-    public func initializeIfNeeded(libraryPath: String? = nil) async throws {
-        guard !isReady else { return }
-        guard initError == nil else { throw initError! }
-        logger.info("Python runtime lazy initialization...")
-        
-        try await performInitialization(libraryPath: libraryPath)
+    /// Whether the Python runtime has been successfully initialized.
+    public var isInitialized: Bool {
+        isReady
+    }
+    
+    /// The major, minor, micro version tuple of the loaded Python interpreter,
+    /// or `nil` if initialization has not yet succeeded or failed.
+    public var pythonVersion: (major: Int, minor: Int, micro: Int)? {
+        version
+    }
+
+    /// A convenience string in the form "3.13.0" (or similar).
+    /// Returns `nil` if version has not been detected.
+    public var pythonVersionString: String? {
+        guard let v = version else { return nil }
+        return "\(v.major).\(v.minor).\(v.micro)"
     }
     
     deinit {
         if isReady {
             logger.warning("Attempting PythonRuntime automatic deinitialization.  Calling finalize() is preferred.")
-            if let pyFinalizeFunc = cachedSymbols["Py_FinalizeEx"] as? (@convention(c) () -> CInt) {
+            if let pyFinalizeFunc = _sendablePyFinalizeEx?.function {
                 let status = pyFinalizeFunc()
                 if status < 0 {
                     logger.error("Py_FinalizeEx returned error status: \(status)")
@@ -313,11 +432,8 @@ public actor PythonRuntime {
             }
         }
         
-        cachedSymbols.removeAll()
-        
-        if let handle = pythonLibraryHandle {
+        if let handle = self._sendablePythonLibraryHandle?.handle {
             dlclose(handle)
-            pythonLibraryHandle = nil
         }
         isReady = false
     }
