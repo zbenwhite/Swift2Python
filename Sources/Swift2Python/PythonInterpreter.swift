@@ -24,39 +24,6 @@ public actor PythonInterpreter {
         }
     }
     
-    // Because a.name and some other stuff can't be async, they are only avail
-    @dynamicMemberLookup
-    private struct SafePythonObject {
-        private let interpreter: PythonInterpreter
-        
-        //
-        // a.name
-        public subscript(dynamicMember name: String) -> SafePythonObject {
-            // a.name
-            get {
-                fatalError("Placeholder to tell xcode to shut up")
-            }
-            // a.name = value
-            nonmutating set {
-                fatalError("Placeholder to tell xcode to shut up")
-                //try await interpreter.setObjectAttribute(self, name, newValue)
-            }
-        }
-        
-        //
-        // a[key]
-        subscript(key: PendingPythonConvertible...) -> SafePythonObject {
-            // a[key]
-            get {
-                fatalError("Placeholder to tell xcode to shut up")
-            }
-            // a[key] = value
-            nonmutating set {
-                fatalError("Placeholder to tell xcode to shut up")
-            }
-        }
-    }
-    
     private let runtime = PythonRuntime.shared
     private let logger: Logger = Logger(label: "swift2python.PythonInterpreter")
     
@@ -68,6 +35,10 @@ public actor PythonInterpreter {
         pythonObjectRegistry[id] = ptr
         pythonObjectSwiftRefCount[id] = 1
         return id
+    }
+    
+    private func getRegisteredPythonObjectPointer(_ id: PythonObjectUniqueID) -> UnsafeMutableRawPointer? {
+        return pythonObjectRegistry[id]
     }
     
     /// Decrements the Swift-side reference count.
@@ -165,6 +136,14 @@ public actor PythonInterpreter {
         let pyLongFromLong = try await runtime.loadSendableSymbol("PyLong_FromLong",
                     as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self)
         return pyLongFromLong.function(value)
+    }
+    
+    private func pyObject_CallObject(_ objPtr: UnsafeMutableRawPointer, _ args: UnsafeMutableRawPointer? = nil) async throws -> UnsafeMutableRawPointer? {
+        logger.trace("CPyton wrapper called: pyObject_CallObject")
+        // Signature: PyObject* PyObject_CallObject(PyObject *callable_object, PyObject *args)
+        let pyObjectCallObject = try await runtime.loadSendableSymbol("PyObject_CallObject",
+                    as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self)
+        return pyObjectCallObject.function(objPtr, args)
     }
     
     private func pyObject_GetAttrString(_ pointer: UnsafeMutableRawPointer, _ name: String) async throws -> UnsafeMutableRawPointer? {
@@ -271,7 +250,7 @@ public actor PythonInterpreter {
     /// Usage: try await py.`import`("numpy", as: "np")
     public func `import`(_ name: String, as alias: String? = nil) async throws -> PythonObject {
         // Ensure the runtime is initialized before accessing C symbols
-        try await runtime.initializeIfNeeded()
+        //try await runtime.initializeIfNeeded()
             
         if let alias = alias {
             return try await importWithAlias(name, alias: alias)
@@ -367,10 +346,316 @@ public actor PythonInterpreter {
         _ = try await pyObject_SetAttrString(objPtr, name, valuePtr)
     }
     
-    func withIsolatedContext<T>(
+    public func callPythonMethod(object: PythonObject, methodName: String, collectedArgs: [any PendingPythonConvertible]) async throws -> PythonObject {
+        fatalError("shut up xcode")
+    }
+    
+    public func callPythonMethod(object: PythonObject, methodName: String, collectedArgs: [any PendingPythonConvertible],
+                                 kwargs: [String: PendingPythonConvertible] = [:]) async throws -> PythonObject {
+        fatalError("shut up xcode")
+    }
+    
+    public func callPythonMethod(_ obj: PythonObject, _ name: String, _ args: any PendingPythonConvertible...) async throws -> PythonObject {
+        let allArgs = args as [any PendingPythonConvertible]
+        return try await callPythonMethod(object: obj, methodName: name, collectedArgs: allArgs)
+    }
+    
+    public func callPythonMethod(_ obj: PythonObject, _ name: String, _ args: any PendingPythonConvertible...,
+                                   kwargs: [String: PendingPythonConvertible] = [:]) async throws -> PythonObject {
+        let allArgs = args as [any PendingPythonConvertible]
+        return try await callPythonMethod(object: obj, methodName: name, collectedArgs: allArgs, kwargs:kwargs)
+    }
+    
+    // -------- Synchronous Python interop section  --------------------------
+    //
+    
+    public func withIsolatedContext<T>(
         _ body: @Sendable (isolated PythonInterpreter) throws -> T
-    ) async rethrows -> T {
-        try body(self)
+    ) async throws -> T {
+        try await ensureSymbolsLoaded()
+        return try body(self)
+    }
+    
+    
+    // Because a.name and some other stuff can't be async, they are only available once
+    // the object is made inside the actor context
+    //
+    // SafePythonObject has two forms.
+    // Form 1 is like a PythonObject except all the access to PythonInterpreter must be synchronous.
+    // Form 2 is a ghost form.  It can't do anything except be turned into Form 1.  It is needed
+    // because I want to enable code like safeObject.count = safeObject.count + 1.  This requires
+    // a constructor that just takes an int or a float.
+    //
+    @dynamicMemberLookup
+    public struct SafePythonObject: Sendable, SafePythonConvertible,
+                            ExpressibleByFloatLiteral, ExpressibleByIntegerLiteral,
+                            ExpressibleByStringLiteral, ExpressibleByBooleanLiteral {
+        
+        
+        // The state of SafePythonObject.  Is it real or is it just a value to be made real later?
+        private enum State: Sendable {
+            case bound(interpreter: PythonInterpreter, id: PythonObjectUniqueID)
+            case deferredDouble(Double)
+            case deferredInt(Int)
+            case deferredString(String)
+            case deferredBool(Bool)
+        }
+        private let state: State
+        
+        // Constructors to make arithmetic work
+        public init(floatLiteral value: Double) {
+            self.state = .deferredDouble(value)
+        }
+        
+        public init(integerLiteral value: Int) {
+            self.state = .deferredInt(value)
+        }
+        
+        public init(stringLiteral value: String) {
+            self.state = .deferredString(value)
+        }
+        
+        public init(booleanLiteral value: Bool) {
+            self.state = .deferredBool(value)
+        }
+        
+        // Materialize the ghost form into a real form
+        private func materialize(using context: PythonInterpreter) throws -> SafePythonObject {
+            switch state {
+            case .bound:
+                return self // It's already real
+            case .deferredDouble(let val):
+                return try context.assumeIsolated {
+                    return try $0.convertToSafePython(double:val)
+                }
+            case .deferredInt(let val):
+                return try context.assumeIsolated {
+                    return try $0.convertToSafePython(int:val)
+                }
+            case .deferredString(let val):
+                return try context.assumeIsolated {
+                    return try $0.convertToSafePython(string:val)
+                }
+            case .deferredBool(let val):
+                return try context.assumeIsolated {
+                    return try $0.convertToSafePython(bool:val)
+                }
+            }
+        }
+        
+        public func toSafePythonObject(interpreter: PythonInterpreter) throws -> SafePythonObject {
+            return try self.materialize(using: interpreter)
+        }
+        
+        private var error: PythonError?
+        
+        fileprivate init(interpreter: PythonInterpreter, id: PythonObjectUniqueID) {
+            self.state = .bound(interpreter: interpreter, id: id)
+            self.error = nil
+        }
+        
+        public func getInterpreter() -> PythonInterpreter {
+            if case .bound(let interpreter, _) = state { return interpreter }
+            fatalError("Cannot get interpreter from an unbound literal.  SafePythonObject is a ghost.")
+        }
+        
+        public func getID() -> PythonObjectUniqueID {
+            if case .bound(_, let id) = state { return id }
+            fatalError("Cannot get ID from an unbound literal.  SafePythonObject is a ghost.")
+        }
+        
+        //
+        // a.name
+        public subscript(dynamicMember name: String) -> SafePythonObject {
+            // a.name
+            get {
+                let localInterpreter = getInterpreter()
+                return localInterpreter.assumeIsolated {
+                    do {
+                        return try $0.syncGetObjectAttribute(self, name)
+                    } catch {
+                        fatalError("Failed to get attribute: \(error)")
+                    }
+                }
+            }
+            // a.name = value
+            set {
+                let localInterpreter = self.getInterpreter()
+                localInterpreter.assumeIsolated {
+                    do {
+                        // newValue might be a literal Double. We make it real here!
+                        let realValue = try newValue.materialize(using: $0)
+                        try $0.syncSetObjectAttribute(self, name, realValue)
+                    } catch {
+                        fatalError("Failed to set attribute: \(error)")
+                    }
+                }
+            }
+        }
+        
+        //
+        // a[key]
+        public subscript(key: SafePythonConvertible...) -> SafePythonConvertible {
+            // a[key]
+            get {
+                fatalError("Placeholder")
+            }
+            // a[key] = value
+            set {
+                fatalError("Placeholder")
+            }
+        }
+        
+        public func addOperator(_ rhs: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = getInterpreter()
+                return try localInterpreter.assumeIsolated {
+                    try $0.addOperator(self, rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed to convert value or set attribute: \(error)")
+            }
+        }
+    }
+    
+    private struct SafePythonCSymbols {
+        var PyBool_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)?
+        var PyFloat_FromDouble: (@convention(c) (Double) -> UnsafeMutableRawPointer?)?
+        var PyLong_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)?
+        var PyObject_GetAttrString: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?)?
+        var PyObject_SetAttrString: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Int32)?
+        var PyRun_SimpleString: (@convention(c) (UnsafePointer<CChar>) -> Int32)?
+        var PyUnicode_FromStringAndSize: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?)?
+    }
+    
+    private var safeSymbolsCache = SafePythonCSymbols()
+    
+    private func ensureSymbolsLoaded() async throws {
+        // Return if the cache is already setup
+        guard safeSymbolsCache.PyRun_SimpleString == nil else { return }
+        safeSymbolsCache.PyBool_FromLong = try await runtime.loadSendableSymbol("PyBool_FromLong",
+                    as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyFloat_FromDouble = try await runtime.loadSendableSymbol("PyFloat_FromDouble",
+                    as: (@convention(c) (Double) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyLong_FromLong = try await runtime.loadSendableSymbol("PyLong_FromLong",
+                    as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyRun_SimpleString = try await runtime.loadSendableSymbol("PyRun_SimpleString",
+                    as: (@convention(c) (UnsafePointer<CChar>) -> Int32).self).function
+        safeSymbolsCache.PyObject_GetAttrString = try await runtime.loadSendableSymbol("PyObject_GetAttrString",
+                    as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyObject_SetAttrString = try await runtime.loadSendableSymbol("PyObject_SetAttrString",
+                    as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Int32).self).function
+        safeSymbolsCache.PyUnicode_FromStringAndSize = try await runtime.loadSendableSymbol("PyUnicode_FromStringAndSize",
+                    as: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?).self).function
+    }
+    
+    public func bind(_ obj: PythonObject) -> PythonInterpreter.SafePythonObject {
+        return SafePythonObject(interpreter: self, id: obj.id)
+    }
+    
+    internal func convertToSafePython(bool val: Bool) throws -> SafePythonObject {
+        let id = try convertToSafePythonID(bool: val)
+        return SafePythonObject(interpreter: self, id: id)
+    }
+    
+    internal func convertToSafePythonID(bool val: Bool) throws -> PythonObjectUniqueID {
+        guard let convert = safeSymbolsCache.PyBool_FromLong else {
+            throw PythonError.nullPointer("Failed to convert bool: \(val)")
+        }
+        guard let ptr = convert(val ? 1 : 0) else {
+            throw PythonError.nullPointer("Failed to convert bool: \(val)")
+        }
+        
+        // Register the pointer in our actor's internal hashtable
+        let id = registerPythonObjectPointer(ptr)
+        return id
+    }
+    
+    internal func convertToSafePython(double val: Double) throws -> SafePythonObject {
+        let id = try convertToSafePythonID(double: val)
+        return SafePythonObject(interpreter: self, id: id)
+    }
+    
+    internal func convertToSafePythonID(double val: Double) throws -> PythonObjectUniqueID {
+        guard let convert = safeSymbolsCache.PyFloat_FromDouble else {
+            throw PythonError.nullPointer("Failed to convert double: \(val)")
+        }
+        guard let ptr = convert(val) else {
+            throw PythonError.nullPointer("Failed to convert double: \(val)")
+        }
+            
+        // Register the pointer in our actor's internal hashtable
+        let id = registerPythonObjectPointer(ptr)
+        return id
+    }
+    
+    internal func convertToSafePython(int val: Int) throws -> SafePythonObject {
+        let id = try convertToSafePythonID(int: val)
+        return SafePythonObject(interpreter: self, id: id)
+    }
+    
+    internal func convertToSafePythonID(int val: Int) throws -> PythonObjectUniqueID {
+        guard let convert = safeSymbolsCache.PyLong_FromLong else {
+            throw PythonError.nullPointer("Failed to convert int: \(val)")
+        }
+        guard let ptr = convert(val) else {
+            throw PythonError.nullPointer("Failed to convert int: \(val)")
+        }
+        
+        // Register the pointer in our actor's internal hash
+        let id = registerPythonObjectPointer(ptr)
+        return id
+    }
+    
+    internal func convertToSafePython(string val: String) throws -> SafePythonObject {
+        let id = try convertToSafePythonID(string: val)
+        return SafePythonObject(interpreter: self, id: id)
+    }
+    
+    internal func convertToSafePythonID(string val: String) throws -> PythonObjectUniqueID {
+        guard let convert = safeSymbolsCache.PyUnicode_FromStringAndSize else {
+            throw PythonError.nullPointer("Failed to convert string: \(val)")
+        }
+        
+        let cString = val.utf8CString
+        return try cString.withUnsafeBufferPointer { bufferPtr in
+            guard let ptr = convert(bufferPtr.baseAddress, cString.count - 1) else {
+                throw PythonError.nullPointer("Failed to convert string: \(val)")
+            }
+            
+            // Register the pointer in our actor's internal hashtable
+            let id = registerPythonObjectPointer(ptr)
+            return id
+        }
+    }
+    
+    
+    
+    fileprivate func syncGetObjectAttribute(_ obj: SafePythonObject, _ name: String) throws -> SafePythonObject {
+        guard let getAttr = safeSymbolsCache.PyObject_GetAttrString else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        let objPtr = getRegisteredPythonObjectPointer(obj.getID())!
+        guard let attrPtr = getAttr(objPtr, name) else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        let attrId = registerPythonObjectPointer(attrPtr)
+        return SafePythonObject(interpreter: self, id: attrId)
+    }
+    
+    fileprivate func syncSetObjectAttribute(_ obj: SafePythonObject, _ name: String, _ value: SafePythonObject) throws {
+        guard let setAttr = safeSymbolsCache.PyObject_SetAttrString else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        let objPtr = getRegisteredPythonObjectPointer(obj.getID())!
+        let valuePtr = getRegisteredPythonObjectPointer(value.getID())!
+        _ = setAttr(objPtr, name, valuePtr)
+    }
+    
+    // Operators
+    
+    internal func addOperator(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
+        fatalError("Placeholder to tell xcode to shut up")
     }
 }
 

@@ -65,3 +65,44 @@ extension PartialRangeUpTo : PendingPythonConvertible where Bound : PendingPytho
         //try await interpreter.convertPartialRangeToPython(self)
     }
 }
+
+
+
+// Same as the PythonObject conversions except these are synchronous
+
+
+public protocol SafePythonConvertible: Sendable {
+    func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject
+}
+
+extension Bool: SafePythonConvertible {
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try interpreter.assumeIsolated {
+            try $0.convertToSafePython(bool:self)
+        }
+    }
+}
+
+extension Double: SafePythonConvertible {
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try interpreter.assumeIsolated {
+            try $0.convertToSafePython(double:self)
+        }
+    }
+}
+
+extension Int: SafePythonConvertible {
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try interpreter.assumeIsolated {
+            try $0.convertToSafePython(int:self)
+        }
+    }
+}
+
+extension String: SafePythonConvertible {
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try interpreter.assumeIsolated {
+            try $0.convertToSafePython(string:self)
+        }
+    }
+}

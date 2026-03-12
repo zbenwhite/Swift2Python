@@ -7,6 +7,7 @@
 
 import Foundation
 
+@dynamicMemberLookup
 public struct PythonObject: Sendable, PendingPythonConvertible {
     
     /// Helper to bridge Swift ARC to the Actor's registry
@@ -25,6 +26,27 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
             Task {
                 try? await capturedInterpreter.releaseHandle(capturedID)
             }
+        }
+    }
+    
+    public struct CallablePythonObject {
+        private let obj: PythonObject
+        private let method: String
+        
+        public init (object: PythonObject, methodName: String) {
+            self.obj = object
+            self.method = methodName
+        }
+                
+        public func callAsFunction(_ args: any PendingPythonConvertible...) async throws -> PythonObject {
+            let allArgs = args as [any PendingPythonConvertible]
+            return try await obj.interpreter.callPythonMethod(object:obj, methodName:method, collectedArgs: allArgs)
+        }
+        
+        public func callAsFunction(_ args: any PendingPythonConvertible...,
+                                   kwargs: [String: PendingPythonConvertible] = [:]) async throws -> PythonObject {
+            let allArgs = args as [any PendingPythonConvertible]
+            return try await obj.interpreter.callPythonMethod(object:obj, methodName:method, collectedArgs: allArgs, kwargs:kwargs)
         }
     }
     
@@ -54,4 +76,14 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     public func set(attrName: String, value: PendingPythonConvertible) async throws {
         try await interpreter.setObjectAttribute(self, attrName, value.toPythonObject(interpreter: self.interpreter))
     }
+    
+    //
+    // a.call_a_function() can be implemented.
+    public subscript(dynamicMember name: String) -> CallablePythonObject {
+        // a.call_a_function()
+        get {
+            return CallablePythonObject(object: self, methodName: name)
+        }
+    }
 }
+

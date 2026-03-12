@@ -8,16 +8,13 @@
 import Foundation
 
 /// Errors thrown by the Swift2Python package when interacting with the Python runtime.
-public enum PythonError: Error, CustomStringConvertible, LocalizedError {
+public enum PythonError: Error, CustomStringConvertible, LocalizedError, Equatable {
     
     case notInitialized
     case alreadyInitialized
     case libraryNotFound
     case symbolNotFound(String)
     case allocationFailed(String)
-    case versionDetectionFailed
-    case versionParseFailed(String)
-//    case unsupportedVersion(major: Int, minor: Int)
     case nullPointer(String)
     case stringConversionFailed(String)
     
@@ -43,12 +40,6 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
             return "Symbol not found in libpython: \(name)"
         case .allocationFailed(let context):
             return "Memory allocation failed: \(context)"
-        case .versionDetectionFailed:
-            return "Failed to detect Python version"
-        case .versionParseFailed(let raw):
-            return "Failed to parse Python version from: \(raw)"
-//        case .unsupportedVersion(let major, let minor):
-//            return "Python \(major).\(minor) is unsupported (minimum 3.8 required)"
         case .nullPointer(let context):
             return "Python C API returned NULL pointer: \(context)"
         case .stringConversionFailed(let context):
