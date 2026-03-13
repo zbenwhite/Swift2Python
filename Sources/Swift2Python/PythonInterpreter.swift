@@ -45,7 +45,7 @@ public actor PythonInterpreter {
     /// When it hits zero, it triggers the Python C-API DecRef.
     internal func releaseHandle(_ id: PythonObjectUniqueID) async throws {
         guard let count = pythonObjectSwiftRefCount[id] else { return }
-            
+        
         if count <= 1 {
             if let ptr = pythonObjectRegistry[id] {
                 // Perform the actual Python cleanup
@@ -58,7 +58,8 @@ public actor PythonInterpreter {
         }
     }
     
-//    // ── CPyton wrappers ───────────────────────────────────────────────
+    //
+    // ── CPyton wrappers ───────────────────────────────────────────────
     private func py_DecRef(_ pointer: UnsafeMutableRawPointer) async throws {
         logger.trace("CPyton wrapper called: py_DecRef")
         let decrementRefCount = try await runtime.loadSendableSymbol("Py_DecRef",
@@ -193,7 +194,6 @@ public actor PythonInterpreter {
     }
     
     
-
     /// Asynchronously decrements the reference count of a raw pointer.
     /// Called by PyPointer's deinit.
     func decrementRefCount(_ pointer: UnsafeMutableRawPointer) async throws {
@@ -201,46 +201,45 @@ public actor PythonInterpreter {
     }
     
     
-    
     /// Standard import using PyImport_ImportModule
     private func importStandard(_ name: String) async throws -> PythonObject {
         guard let ptr = try await pyImport_ImportModule(name) else {
             throw PythonError.nullPointer("Failed to import module: \(name)")
         }
-            
+        
         // Register the pointer in our actor's internal hashtable
         let id = registerPythonObjectPointer(ptr)
         return PythonObject(id: id, interpreter: self)
     }
-
+    
     /// Aliased import using PyRun_SimpleString and __main__ lookup
     private func importWithAlias(_ name: String, alias: String) async throws -> PythonObject {
-            
+        
         // 1. Execute "import name as alias"
         let command = "import \(name) as \(alias)"
         let result = try await pyRun_SimpleString(command)
-            
+        
         guard result == 0 else {
             throw PythonError.stringConversionFailed("Python execution failed for: \(command)")
         }
-
+        
         // 2. Retrieve the alias from the __main__ module namespace
         return try await getFromMain(alias)
     }
-
+    
     /// Internal helper to fetch an object from the Python __main__ scope
     private func getFromMain(_ attrName: String) async throws -> PythonObject {
-
+        
         // AddModule returns a 'borrowed' reference to the __main__ module
         guard let mainModulePtr = try await pyImport_AddModule("__main__") else {
             throw PythonError.nullPointer("Could not access Python __main__ module")
         }
-
+        
         // Get the attribute (the alias) from __main__
         guard let aliasPtr = try await pyObject_GetAttrString(mainModulePtr, attrName) else {
             throw PythonError.nullPointer("Alias '\(attrName)' not found in Python scope")
         }
-
+        
         let id = registerPythonObjectPointer(aliasPtr)
         return PythonObject(id: id, interpreter: self)
     }
@@ -251,7 +250,7 @@ public actor PythonInterpreter {
     public func `import`(_ name: String, as alias: String? = nil) async throws -> PythonObject {
         // Ensure the runtime is initialized before accessing C symbols
         //try await runtime.initializeIfNeeded()
-            
+        
         if let alias = alias {
             return try await importWithAlias(name, alias: alias)
         } else {
@@ -293,7 +292,7 @@ public actor PythonInterpreter {
         guard let ptr = try await pyUnicode_FromStringAndSize(val) else {
             throw PythonError.nullPointer("Failed to convert string: \(val)")
         }
-            
+        
         // Register the pointer in our actor's internal hashtable
         let id = registerPythonObjectPointer(ptr)
         return PythonObject(id: id, interpreter: self)
@@ -315,7 +314,7 @@ public actor PythonInterpreter {
     }
     
     public func convertDictionaryToPython<K, V>(_ dict: [K: V]) async throws -> PythonObject
-            where K: PendingPythonConvertible & Hashable, V: PendingPythonConvertible {
+    where K: PendingPythonConvertible & Hashable, V: PendingPythonConvertible {
         guard let dictPtr = try await pyDict_New()  else {
             throw PythonError.nullPointer("Failed to convert dictionary")
         }
@@ -361,7 +360,7 @@ public actor PythonInterpreter {
     }
     
     public func callPythonMethod(_ obj: PythonObject, _ name: String, _ args: any PendingPythonConvertible...,
-                                   kwargs: [String: PendingPythonConvertible] = [:]) async throws -> PythonObject {
+                                 kwargs: [String: PendingPythonConvertible] = [:]) async throws -> PythonObject {
         let allArgs = args as [any PendingPythonConvertible]
         return try await callPythonMethod(object: obj, methodName: name, collectedArgs: allArgs, kwargs:kwargs)
     }
@@ -388,8 +387,8 @@ public actor PythonInterpreter {
     //
     @dynamicMemberLookup
     public struct SafePythonObject: Sendable, SafePythonConvertible,
-                            ExpressibleByFloatLiteral, ExpressibleByIntegerLiteral,
-                            ExpressibleByStringLiteral, ExpressibleByBooleanLiteral {
+                                    ExpressibleByFloatLiteral, ExpressibleByIntegerLiteral,
+                                    ExpressibleByStringLiteral, ExpressibleByBooleanLiteral {
         
         
         // The state of SafePythonObject.  Is it real or is it just a value to be made real later?
@@ -454,14 +453,27 @@ public actor PythonInterpreter {
             self.error = nil
         }
         
-        public func getInterpreter() -> PythonInterpreter {
-            if case .bound(let interpreter, _) = state { return interpreter }
-            fatalError("Cannot get interpreter from an unbound literal.  SafePythonObject is a ghost.")
+        /// Access the interpreter context. Throws a fatalError if called on a literal before it is bound.
+        internal var interpreter: PythonInterpreter {
+            guard case let .bound(interp, _) = state else {
+                fatalError("SafePythonObject is a ghost: No interpreter found in unbound literal.")
+            }
+            return interp
         }
         
-        public func getID() -> PythonObjectUniqueID {
-            if case .bound(_, let id) = state { return id }
-            fatalError("Cannot get ID from an unbound literal.  SafePythonObject is a ghost.")
+        /// Access the Python Object ID. Throws a fatalError if called on a literal before it is bound.
+        internal var id: PythonInterpreter.PythonObjectUniqueID {
+            guard case let .bound(_, id) = state else {
+                fatalError("SafePythonObject is a ghost: No ID found in unbound literal.")
+            }
+            return id
+        }
+        
+        internal var isBoundToPythonInterpreter: Bool {
+            switch state {
+            case .bound: return true
+            default:     return false
+            }
         }
         
         //
@@ -469,7 +481,7 @@ public actor PythonInterpreter {
         public subscript(dynamicMember name: String) -> SafePythonObject {
             // a.name
             get {
-                let localInterpreter = getInterpreter()
+                let localInterpreter = interpreter
                 return localInterpreter.assumeIsolated {
                     do {
                         return try $0.syncGetObjectAttribute(self, name)
@@ -480,7 +492,7 @@ public actor PythonInterpreter {
             }
             // a.name = value
             set {
-                let localInterpreter = self.getInterpreter()
+                let localInterpreter = interpreter
                 localInterpreter.assumeIsolated {
                     do {
                         // newValue might be a literal Double. We make it real here!
@@ -506,14 +518,47 @@ public actor PythonInterpreter {
             }
         }
         
-        public func addOperator(_ rhs: SafePythonConvertible) -> SafePythonObject {
+        internal func addOperator(_ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
-                let localInterpreter = getInterpreter()
+                let localInterpreter = interpreter
                 return try localInterpreter.assumeIsolated {
-                    try $0.addOperator(self, rhs.toSafePythonObject(interpreter: $0))
+                    try $0.syncAdd(self, rhs.toSafePythonObject(interpreter: $0))
                 }
             } catch {
-                fatalError("Failed to convert value or set attribute: \(error)")
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        internal func multiplyOperator(_ rhs: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncMultiply(self, rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        internal func subtractOperator(minuend: SafePythonConvertible, subtrahend: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncSubtract(minuend: minuend.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        internal func divideOperator(dividend: SafePythonConvertible, divisor: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncDivide(dividend: dividend.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
             }
         }
     }
@@ -522,6 +567,10 @@ public actor PythonInterpreter {
         var PyBool_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)?
         var PyFloat_FromDouble: (@convention(c) (Double) -> UnsafeMutableRawPointer?)?
         var PyLong_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)?
+        var PyNumber_Add: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
+        var PyNumber_Multiply: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
+        var PyNumber_Subtract: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
+        var PyNumber_TrueDivide: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyObject_GetAttrString: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?)?
         var PyObject_SetAttrString: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Int32)?
         var PyRun_SimpleString: (@convention(c) (UnsafePointer<CChar>) -> Int32)?
@@ -534,19 +583,27 @@ public actor PythonInterpreter {
         // Return if the cache is already setup
         guard safeSymbolsCache.PyRun_SimpleString == nil else { return }
         safeSymbolsCache.PyBool_FromLong = try await runtime.loadSendableSymbol("PyBool_FromLong",
-                    as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
+                as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyFloat_FromDouble = try await runtime.loadSendableSymbol("PyFloat_FromDouble",
-                    as: (@convention(c) (Double) -> UnsafeMutableRawPointer?).self).function
+                as: (@convention(c) (Double) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyLong_FromLong = try await runtime.loadSendableSymbol("PyLong_FromLong",
-                    as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
+                as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyNumber_Add = try await runtime.loadSendableSymbol("PyNumber_Add",
+                as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyNumber_Multiply = try await runtime.loadSendableSymbol("PyNumber_Multiply",
+                as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyNumber_Subtract = try await runtime.loadSendableSymbol("PyNumber_Subtract",
+                as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyNumber_TrueDivide = try await runtime.loadSendableSymbol("PyNumber_TrueDivide",
+                as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyRun_SimpleString = try await runtime.loadSendableSymbol("PyRun_SimpleString",
-                    as: (@convention(c) (UnsafePointer<CChar>) -> Int32).self).function
+                as: (@convention(c) (UnsafePointer<CChar>) -> Int32).self).function
         safeSymbolsCache.PyObject_GetAttrString = try await runtime.loadSendableSymbol("PyObject_GetAttrString",
-                    as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?).self).function
+                as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyObject_SetAttrString = try await runtime.loadSendableSymbol("PyObject_SetAttrString",
-                    as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Int32).self).function
+                as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Int32).self).function
         safeSymbolsCache.PyUnicode_FromStringAndSize = try await runtime.loadSendableSymbol("PyUnicode_FromStringAndSize",
-                    as: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?).self).function
+                as: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?).self).function
     }
     
     public func bind(_ obj: PythonObject) -> PythonInterpreter.SafePythonObject {
@@ -583,7 +640,7 @@ public actor PythonInterpreter {
         guard let ptr = convert(val) else {
             throw PythonError.nullPointer("Failed to convert double: \(val)")
         }
-            
+        
         // Register the pointer in our actor's internal hashtable
         let id = registerPythonObjectPointer(ptr)
         return id
@@ -635,7 +692,7 @@ public actor PythonInterpreter {
         guard let getAttr = safeSymbolsCache.PyObject_GetAttrString else {
             throw PythonError.nullPointer("Failed ")
         }
-        let objPtr = getRegisteredPythonObjectPointer(obj.getID())!
+        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
         guard let attrPtr = getAttr(objPtr, name) else {
             throw PythonError.nullPointer("Failed ")
         }
@@ -647,15 +704,75 @@ public actor PythonInterpreter {
         guard let setAttr = safeSymbolsCache.PyObject_SetAttrString else {
             throw PythonError.nullPointer("Failed ")
         }
-        let objPtr = getRegisteredPythonObjectPointer(obj.getID())!
-        let valuePtr = getRegisteredPythonObjectPointer(value.getID())!
+        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        let valuePtr = getRegisteredPythonObjectPointer(value.id)!
         _ = setAttr(objPtr, name, valuePtr)
     }
     
     // Operators
     
-    internal func addOperator(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
-        fatalError("Placeholder to tell xcode to shut up")
+    internal func syncAdd(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
+        guard let pyAdd = safeSymbolsCache.PyNumber_Add else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        guard let sumPtr = pyAdd(lhsPtr, rhsPtr) else {
+            throw PythonError.nullPointer("Python '+' failed")
+        }
+        
+        let sumId = registerPythonObjectPointer(sumPtr)
+        return SafePythonObject(interpreter: self, id: sumId)
+    }
+    
+    internal func syncSubtract(minuend: SafePythonObject, subtrahend: SafePythonObject) throws -> SafePythonObject {
+        guard let pyNumber_Subtract = safeSymbolsCache.PyNumber_Subtract else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        
+        let minuendPtr = getRegisteredPythonObjectPointer(minuend.id)!
+        let subtrahendPtr = getRegisteredPythonObjectPointer(subtrahend.id)!
+        
+        guard let differencePtr = pyNumber_Subtract(minuendPtr, subtrahendPtr) else {
+            throw PythonError.nullPointer("Python '-' failed")
+        }
+        
+        let differenceId = registerPythonObjectPointer(differencePtr)
+        return SafePythonObject(interpreter: self, id: differenceId)
+    }
+    
+    internal func syncMultiply(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
+        guard let pyMultiply = safeSymbolsCache.PyNumber_Multiply else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        guard let productPtr = pyMultiply(lhsPtr, rhsPtr) else {
+            throw PythonError.nullPointer("Python '*' failed")
+        }
+        
+        let productId = registerPythonObjectPointer(productPtr)
+        return SafePythonObject(interpreter: self, id: productId)
+    }
+    
+    internal func syncDivide(dividend: SafePythonObject, divisor: SafePythonObject) throws -> SafePythonObject {
+        guard let pyNumber_TrueDivide = safeSymbolsCache.PyNumber_TrueDivide else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        
+        let dividendPtr = getRegisteredPythonObjectPointer(dividend.id)!
+        let divisorPtr = getRegisteredPythonObjectPointer(divisor.id)!
+        
+        guard let quotientPtr = pyNumber_TrueDivide(dividendPtr, divisorPtr) else {
+            throw PythonError.nullPointer("Python '/' failed")
+        }
+        
+        let quotientId = registerPythonObjectPointer(quotientPtr)
+        return SafePythonObject(interpreter: self, id: quotientId)
     }
 }
 
