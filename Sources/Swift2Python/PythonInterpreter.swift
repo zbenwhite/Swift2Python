@@ -63,14 +63,14 @@ public actor PythonInterpreter {
     private func py_DecRef(_ pointer: UnsafeMutableRawPointer) async throws {
         logger.trace("CPyton wrapper called: py_DecRef")
         let decrementRefCount = try await runtime.loadSendableSymbol("Py_DecRef",
-                    as: (@convention(c) (UnsafeMutableRawPointer) -> Void).self)
+                                                                     as: (@convention(c) (UnsafeMutableRawPointer) -> Void).self)
         decrementRefCount.function(pointer)
     }
     
     private func pyBool_FromLong(_ value: Bool) async throws -> UnsafeMutableRawPointer? {
         logger.trace("CPyton wrapper called: pyBool_FromLong")
         let pyBoolFromLong = try await runtime.loadSendableSymbol("PyBool_FromLong",
-                    as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self)
+                                                                  as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self)
         return pyBoolFromLong.function(value ? 1 : 0)
     }
     
@@ -85,7 +85,7 @@ public actor PythonInterpreter {
         logger.trace("CPyton wrapper called: pyDict_SetItem")
         // Signature: int PyDict_SetItem(PyObject *p, PyObject *key, PyObject *val)
         let pyDictSetItem = try await runtime.loadSendableSymbol( "PyDict_SetItem",
-                    as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32).self
+                                                                  as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32).self
         )
         return pyDictSetItem.function(dictPtr, keyPtr, valuePtr)
     }
@@ -93,49 +93,49 @@ public actor PythonInterpreter {
     private func pyFloat_FromDouble(_ value: Double) async throws -> UnsafeMutableRawPointer? {
         logger.trace("CPyton wrapper called: pyFloat_FromDouble")
         let pyFloatFromDouble = try await runtime.loadSendableSymbol("PyFloat_FromDouble",
-                    as: (@convention(c) (Double) -> UnsafeMutableRawPointer?).self)
+                                                                     as: (@convention(c) (Double) -> UnsafeMutableRawPointer?).self)
         return pyFloatFromDouble.function(value)
     }
     
     private func pyImport_AddModule(_ module: String) async throws -> UnsafeMutableRawPointer? {
         logger.trace("CPyton wrapper called: pyImport_AddModule")
         let pyAdd = try await runtime.loadSendableSymbol("PyImport_AddModule",
-                    as: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?).self)
+                                                         as: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?).self)
         return module.withCString({ pyAdd.function($0) })
     }
     
     private func pyImport_AddModule(pointer: UnsafeMutableRawPointer) async throws {
         logger.trace("CPyton wrapper called: pyImport_AddModule")
         let pyAdd = try await runtime.loadSendableSymbol("PyImport_AddModule",
-                    as: (@convention(c) (UnsafeMutableRawPointer) -> Void).self)
+                                                         as: (@convention(c) (UnsafeMutableRawPointer) -> Void).self)
         pyAdd.function(pointer)
     }
     
     private func pyImport_ImportModule(_ module: String) async throws -> UnsafeMutableRawPointer? {
         logger.trace("CPyton wrapper called: pyImport_ImportModule")
         let pyImport = try await runtime.loadSendableSymbol("PyImport_ImportModule",
-                    as: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?).self)
+                                                            as: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?).self)
         return module.withCString({ pyImport.function($0) })
     }
     
     private func pyList_New(_ length: Int) async throws -> UnsafeMutableRawPointer? {
         logger.trace("CPyton wrapper called: pyList_New")
         let pyListNew = try await runtime.loadSendableSymbol("PyList_New",
-                    as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self)
+                                                             as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self)
         return pyListNew.function(length)
     }
     
     private func pyList_SetItem(_ listPtr: UnsafeMutableRawPointer, _ index: Int, _ valuePtr: UnsafeMutableRawPointer) async throws -> Int32 {
         logger.trace("CPyton wrapper called: pyList_SetItem")
         let pyListSetItem = try await runtime.loadSendableSymbol("PyList_SetItem",
-                    as: (@convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Int32).self)
+                                                                 as: (@convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Int32).self)
         return pyListSetItem.function(listPtr, index, valuePtr)
     }
     
     private func pyLong_FromLong(_ value: Int) async throws -> UnsafeMutableRawPointer? {
         logger.trace("CPyton wrapper called: pyLong_FromLong")
         let pyLongFromLong = try await runtime.loadSendableSymbol("PyLong_FromLong",
-                    as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self)
+                                                                  as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self)
         return pyLongFromLong.function(value)
     }
     
@@ -143,28 +143,28 @@ public actor PythonInterpreter {
         logger.trace("CPyton wrapper called: pyObject_CallObject")
         // Signature: PyObject* PyObject_CallObject(PyObject *callable_object, PyObject *args)
         let pyObjectCallObject = try await runtime.loadSendableSymbol("PyObject_CallObject",
-                    as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self)
+                                                                      as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self)
         return pyObjectCallObject.function(objPtr, args)
     }
     
     private func pyObject_GetAttrString(_ pointer: UnsafeMutableRawPointer, _ name: String) async throws -> UnsafeMutableRawPointer? {
         logger.trace("CPyton wrapper called: pyObject_GetAttrString")
         let pyGetAttr = try await runtime.loadSendableSymbol("PyObject_GetAttrString",
-                    as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?).self)
+                                                             as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?).self)
         return pyGetAttr.function(pointer, name.withCString({ $0 }))
     }
     
     private func pyObject_GetItem(_ obPtr: UnsafeMutableRawPointer, _ keyPtr: UnsafeMutableRawPointer) async throws -> UnsafeMutableRawPointer? {
         logger.trace("CPyton wrapper called: pyObject_GetItem")
         let pyGetItem = try await runtime.loadSendableSymbol("PyObject_GetItem",
-                    as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self)
+                                                             as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self)
         return pyGetItem.function(obPtr, keyPtr)
     }
     
     private func pyObject_SetAttrString(_ obPtr: UnsafeMutableRawPointer, _ name: String, _ rvalPtr: UnsafeMutableRawPointer) async throws -> Int32? {
         logger.trace("CPyton wrapper called: pyObject_SetAttrString")
         let pySetAttr = try await runtime.loadSendableSymbol("PyObject_SetAttrString",
-                    as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Int32).self)
+                                                             as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Int32).self)
         return pySetAttr.function(obPtr, name.withCString({ $0 }), rvalPtr)
     }
     
@@ -172,21 +172,21 @@ public actor PythonInterpreter {
                                   _ rvalPtr: UnsafeMutableRawPointer) async throws -> Int32? {
         logger.trace("CPyton wrapper called: pyObject_SetItem")
         let pySetItem = try await runtime.loadSendableSymbol("PyObject_SetItem",
-                    as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32).self)
+                                                             as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32).self)
         return pySetItem.function(obPtr, keyPtr, rvalPtr)
     }
     
     public func pyRun_SimpleString(_ command: String) async throws -> Int32 {
         logger.trace("CPyton wrapper called: pyRun_SimpleString")
         let pyRun = try await runtime.loadSendableSymbol("PyRun_SimpleString",
-                    as: (@convention(c) (UnsafePointer<CChar>) -> Int32).self)
+                                                         as: (@convention(c) (UnsafePointer<CChar>) -> Int32).self)
         return command.withCString { pyRun.function($0) }
     }
     
     private func pyUnicode_FromStringAndSize(_ st: String) async throws -> UnsafeMutableRawPointer? {
         logger.trace("CPyton wrapper called: pyUnicode_FromStringAndSize")
         let pyUnicodeFromStringAndSize = try await runtime.loadSendableSymbol("PyUnicode_FromStringAndSize",
-                    as: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?).self)
+                                                                              as: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?).self)
         let cString = st.utf8CString
         return cString.withUnsafeBufferPointer { bufferPtr in
             pyUnicodeFromStringAndSize.function(bufferPtr.baseAddress, cString.count - 1)
@@ -365,7 +365,9 @@ public actor PythonInterpreter {
         return try await callPythonMethod(object: obj, methodName: name, collectedArgs: allArgs, kwargs:kwargs)
     }
     
-    // -------- Synchronous Python interop section  --------------------------
+    
+    // MARK: -
+    // MARK: SYNCHRONOUS MODE
     //
     
     public func withIsolatedContext<T>(
@@ -561,13 +563,66 @@ public actor PythonInterpreter {
                 fatalError("Failed: \(error)")
             }
         }
-    }
+        
+        internal func addInPlaceOperator(sumend: SafePythonConvertible, addend: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncInPlaceAdd(sumend: sumend.toSafePythonObject(interpreter: $0), addend: addend.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        internal func subtractInPlaceOperator(diffend: SafePythonConvertible, subtrahend: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncInPlaceSubtract(diffend: diffend.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        internal func multiplyInPlaceOperator(productand: SafePythonConvertible, multiplicand: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncInPlaceMultiply(productand: productand.toSafePythonObject(interpreter: $0), multiplicand: multiplicand.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        internal func divideInPlaceOperator(quotientand: SafePythonConvertible, divisor: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncInPlaceDivide(quotientand: quotientand.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+    }  // end of Safe python object
     
-    private struct SafePythonCSymbols {
+    // MARK: Prepare for synchronous mode
+    // No asynchronous loading of symbols, so they all need to be preloaded
+    // at the beginning of synchronous mode.  They only load the first time
+    // and are cached after that.
+    
+    struct SafePythonCSymbols {
         var PyBool_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)?
         var PyFloat_FromDouble: (@convention(c) (Double) -> UnsafeMutableRawPointer?)?
         var PyLong_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)?
         var PyNumber_Add: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
+        var PyNumber_InPlaceAdd: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
+        var PyNumber_InPlaceMultiply: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
+        var PyNumber_InPlaceSubtract: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
+        var PyNumber_InPlaceTrueDivide: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyNumber_Multiply: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyNumber_Subtract: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyNumber_TrueDivide: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
@@ -583,32 +638,43 @@ public actor PythonInterpreter {
         // Return if the cache is already setup
         guard safeSymbolsCache.PyRun_SimpleString == nil else { return }
         safeSymbolsCache.PyBool_FromLong = try await runtime.loadSendableSymbol("PyBool_FromLong",
-                as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
+                                                                                as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyFloat_FromDouble = try await runtime.loadSendableSymbol("PyFloat_FromDouble",
-                as: (@convention(c) (Double) -> UnsafeMutableRawPointer?).self).function
+                                                                                   as: (@convention(c) (Double) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyLong_FromLong = try await runtime.loadSendableSymbol("PyLong_FromLong",
-                as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
+                                                                                as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyNumber_Add = try await runtime.loadSendableSymbol("PyNumber_Add",
-                as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+                                                                             as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyNumber_InPlaceAdd = try await runtime.loadSendableSymbol("PyNumber_InPlaceAdd",
+                                                                                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyNumber_InPlaceMultiply = try await runtime.loadSendableSymbol("PyNumber_InPlaceMultiply",
+                                                                                         as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyNumber_InPlaceSubtract = try await runtime.loadSendableSymbol("PyNumber_InPlaceSubtract",
+                                                                                         as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyNumber_InPlaceTrueDivide = try await runtime.loadSendableSymbol("PyNumber_InPlaceTrueDivide",
+                                                                                           as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyNumber_Multiply = try await runtime.loadSendableSymbol("PyNumber_Multiply",
-                as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+                                                                                  as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyNumber_Subtract = try await runtime.loadSendableSymbol("PyNumber_Subtract",
-                as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+                                                                                  as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyNumber_TrueDivide = try await runtime.loadSendableSymbol("PyNumber_TrueDivide",
-                as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+                                                                                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyRun_SimpleString = try await runtime.loadSendableSymbol("PyRun_SimpleString",
-                as: (@convention(c) (UnsafePointer<CChar>) -> Int32).self).function
+                                                                                   as: (@convention(c) (UnsafePointer<CChar>) -> Int32).self).function
         safeSymbolsCache.PyObject_GetAttrString = try await runtime.loadSendableSymbol("PyObject_GetAttrString",
-                as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?).self).function
+                                                                                       as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyObject_SetAttrString = try await runtime.loadSendableSymbol("PyObject_SetAttrString",
-                as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Int32).self).function
+                                                                                       as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Int32).self).function
         safeSymbolsCache.PyUnicode_FromStringAndSize = try await runtime.loadSendableSymbol("PyUnicode_FromStringAndSize",
-                as: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?).self).function
+                                                                                            as: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?).self).function
     }
     
     public func bind(_ obj: PythonObject) -> PythonInterpreter.SafePythonObject {
         return SafePythonObject(interpreter: self, id: obj.id)
     }
+    
+    // MARK: Conversions from primitives (synchronous mode)
+    // Primitive type conversions in synchronous mode ----------
     
     internal func convertToSafePython(bool val: Bool) throws -> SafePythonObject {
         let id = try convertToSafePythonID(bool: val)
@@ -616,6 +682,7 @@ public actor PythonInterpreter {
     }
     
     internal func convertToSafePythonID(bool val: Bool) throws -> PythonObjectUniqueID {
+        logger.trace("CPyton API call in synchronous mode: PyBool_FromLong")
         guard let convert = safeSymbolsCache.PyBool_FromLong else {
             throw PythonError.nullPointer("Failed to convert bool: \(val)")
         }
@@ -634,6 +701,7 @@ public actor PythonInterpreter {
     }
     
     internal func convertToSafePythonID(double val: Double) throws -> PythonObjectUniqueID {
+        logger.trace("CPyton API call in synchronous mode: PyFloat_FromDouble")
         guard let convert = safeSymbolsCache.PyFloat_FromDouble else {
             throw PythonError.nullPointer("Failed to convert double: \(val)")
         }
@@ -652,6 +720,7 @@ public actor PythonInterpreter {
     }
     
     internal func convertToSafePythonID(int val: Int) throws -> PythonObjectUniqueID {
+        logger.trace("CPyton API call in synchronous mode: PyLong_FromLong")
         guard let convert = safeSymbolsCache.PyLong_FromLong else {
             throw PythonError.nullPointer("Failed to convert int: \(val)")
         }
@@ -670,6 +739,7 @@ public actor PythonInterpreter {
     }
     
     internal func convertToSafePythonID(string val: String) throws -> PythonObjectUniqueID {
+        logger.trace("CPyton API call in synchronous mode: PyUnicode_FromStringAndSize")
         guard let convert = safeSymbolsCache.PyUnicode_FromStringAndSize else {
             throw PythonError.nullPointer("Failed to convert string: \(val)")
         }
@@ -686,9 +756,11 @@ public actor PythonInterpreter {
         }
     }
     
-    
+    // MARK: Subscript support (synchronous mode)
+    // Subscript attribute operations in synchronous mode ----------
     
     fileprivate func syncGetObjectAttribute(_ obj: SafePythonObject, _ name: String) throws -> SafePythonObject {
+        logger.trace("CPyton API call in synchronous mode: PyObject_GetAttrString")
         guard let getAttr = safeSymbolsCache.PyObject_GetAttrString else {
             throw PythonError.nullPointer("Failed ")
         }
@@ -701,6 +773,7 @@ public actor PythonInterpreter {
     }
     
     fileprivate func syncSetObjectAttribute(_ obj: SafePythonObject, _ name: String, _ value: SafePythonObject) throws {
+        logger.trace("CPyton API call in synchronous mode: PyObject_SetAttrString")
         guard let setAttr = safeSymbolsCache.PyObject_SetAttrString else {
             throw PythonError.nullPointer("Failed ")
         }
@@ -709,7 +782,8 @@ public actor PythonInterpreter {
         _ = setAttr(objPtr, name, valuePtr)
     }
     
-    // Operators
+    // MARK: Operator support (synchronous mode)
+    // Operators for synchronous mode ----------
     
     internal func syncAdd(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
         guard let pyAdd = safeSymbolsCache.PyNumber_Add else {
@@ -719,6 +793,7 @@ public actor PythonInterpreter {
         let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
         let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
         
+        logger.trace("CPyton API call in synchronous mode: PyNumber_Add")
         guard let sumPtr = pyAdd(lhsPtr, rhsPtr) else {
             throw PythonError.nullPointer("Python '+' failed")
         }
@@ -735,6 +810,7 @@ public actor PythonInterpreter {
         let minuendPtr = getRegisteredPythonObjectPointer(minuend.id)!
         let subtrahendPtr = getRegisteredPythonObjectPointer(subtrahend.id)!
         
+        logger.trace("CPyton API call in synchronous mode: PyNumber_Subtract")
         guard let differencePtr = pyNumber_Subtract(minuendPtr, subtrahendPtr) else {
             throw PythonError.nullPointer("Python '-' failed")
         }
@@ -751,6 +827,7 @@ public actor PythonInterpreter {
         let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
         let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
         
+        logger.trace("CPyton API call in synchronous mode: PyNumber_Multiply")
         guard let productPtr = pyMultiply(lhsPtr, rhsPtr) else {
             throw PythonError.nullPointer("Python '*' failed")
         }
@@ -767,8 +844,77 @@ public actor PythonInterpreter {
         let dividendPtr = getRegisteredPythonObjectPointer(dividend.id)!
         let divisorPtr = getRegisteredPythonObjectPointer(divisor.id)!
         
+        logger.trace("CPyton API call in synchronous mode: PyNumber_TrueDivide")
         guard let quotientPtr = pyNumber_TrueDivide(dividendPtr, divisorPtr) else {
             throw PythonError.nullPointer("Python '/' failed")
+        }
+        
+        let quotientId = registerPythonObjectPointer(quotientPtr)
+        return SafePythonObject(interpreter: self, id: quotientId)
+    }
+    
+    internal func syncInPlaceAdd(sumend: SafePythonObject, addend: SafePythonObject) throws -> SafePythonObject {
+        guard let pyInPlaceAdd = safeSymbolsCache.PyNumber_InPlaceAdd else {
+            throw PythonError.nullPointer("PyNumber_InPlaceAdd not loaded")
+        }
+        
+        let sumendPtr = getRegisteredPythonObjectPointer(sumend.id)!
+        let addendPtr = getRegisteredPythonObjectPointer(addend.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyNumber_InPlaceAdd")
+        guard let sumPtr = pyInPlaceAdd(sumendPtr, addendPtr) else {
+            throw PythonError.nullPointer("Python '+=' failed")
+        }
+        
+        let sumId = registerPythonObjectPointer(sumPtr)
+        return SafePythonObject(interpreter: self, id: sumId)
+    }
+    
+    internal func syncInPlaceSubtract(diffend: SafePythonObject, subtrahend: SafePythonObject) throws -> SafePythonObject {
+        guard let pyInPlaceSubtract = safeSymbolsCache.PyNumber_InPlaceSubtract else {
+            throw PythonError.nullPointer("PyNumber_InPlaceSubtract not loaded")
+        }
+        
+        let diffendPtr = getRegisteredPythonObjectPointer(diffend.id)!
+        let subtrahendPtr = getRegisteredPythonObjectPointer(subtrahend.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyNumber_InPlaceSubtract")
+        guard let differencePtr = pyInPlaceSubtract(diffendPtr, subtrahendPtr) else {
+            throw PythonError.nullPointer("Python '-=' failed")
+        }
+        
+        let differenceId = registerPythonObjectPointer(differencePtr)
+        return SafePythonObject(interpreter: self, id: differenceId)
+    }
+    
+    internal func syncInPlaceMultiply(productand: SafePythonObject, multiplicand: SafePythonObject) throws -> SafePythonObject {
+        guard let pyInPlaceMultiply = safeSymbolsCache.PyNumber_InPlaceMultiply else {
+            throw PythonError.nullPointer("PyNumber_InPlaceMultiply not loaded")
+        }
+        
+        let productandPtr = getRegisteredPythonObjectPointer(productand.id)!
+        let multiplicandPtr = getRegisteredPythonObjectPointer(multiplicand.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyNumber_InPlaceMultiply")
+        guard let productPtr = pyInPlaceMultiply(productandPtr, multiplicandPtr) else {
+            throw PythonError.nullPointer("Python '*=' failed")
+        }
+        
+        let productId = registerPythonObjectPointer(productPtr)
+        return SafePythonObject(interpreter: self, id: productId)
+    }
+    
+    internal func syncInPlaceDivide(quotientand: SafePythonObject, divisor: SafePythonObject) throws -> SafePythonObject {
+        guard let pyInPlaceDivide = safeSymbolsCache.PyNumber_InPlaceTrueDivide else {
+            throw PythonError.nullPointer("PyNumber_InPlaceTrueDivide not loaded")
+        }
+        
+        let quotientandPtr = getRegisteredPythonObjectPointer(quotientand.id)!
+        let divisorPtr = getRegisteredPythonObjectPointer(divisor.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyNumber_InPlaceTrueDivide")
+        guard let quotientPtr = pyInPlaceDivide(quotientandPtr, divisorPtr) else {
+            throw PythonError.nullPointer("Python '/=' failed")
         }
         
         let quotientId = registerPythonObjectPointer(quotientPtr)
