@@ -23,11 +23,11 @@ public extension PythonInterpreter.SafePythonObject {
     
     static func + (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         if lhs.isBoundToPythonInterpreter {
-            return lhs.addOperator(rhs)
+            return lhs.addOperator(lhs, rhs)
         } else if rhs.isBoundToPythonInterpreter {
-            return rhs.addOperator(lhs)
+            return rhs.addOperator(lhs, rhs)
         } else {
-            fatalError("Cannot add two non-bound Python objects")
+            return PythonInterpreter.SafePythonObject.unboundPythonAdd(lhs:lhs, rhs:rhs)
         }
     }
     
@@ -43,9 +43,9 @@ public extension PythonInterpreter.SafePythonObject {
 
     static func * (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         if lhs.isBoundToPythonInterpreter {
-            return lhs.multiplyOperator(rhs)
+            return lhs.multiplyOperator(lhs, rhs)
         } else if rhs.isBoundToPythonInterpreter {
-            return rhs.multiplyOperator(lhs)
+            return rhs.multiplyOperator(lhs, rhs)
         } else {
             fatalError("Cannot multiply two non-bound Python objects")
         }
@@ -67,7 +67,7 @@ public extension PythonInterpreter.SafePythonObject {
         } else if addend.isBoundToPythonInterpreter {
             sumend = addend.addInPlaceOperator(sumend:sumend, addend:addend)
         } else {
-            fatalError("Cannot add in place two non-bound Python objects")
+            sumend = PythonInterpreter.SafePythonObject.unboundPythonAdd(lhs:sumend, rhs:addend)
         }
     }
     

@@ -520,22 +520,96 @@ public actor PythonInterpreter {
             }
         }
         
-        internal func addOperator(_ rhs: SafePythonConvertible) -> SafePythonObject {
+        internal func addOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
                 return try localInterpreter.assumeIsolated {
-                    try $0.syncAdd(self, rhs.toSafePythonObject(interpreter: $0))
+                    try $0.syncAdd(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
                 }
             } catch {
                 fatalError("Failed: \(error)")
             }
         }
         
-        internal func multiplyOperator(_ rhs: SafePythonConvertible) -> SafePythonObject {
+        internal func addInPlaceOperator(sumend: SafePythonConvertible, addend: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
                 return try localInterpreter.assumeIsolated {
-                    try $0.syncMultiply(self, rhs.toSafePythonObject(interpreter: $0))
+                    try $0.syncInPlaceAdd(sumend: sumend.toSafePythonObject(interpreter: $0), addend: addend.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        // This is implemented because writing it is better than erroring out.
+        // But seriously, what are you doing here?  Why does your code use this?
+        // Python addition results:
+        static internal func unboundPythonAdd(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+            switch lhs.state {
+            case .bound:
+                fatalError("This can never happen.")
+            case .deferredDouble(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return SafePythonObject(floatLiteral: lhsVal + rhsVal)
+                case .deferredInt(let rhsVal):
+                    return SafePythonObject(floatLiteral: lhsVal + Double(rhsVal))
+                case .deferredString(let rhsVal):
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return SafePythonObject(floatLiteral: lhsVal + (rhsVal ? 1.0 : 0.0))
+                }
+            case .deferredInt(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return SafePythonObject(floatLiteral: Double(lhsVal) + rhsVal)
+                case .deferredInt(let rhsVal):
+                    return SafePythonObject(integerLiteral: lhsVal + rhsVal)
+                case .deferredString(let rhsVal):
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return SafePythonObject(integerLiteral: lhsVal + (rhsVal ? 1 : 0))
+                }
+            case .deferredString(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    fatalError("Python TypeError")
+                case .deferredInt(let rhsVal):
+                    fatalError("Python TypeError")
+                case .deferredString(let rhsVal):
+                    return SafePythonObject(stringLiteral: lhsVal + rhsVal)
+                case .deferredBool(let rhsVal):
+                    fatalError("Python TypeError")
+                }
+            case .deferredBool(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) + rhsVal)
+                case .deferredInt(let rhsVal):
+                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) + rhsVal)
+                case .deferredString(let rhsVal):
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) + (rhsVal ? 1 : 0))
+                }
+            }
+        }
+        
+        
+        internal func multiplyOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncMultiply(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
                 }
             } catch {
                 fatalError("Failed: \(error)")
@@ -558,17 +632,6 @@ public actor PythonInterpreter {
                 let localInterpreter = interpreter
                 return try localInterpreter.assumeIsolated {
                     try $0.syncDivide(dividend: dividend.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        internal func addInPlaceOperator(sumend: SafePythonConvertible, addend: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncInPlaceAdd(sumend: sumend.toSafePythonObject(interpreter: $0), addend: addend.toSafePythonObject(interpreter: $0))
                 }
             } catch {
                 fatalError("Failed: \(error)")
