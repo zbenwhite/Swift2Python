@@ -5,6 +5,8 @@
 //  Created by Ben White on 3/2/26.
 //
 
+// MARK: Asynchronous Mode Conversions
+
 public protocol PendingPythonConvertible: Sendable {
     func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject
 }
@@ -47,6 +49,7 @@ extension Dictionary : PendingPythonConvertible where Key : PendingPythonConvert
 
 extension Range : PendingPythonConvertible where Bound : PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        // TODO: NOT WRITTEN
         fatalError("shut up xcode")
         //try await interpreter.convertRangeToPython(self)
     }
@@ -54,6 +57,7 @@ extension Range : PendingPythonConvertible where Bound : PendingPythonConvertibl
 
 extension PartialRangeFrom : PendingPythonConvertible where Bound : PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        // TODO: NOT WRITTEN
         fatalError("shut up xcode")
         //try await interpreter.convertPartialRangeToPython(self)
     }
@@ -61,14 +65,14 @@ extension PartialRangeFrom : PendingPythonConvertible where Bound : PendingPytho
 
 extension PartialRangeUpTo : PendingPythonConvertible where Bound : PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        // TODO: NOT WRITTEN
         fatalError("shut up xcode")
         //try await interpreter.convertPartialRangeToPython(self)
     }
 }
 
-
-
-// Same as the PythonObject conversions except these are synchronous
+// MARK: -
+// MARK: Synchronous Mode Conversions
 
 
 public protocol SafePythonConvertible: Sendable {
