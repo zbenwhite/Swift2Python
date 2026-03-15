@@ -520,6 +520,17 @@ public actor PythonInterpreter {
             }
         }
         
+        
+                
+        public func callAsFunction(_ args: any SafePythonConvertible...) async throws -> SafePythonObject {
+            fatalError("Placeholder")
+        }
+        
+        public func callAsFunction(_ args: any SafePythonConvertible...,
+                                   kwargs: [String: SafePythonConvertible] = [:]) async throws -> SafePythonObject {
+            fatalError("Placeholder")
+        }
+        
         internal func addOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
@@ -604,7 +615,6 @@ public actor PythonInterpreter {
             }
         }
         
-        
         internal func multiplyOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
@@ -613,6 +623,77 @@ public actor PythonInterpreter {
                 }
             } catch {
                 fatalError("Failed: \(error)")
+            }
+        }
+        
+        internal func multiplyInPlaceOperator(productand: SafePythonConvertible, multiplicand: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncInPlaceMultiply(productand: productand.toSafePythonObject(interpreter: $0), multiplicand: multiplicand.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        // Python multiplication results:
+        static internal func unboundPythonMultiply(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+            switch lhs.state {
+            case .bound:
+                fatalError("This can never happen.")
+            case .deferredDouble(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return SafePythonObject(floatLiteral: lhsVal * rhsVal)
+                case .deferredInt(let rhsVal):
+                    return SafePythonObject(floatLiteral: lhsVal * Double(rhsVal))
+                case .deferredString(let rhsVal):
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return SafePythonObject(floatLiteral: lhsVal * (rhsVal ? 1.0 : 0.0))
+                }
+            case .deferredInt(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return SafePythonObject(floatLiteral: Double(lhsVal) * rhsVal)
+                case .deferredInt(let rhsVal):
+                    return SafePythonObject(integerLiteral: lhsVal * rhsVal)
+                case .deferredString(let rhsVal):
+                    return (lhsVal < 1) ? SafePythonObject(stringLiteral: "") : SafePythonObject(stringLiteral: String(repeating: rhsVal, count: lhsVal))
+                case .deferredBool(let rhsVal):
+                    return SafePythonObject(integerLiteral: lhsVal * (rhsVal ? 1 : 0))
+                }
+            case .deferredString(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    fatalError("Python TypeError")
+                case .deferredInt(let rhsVal):
+                    return (rhsVal < 1) ? SafePythonObject(stringLiteral: "") : SafePythonObject(stringLiteral: String(repeating: lhsVal, count: rhsVal))
+                case .deferredString(let rhsVal):
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return rhsVal ? SafePythonObject(stringLiteral: lhsVal) : SafePythonObject(stringLiteral: "")
+                }
+            case .deferredBool(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) * rhsVal)
+                case .deferredInt(let rhsVal):
+                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) * rhsVal)
+                case .deferredString(let rhsVal):
+                    return lhsVal ? SafePythonObject(stringLiteral: rhsVal) : SafePythonObject(stringLiteral: "")
+                case .deferredBool(let rhsVal):
+                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) * (rhsVal ? 1 : 0))
+                }
             }
         }
         
@@ -649,17 +730,6 @@ public actor PythonInterpreter {
             }
         }
         
-        internal func multiplyInPlaceOperator(productand: SafePythonConvertible, multiplicand: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncInPlaceMultiply(productand: productand.toSafePythonObject(interpreter: $0), multiplicand: multiplicand.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
         internal func divideInPlaceOperator(quotientand: SafePythonConvertible, divisor: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
@@ -682,14 +752,22 @@ public actor PythonInterpreter {
         var PyFloat_FromDouble: (@convention(c) (Double) -> UnsafeMutableRawPointer?)?
         var PyLong_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)?
         var PyNumber_Add: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
+        var PyNumber_And: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyNumber_InPlaceAdd: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
+        var PyNumber_InPlaceAnd: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyNumber_InPlaceMultiply: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
+        var PyNumber_InPlaceOr: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyNumber_InPlaceSubtract: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyNumber_InPlaceTrueDivide: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
+        var PyNumber_InPlaceXor: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyNumber_Multiply: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
+        var PyNumber_Or: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyNumber_Subtract: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyNumber_TrueDivide: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
+        var PyNumber_Xor: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyObject_GetAttrString: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?)?
+        var PyObject_RichCompare: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, Int32) -> UnsafeMutableRawPointer?)?
+        var PyObject_RichCompareBool: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, Int32) -> Int32)?
         var PyObject_SetAttrString: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Int32)?
         var PyRun_SimpleString: (@convention(c) (UnsafePointer<CChar>) -> Int32)?
         var PyUnicode_FromStringAndSize: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?)?
@@ -701,35 +779,51 @@ public actor PythonInterpreter {
         // Return if the cache is already setup
         guard safeSymbolsCache.PyRun_SimpleString == nil else { return }
         safeSymbolsCache.PyBool_FromLong = try await runtime.loadSendableSymbol("PyBool_FromLong",
-                                                                                as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
+                    as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyFloat_FromDouble = try await runtime.loadSendableSymbol("PyFloat_FromDouble",
-                                                                                   as: (@convention(c) (Double) -> UnsafeMutableRawPointer?).self).function
+                    as: (@convention(c) (Double) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyLong_FromLong = try await runtime.loadSendableSymbol("PyLong_FromLong",
-                                                                                as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
+                    as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyNumber_Add = try await runtime.loadSendableSymbol("PyNumber_Add",
-                                                                             as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyNumber_And = try await runtime.loadSendableSymbol("PyNumber_And",
+                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyNumber_InPlaceAdd = try await runtime.loadSendableSymbol("PyNumber_InPlaceAdd",
-                                                                                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyNumber_InPlaceAnd = try await runtime.loadSendableSymbol("PyNumber_InPlaceAnd",
+                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyNumber_InPlaceMultiply = try await runtime.loadSendableSymbol("PyNumber_InPlaceMultiply",
-                                                                                         as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyNumber_InPlaceOr = try await runtime.loadSendableSymbol("PyNumber_InPlaceOr",
+                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyNumber_InPlaceSubtract = try await runtime.loadSendableSymbol("PyNumber_InPlaceSubtract",
-                                                                                         as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyNumber_InPlaceTrueDivide = try await runtime.loadSendableSymbol("PyNumber_InPlaceTrueDivide",
-                                                                                           as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyNumber_InPlaceXor = try await runtime.loadSendableSymbol("PyNumber_InPlaceXor",
+                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyNumber_Multiply = try await runtime.loadSendableSymbol("PyNumber_Multiply",
-                                                                                  as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyNumber_Or = try await runtime.loadSendableSymbol("PyNumber_Or",
+                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyNumber_Subtract = try await runtime.loadSendableSymbol("PyNumber_Subtract",
-                                                                                  as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyNumber_TrueDivide = try await runtime.loadSendableSymbol("PyNumber_TrueDivide",
-                                                                                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyNumber_Xor = try await runtime.loadSendableSymbol("PyNumber_Xor",
+                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyRun_SimpleString = try await runtime.loadSendableSymbol("PyRun_SimpleString",
-                                                                                   as: (@convention(c) (UnsafePointer<CChar>) -> Int32).self).function
+                    as: (@convention(c) (UnsafePointer<CChar>) -> Int32).self).function
         safeSymbolsCache.PyObject_GetAttrString = try await runtime.loadSendableSymbol("PyObject_GetAttrString",
-                                                                                       as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?).self).function
+                    as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyObject_RichCompare = try await runtime.loadSendableSymbol("PyObject_RichCompare",
+                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, Int32) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyObject_RichCompareBool = try await runtime.loadSendableSymbol("PyObject_RichCompareBool",
+                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, Int32) -> Int32).self).function
         safeSymbolsCache.PyObject_SetAttrString = try await runtime.loadSendableSymbol("PyObject_SetAttrString",
-                                                                                       as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Int32).self).function
+                    as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Int32).self).function
         safeSymbolsCache.PyUnicode_FromStringAndSize = try await runtime.loadSendableSymbol("PyUnicode_FromStringAndSize",
-                                                                                            as: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?).self).function
+                    as: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?).self).function
     }
     
     public func bind(_ obj: PythonObject) -> PythonInterpreter.SafePythonObject {

@@ -47,7 +47,7 @@ public extension PythonInterpreter.SafePythonObject {
         } else if rhs.isBoundToPythonInterpreter {
             return rhs.multiplyOperator(lhs, rhs)
         } else {
-            fatalError("Cannot multiply two non-bound Python objects")
+            return PythonInterpreter.SafePythonObject.unboundPythonMultiply(lhs:lhs, rhs:rhs)
         }
     }
 
@@ -87,7 +87,7 @@ public extension PythonInterpreter.SafePythonObject {
         } else if multiplicand.isBoundToPythonInterpreter {
             productand = multiplicand.multiplyInPlaceOperator(productand:productand, multiplicand:multiplicand)
         } else {
-            fatalError("Cannot multiply in place two non-bound Python objects")
+            productand = PythonInterpreter.SafePythonObject.unboundPythonMultiply(lhs:productand, rhs:multiplicand)
         }
     }
     
@@ -100,5 +100,255 @@ public extension PythonInterpreter.SafePythonObject {
             fatalError("Cannot divide in place two non-bound Python objects")
         }
     }
+    
+    static func & (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        if lhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else if rhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else {
+            fatalError("Placeholder")
+        }
+        //return performBinaryOp(PyNumber_And, lhs: lhs, rhs: rhs)
+    }
 
+    static func | (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        if lhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else if rhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else {
+            fatalError("Placeholder")
+        }
+        //return performBinaryOp(PyNumber_Or, lhs: lhs, rhs: rhs)
+    }
+
+    static func ^ (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        if lhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else if rhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else {
+            fatalError("Placeholder")
+        }
+        //return performBinaryOp(PyNumber_Xor, lhs: lhs, rhs: rhs)
+    }
+
+    static func &= (lhs: inout PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) {
+        if lhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else if rhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else {
+            fatalError("Placeholder")
+        }
+        //lhs = performBinaryOp(PyNumber_InPlaceAnd, lhs: lhs, rhs: rhs)
+    }
+
+    static func |= (lhs: inout PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) {
+        if lhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else if rhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else {
+            fatalError("Placeholder")
+        }
+        //lhs = performBinaryOp(PyNumber_InPlaceOr, lhs: lhs, rhs: rhs)
+    }
+
+    static func ^= (lhs: inout PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) {
+        if lhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else if rhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else {
+            fatalError("Placeholder")
+        }
+        //lhs = performBinaryOp(PyNumber_InPlaceXor, lhs: lhs, rhs: rhs)
+    }
+
+    static prefix func ~ (_ operand: Self) -> Self {
+        if operand.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else {
+            fatalError("Placeholder")
+        }
+        //return performUnaryOp(PyNumber_Invert, operand: operand)
+    }
+
+}
+
+
+
+extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
+    // `Equatable` and `Comparable` are implemented using rich comparison.
+    // This is consistent with how Python handles comparisons.
+//    private func compared(to other: PythonObject, byOp: Int32) -> Bool {
+//        let lhsObject = ownedPyObject
+//        let rhsObject = other.ownedPyObject
+//        defer {
+//            Py_DecRef(lhsObject)
+//            Py_DecRef(rhsObject)
+//        }
+//        assert(PyErr_Occurred() == nil,
+//               "Python error occurred somewhere but wasn't handled")
+//        switch PyObject_RichCompareBool(lhsObject, rhsObject, byOp) {
+//        case 0: return false
+//        case 1: return true
+//        default:
+//            try! throwPythonErrorIfPresent()
+//            fatalError("No result or error returned when comparing \(self) to \(other)")
+//        }
+//    }
+
+    public static func == (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
+        if lhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else if rhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else {
+            fatalError("Placeholder")
+        }
+        //return lhs.compared(to: rhs, byOp: Py_EQ)
+    }
+
+    public static func != (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
+        if lhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else if rhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else {
+            fatalError("Placeholder")
+        }
+        //return lhs.compared(to: rhs, byOp: Py_NE)
+    }
+
+    public static func < (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
+        if lhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else if rhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else {
+            fatalError("Placeholder")
+        }
+        //return lhs.compared(to: rhs, byOp: Py_LT)
+    }
+
+    public static func <= (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
+        if lhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else if rhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else {
+            fatalError("Placeholder")
+        }
+        //return lhs.compared(to: rhs, byOp: Py_LE)
+    }
+
+    public static func > (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
+        if lhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else if rhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else {
+            fatalError("Placeholder")
+        }
+        //return lhs.compared(to: rhs, byOp: Py_GT)
+    }
+
+    public static func >= (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
+        if lhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else if rhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else {
+            fatalError("Placeholder")
+        }
+        //return lhs.compared(to: rhs, byOp: Py_GE)
+    }
+}
+
+public extension PythonInterpreter.SafePythonObject {
+//    private func compared(to other: PythonObject, byOp: Int32) -> PythonObject {
+//        let lhsObject = ownedPyObject
+//        let rhsObject = other.ownedPyObject
+//        defer {
+//            Py_DecRef(lhsObject)
+//            Py_DecRef(rhsObject)
+//        }
+//        assert(PyErr_Occurred() == nil,
+//               "Python error occurred somewhere but wasn't handled")
+//        guard let result = PyObject_RichCompare(lhsObject, rhsObject, byOp) else {
+//            // If a Python exception was thrown, throw a corresponding Swift error.
+//            try! throwPythonErrorIfPresent()
+//            fatalError("No result or error returned when comparing \(self) to \(other)")
+//        }
+//        return PythonObject(consuming: result)
+//    }
+
+    static func == (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        if lhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else if rhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else {
+            fatalError("Placeholder")
+        }
+        //return lhs.compared(to: rhs, byOp: Py_EQ)
+    }
+
+    static func != (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        if lhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else if rhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else {
+            fatalError("Placeholder")
+        }
+        //return lhs.compared(to: rhs, byOp: Py_NE)
+    }
+
+    static func < (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        if lhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else if rhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else {
+            fatalError("Placeholder")
+        }
+        //return lhs.compared(to: rhs, byOp: Py_LT)
+    }
+
+    static func <= (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        if lhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else if rhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else {
+            fatalError("Placeholder")
+        }
+        //return lhs.compared(to: rhs, byOp: Py_LE)
+    }
+
+    static func > (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        if lhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else if rhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else {
+            fatalError("Placeholder")
+        }
+        //return lhs.compared(to: rhs, byOp: Py_GT)
+    }
+
+    static func >= (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        if lhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else if rhs.isBoundToPythonInterpreter {
+            fatalError("Placeholder")
+        } else {
+            fatalError("Placeholder")
+        }
+        //return lhs.compared(to: rhs, byOp: Py_GE)
+    }
 }
