@@ -207,7 +207,7 @@ extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
         } else if rhs.isBoundToPythonInterpreter {
             fatalError("Placeholder")
         } else {
-            fatalError("Placeholder")
+            return PythonInterpreter.SafePythonObject.unboundPythonDoubleEqualsEquatable(lhs:lhs, rhs:rhs)
         }
         //return lhs.compared(to: rhs, byOp: Py_EQ)
     }
@@ -218,7 +218,7 @@ extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
         } else if rhs.isBoundToPythonInterpreter {
             fatalError("Placeholder")
         } else {
-            fatalError("Placeholder")
+            return PythonInterpreter.SafePythonObject.unboundPythonNotEqualsEquatable(lhs:lhs, rhs:rhs)
         }
         //return lhs.compared(to: rhs, byOp: Py_NE)
     }
@@ -229,7 +229,7 @@ extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
         } else if rhs.isBoundToPythonInterpreter {
             fatalError("Placeholder")
         } else {
-            fatalError("Placeholder")
+            return PythonInterpreter.SafePythonObject.unboundPythonLessThanEquatable(lhs:lhs, rhs:rhs)
         }
         //return lhs.compared(to: rhs, byOp: Py_LT)
     }
@@ -240,7 +240,7 @@ extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
         } else if rhs.isBoundToPythonInterpreter {
             fatalError("Placeholder")
         } else {
-            fatalError("Placeholder")
+            return PythonInterpreter.SafePythonObject.unboundPythonLessThanOrEqualsEquatable(lhs:lhs, rhs:rhs)
         }
         //return lhs.compared(to: rhs, byOp: Py_LE)
     }
@@ -251,7 +251,7 @@ extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
         } else if rhs.isBoundToPythonInterpreter {
             fatalError("Placeholder")
         } else {
-            fatalError("Placeholder")
+            return PythonInterpreter.SafePythonObject.unboundPythonGreaterThanEquatable(lhs:lhs, rhs:rhs)
         }
         //return lhs.compared(to: rhs, byOp: Py_GT)
     }
@@ -262,7 +262,7 @@ extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
         } else if rhs.isBoundToPythonInterpreter {
             fatalError("Placeholder")
         } else {
-            fatalError("Placeholder")
+            return PythonInterpreter.SafePythonObject.unboundPythonGreaterThanOrEqualsEquatable(lhs:lhs, rhs:rhs)
         }
         //return lhs.compared(to: rhs, byOp: Py_GE)
     }
@@ -292,7 +292,7 @@ public extension PythonInterpreter.SafePythonObject {
         } else if rhs.isBoundToPythonInterpreter {
             fatalError("Placeholder")
         } else {
-            fatalError("Placeholder")
+            return PythonInterpreter.SafePythonObject.unboundPythonDoubleEquals(lhs:lhs, rhs:rhs)
         }
         //return lhs.compared(to: rhs, byOp: Py_EQ)
     }
@@ -303,7 +303,7 @@ public extension PythonInterpreter.SafePythonObject {
         } else if rhs.isBoundToPythonInterpreter {
             fatalError("Placeholder")
         } else {
-            fatalError("Placeholder")
+            return PythonInterpreter.SafePythonObject.unboundPythonNotEquals(lhs:lhs, rhs:rhs)
         }
         //return lhs.compared(to: rhs, byOp: Py_NE)
     }
@@ -314,7 +314,7 @@ public extension PythonInterpreter.SafePythonObject {
         } else if rhs.isBoundToPythonInterpreter {
             fatalError("Placeholder")
         } else {
-            fatalError("Placeholder")
+            return PythonInterpreter.SafePythonObject.unboundPythonLessThan(lhs:lhs, rhs:rhs)
         }
         //return lhs.compared(to: rhs, byOp: Py_LT)
     }
@@ -325,7 +325,7 @@ public extension PythonInterpreter.SafePythonObject {
         } else if rhs.isBoundToPythonInterpreter {
             fatalError("Placeholder")
         } else {
-            fatalError("Placeholder")
+            return PythonInterpreter.SafePythonObject.unboundPythonLessThanOrEquals(lhs:lhs, rhs:rhs)
         }
         //return lhs.compared(to: rhs, byOp: Py_LE)
     }
@@ -336,7 +336,7 @@ public extension PythonInterpreter.SafePythonObject {
         } else if rhs.isBoundToPythonInterpreter {
             fatalError("Placeholder")
         } else {
-            fatalError("Placeholder")
+            return PythonInterpreter.SafePythonObject.unboundPythonGreaterThan(lhs:lhs, rhs:rhs)
         }
         //return lhs.compared(to: rhs, byOp: Py_GT)
     }
@@ -347,7 +347,7 @@ public extension PythonInterpreter.SafePythonObject {
         } else if rhs.isBoundToPythonInterpreter {
             fatalError("Placeholder")
         } else {
-            fatalError("Placeholder")
+            return PythonInterpreter.SafePythonObject.unboundPythonGreaterThanOrEquals(lhs:lhs, rhs:rhs)
         }
         //return lhs.compared(to: rhs, byOp: Py_GE)
     }

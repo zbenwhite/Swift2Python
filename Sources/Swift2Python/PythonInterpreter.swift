@@ -520,8 +520,6 @@ public actor PythonInterpreter {
             }
         }
         
-        
-        
         public func callAsFunction(_ args: any SafePythonConvertible...) async throws -> SafePythonObject {
             fatalError("Placeholder")
         }
@@ -530,6 +528,8 @@ public actor PythonInterpreter {
                                    kwargs: [String: SafePythonConvertible] = [:]) async throws -> SafePythonObject {
             fatalError("Placeholder")
         }
+        
+        // MARK: SafePythonObject Operator support
         
         internal func addOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
@@ -800,8 +800,10 @@ public actor PythonInterpreter {
                 case .bound:
                     fatalError("This can never happen.")
                 case .deferredDouble(let rhsVal):
+                    guard rhsVal != 0.0 else { fatalError("Python Divide By Zero") }
                     return SafePythonObject(floatLiteral: lhsVal / rhsVal)
                 case .deferredInt(let rhsVal):
+                    guard rhsVal != 0 else { fatalError("Python Divide By Zero") }
                     return SafePythonObject(floatLiteral: lhsVal / Double(rhsVal))
                 case .deferredString(let rhsVal):
                     fatalError("Python TypeError")
@@ -814,14 +816,16 @@ public actor PythonInterpreter {
                 case .bound:
                     fatalError("This can never happen.")
                 case .deferredDouble(let rhsVal):
+                    guard rhsVal != 0.0 else { fatalError("Python Divide By Zero") }
                     return SafePythonObject(floatLiteral: Double(lhsVal) / rhsVal)
                 case .deferredInt(let rhsVal):
-                    return SafePythonObject(integerLiteral: lhsVal / rhsVal)
+                    guard rhsVal != 0 else { fatalError("Python Divide By Zero") }
+                    return SafePythonObject(floatLiteral: Double(lhsVal) / Double(rhsVal))   // Python division always return floating point
                 case .deferredString(let rhsVal):
                     fatalError("Python TypeError")
                 case .deferredBool(let rhsVal):
                     guard rhsVal else { fatalError("Python Divide By Zero") }
-                    return SafePythonObject(integerLiteral: lhsVal) // n / 1 == n
+                    return SafePythonObject(floatLiteral: Double(lhsVal)) // n / 1 == n
                 }
             case .deferredString(let lhsVal):
                 fatalError("Python TypeError")
@@ -830,14 +834,16 @@ public actor PythonInterpreter {
                 case .bound:
                     fatalError("This can never happen.")
                 case .deferredDouble(let rhsVal):
+                    guard rhsVal != 0.0 else { fatalError("Python Divide By Zero") }
                     return SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) / rhsVal)
                 case .deferredInt(let rhsVal):
-                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) / rhsVal)
+                    guard rhsVal != 0 else { fatalError("Python Divide By Zero") }
+                    return SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) / Double(rhsVal))    // Python division always return floating point
                 case .deferredString(let rhsVal):
                     fatalError("Python TypeError")
                 case .deferredBool(let rhsVal):
                     guard rhsVal else { fatalError("Python Divide By Zero") }
-                    return SafePythonObject(integerLiteral: lhsVal ? 1 : 0) // n / 1 == n
+                    return SafePythonObject(floatLiteral: lhsVal ? 1.0 : 0.0) // n / 1 == n
                 }
             }
         }
@@ -907,6 +913,409 @@ public actor PythonInterpreter {
                 fatalError("Failed: \(error)")
             }
         }
+        
+        static internal func unboundPythonDoubleEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+            SafePythonObject(booleanLiteral: unboundPythonDoubleEqualsEquatable(lhs: lhs, rhs: rhs))
+        }
+        
+        static internal func unboundPythonDoubleEqualsEquatable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+            switch lhs.state {
+            case .bound:
+                fatalError("This can never happen.")
+                
+            case .deferredDouble(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return lhsVal == rhsVal
+                case .deferredInt(let rhsVal):
+                    return lhsVal == Double(rhsVal)
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return lhsVal == (rhsVal ? 1.0 : 0.0)
+                }
+                
+            case .deferredInt(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return Double(lhsVal) == rhsVal
+                case .deferredInt(let rhsVal):
+                    return lhsVal == rhsVal
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return lhsVal == (rhsVal ? 1 : 0)
+                }
+                
+            case .deferredString(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble:
+                    fatalError("Python TypeError")
+                case .deferredInt:
+                    fatalError("Python TypeError")
+                case .deferredString(let rhsVal):
+                    return lhsVal == rhsVal
+                case .deferredBool:
+                    fatalError("Python TypeError")
+                }
+                
+            case .deferredBool(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return (lhsVal ? 1.0 : 0.0) == rhsVal
+                case .deferredInt(let rhsVal):
+                    return (lhsVal ? 1 : 0) == rhsVal
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return lhsVal == rhsVal
+                }
+            }
+        }
+        
+        static internal func unboundPythonNotEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+            SafePythonObject(booleanLiteral: unboundPythonNotEqualsEquatable(lhs: lhs, rhs: rhs))
+        }
+        
+        static internal func unboundPythonNotEqualsEquatable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+            switch lhs.state {
+            case .bound:
+                fatalError("This can never happen.")
+                
+            case .deferredDouble(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return lhsVal != rhsVal
+                case .deferredInt(let rhsVal):
+                    return lhsVal != Double(rhsVal)
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return lhsVal != (rhsVal ? 1.0 : 0.0)
+                }
+                
+            case .deferredInt(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return Double(lhsVal) != rhsVal
+                case .deferredInt(let rhsVal):
+                    return lhsVal != rhsVal
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return lhsVal != (rhsVal ? 1 : 0)
+                }
+                
+            case .deferredString(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble:
+                    fatalError("Python TypeError")
+                case .deferredInt:
+                    fatalError("Python TypeError")
+                case .deferredString(let rhsVal):
+                    return lhsVal != rhsVal
+                case .deferredBool:
+                    fatalError("Python TypeError")
+                }
+                
+            case .deferredBool(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return (lhsVal ? 1.0 : 0.0) != rhsVal
+                case .deferredInt(let rhsVal):
+                    return (lhsVal ? 1 : 0) != rhsVal
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return lhsVal != rhsVal
+                }
+            }
+        }
+        
+        static internal func unboundPythonLessThan(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+            SafePythonObject(booleanLiteral: unboundPythonLessThanEquatable(lhs: lhs, rhs: rhs))
+        }
+
+        static internal func unboundPythonLessThanEquatable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+            switch lhs.state {
+            case .bound:
+                fatalError("This can never happen.")
+                
+            case .deferredDouble(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return lhsVal < rhsVal
+                case .deferredInt(let rhsVal):
+                    return lhsVal < Double(rhsVal)
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return lhsVal < (rhsVal ? 1.0 : 0.0)
+                }
+                
+            case .deferredInt(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return Double(lhsVal) < rhsVal
+                case .deferredInt(let rhsVal):
+                    return lhsVal < rhsVal
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return lhsVal < (rhsVal ? 1 : 0)
+                }
+                
+            case .deferredString(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble:
+                    fatalError("Python TypeError")
+                case .deferredInt:
+                    fatalError("Python TypeError")
+                case .deferredString(let rhsVal):
+                    return lhsVal < rhsVal
+                case .deferredBool:
+                    fatalError("Python TypeError")
+                }
+                
+            case .deferredBool(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return (lhsVal ? 1.0 : 0.0) < rhsVal
+                case .deferredInt(let rhsVal):
+                    return (lhsVal ? 1 : 0) < rhsVal
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return (lhsVal ? 1 : 0) < (rhsVal ? 1 : 0)
+                }
+            }
+        }
+        
+        static internal func unboundPythonLessThanOrEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+            SafePythonObject(booleanLiteral: unboundPythonLessThanOrEqualsEquatable(lhs: lhs, rhs: rhs))
+        }
+
+        static internal func unboundPythonLessThanOrEqualsEquatable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+            switch lhs.state {
+            case .bound:
+                fatalError("This can never happen.")
+                
+            case .deferredDouble(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return lhsVal <= rhsVal
+                case .deferredInt(let rhsVal):
+                    return lhsVal <= Double(rhsVal)
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return lhsVal <= (rhsVal ? 1.0 : 0.0)
+                }
+                
+            case .deferredInt(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return Double(lhsVal) <= rhsVal
+                case .deferredInt(let rhsVal):
+                    return lhsVal <= rhsVal
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return lhsVal <= (rhsVal ? 1 : 0)
+                }
+                
+            case .deferredString(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble:
+                    fatalError("Python TypeError")
+                case .deferredInt:
+                    fatalError("Python TypeError")
+                case .deferredString(let rhsVal):
+                    return lhsVal <= rhsVal
+                case .deferredBool:
+                    fatalError("Python TypeError")
+                }
+                
+            case .deferredBool(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return (lhsVal ? 1.0 : 0.0) <= rhsVal
+                case .deferredInt(let rhsVal):
+                    return (lhsVal ? 1 : 0) <= rhsVal
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return (lhsVal ? 1 : 0) <= (rhsVal ? 1 : 0)
+                }
+            }
+        }
+        
+        static internal func unboundPythonGreaterThan(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+            SafePythonObject(booleanLiteral: unboundPythonGreaterThanEquatable(lhs: lhs, rhs: rhs))
+        }
+
+        static internal func unboundPythonGreaterThanEquatable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+            switch lhs.state {
+            case .bound:
+                fatalError("This can never happen.")
+                
+            case .deferredDouble(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return lhsVal > rhsVal
+                case .deferredInt(let rhsVal):
+                    return lhsVal > Double(rhsVal)
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return lhsVal > (rhsVal ? 1.0 : 0.0)
+                }
+                
+            case .deferredInt(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return Double(lhsVal) > rhsVal
+                case .deferredInt(let rhsVal):
+                    return lhsVal > rhsVal
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return lhsVal > (rhsVal ? 1 : 0)
+                }
+                
+            case .deferredString(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble:
+                    fatalError("Python TypeError")
+                case .deferredInt:
+                    fatalError("Python TypeError")
+                case .deferredString(let rhsVal):
+                    return lhsVal > rhsVal
+                case .deferredBool:
+                    fatalError("Python TypeError")
+                }
+                
+            case .deferredBool(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return (lhsVal ? 1.0 : 0.0) > rhsVal
+                case .deferredInt(let rhsVal):
+                    return (lhsVal ? 1 : 0) > rhsVal
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return (lhsVal ? 1 : 0) > (rhsVal ? 1 : 0)
+                }
+            }
+        }
+        
+        static internal func unboundPythonGreaterThanOrEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+            SafePythonObject(booleanLiteral: unboundPythonGreaterThanOrEqualsEquatable(lhs: lhs, rhs: rhs))
+        }
+
+        static internal func unboundPythonGreaterThanOrEqualsEquatable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+            switch lhs.state {
+            case .bound:
+                fatalError("This can never happen.")
+                
+            case .deferredDouble(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return lhsVal >= rhsVal
+                case .deferredInt(let rhsVal):
+                    return lhsVal >= Double(rhsVal)
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return lhsVal >= (rhsVal ? 1.0 : 0.0)
+                }
+                
+            case .deferredInt(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return Double(lhsVal) >= rhsVal
+                case .deferredInt(let rhsVal):
+                    return lhsVal >= rhsVal
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return lhsVal >= (rhsVal ? 1 : 0)
+                }
+                
+            case .deferredString(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble:
+                    fatalError("Python TypeError")
+                case .deferredInt:
+                    fatalError("Python TypeError")
+                case .deferredString(let rhsVal):
+                    return lhsVal >= rhsVal
+                case .deferredBool:
+                    fatalError("Python TypeError")
+                }
+                
+            case .deferredBool(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return (lhsVal ? 1.0 : 0.0) >= rhsVal
+                case .deferredInt(let rhsVal):
+                    return (lhsVal ? 1 : 0) >= rhsVal
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return (lhsVal ? 1 : 0) >= (rhsVal ? 1 : 0)
+                }
+            }
+        }
+        
     }  // end of Safe python object
     
     // MARK: Prepare for synchronous mode
