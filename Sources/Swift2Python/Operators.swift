@@ -37,7 +37,7 @@ public extension PythonInterpreter.SafePythonObject {
         } else if subtrahend.isBoundToPythonInterpreter {
             return subtrahend.subtractOperator(minuend: minuend, subtrahend: subtrahend)
         } else {
-            fatalError("Cannot subtract with two non-bound Python objects")
+            return PythonInterpreter.SafePythonObject.unboundPythonSubtract(lhs:minuend, rhs:subtrahend)
         }
     }
 
@@ -57,7 +57,7 @@ public extension PythonInterpreter.SafePythonObject {
         } else if divisor.isBoundToPythonInterpreter {
             return divisor.divideOperator(dividend: dividend, divisor: divisor)
         } else {
-            fatalError("Cannot divide with two non-bound Python objects")
+            return PythonInterpreter.SafePythonObject.unboundPythonSubtract(lhs:dividend, rhs:divisor)
         }
     }
     
@@ -77,7 +77,7 @@ public extension PythonInterpreter.SafePythonObject {
         } else if subtrahend.isBoundToPythonInterpreter {
             diffend = subtrahend.subtractInPlaceOperator(diffend:diffend, subtrahend:subtrahend)
         } else {
-            fatalError("Cannot subtract in place two non-bound Python objects")
+            diffend = PythonInterpreter.SafePythonObject.unboundPythonSubtract(lhs:diffend, rhs:subtrahend)
         }
     }
     
@@ -97,15 +97,15 @@ public extension PythonInterpreter.SafePythonObject {
         } else if divisor.isBoundToPythonInterpreter {
             quotientand = divisor.divideInPlaceOperator(quotientand:quotientand, divisor:divisor)
         } else {
-            fatalError("Cannot divide in place two non-bound Python objects")
+            quotientand = PythonInterpreter.SafePythonObject.unboundPythonDivide(lhs:quotientand, rhs:divisor)
         }
     }
     
     static func & (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         if lhs.isBoundToPythonInterpreter {
-            fatalError("Placeholder")
+            return lhs.andOperator(lhs, rhs)
         } else if rhs.isBoundToPythonInterpreter {
-            fatalError("Placeholder")
+            return rhs.andOperator(lhs, rhs)
         } else {
             fatalError("Placeholder")
         }
@@ -114,9 +114,9 @@ public extension PythonInterpreter.SafePythonObject {
 
     static func | (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         if lhs.isBoundToPythonInterpreter {
-            fatalError("Placeholder")
+            return lhs.orOperator(lhs, rhs)
         } else if rhs.isBoundToPythonInterpreter {
-            fatalError("Placeholder")
+            return rhs.orOperator(lhs, rhs)
         } else {
             fatalError("Placeholder")
         }
@@ -125,9 +125,9 @@ public extension PythonInterpreter.SafePythonObject {
 
     static func ^ (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         if lhs.isBoundToPythonInterpreter {
-            fatalError("Placeholder")
+            return lhs.xorOperator(lhs, rhs)
         } else if rhs.isBoundToPythonInterpreter {
-            fatalError("Placeholder")
+            return rhs.xorOperator(lhs, rhs)
         } else {
             fatalError("Placeholder")
         }
@@ -136,9 +136,9 @@ public extension PythonInterpreter.SafePythonObject {
 
     static func &= (lhs: inout PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) {
         if lhs.isBoundToPythonInterpreter {
-            fatalError("Placeholder")
+            lhs = lhs.andInPlaceOperator(lhs, rhs)
         } else if rhs.isBoundToPythonInterpreter {
-            fatalError("Placeholder")
+            lhs = rhs.andInPlaceOperator(lhs, rhs)
         } else {
             fatalError("Placeholder")
         }
@@ -147,9 +147,9 @@ public extension PythonInterpreter.SafePythonObject {
 
     static func |= (lhs: inout PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) {
         if lhs.isBoundToPythonInterpreter {
-            fatalError("Placeholder")
+            lhs = lhs.orInPlaceOperator(lhs, rhs)
         } else if rhs.isBoundToPythonInterpreter {
-            fatalError("Placeholder")
+            lhs = rhs.orInPlaceOperator(lhs, rhs)
         } else {
             fatalError("Placeholder")
         }
@@ -158,9 +158,9 @@ public extension PythonInterpreter.SafePythonObject {
 
     static func ^= (lhs: inout PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) {
         if lhs.isBoundToPythonInterpreter {
-            fatalError("Placeholder")
+            lhs = lhs.xorInPlaceOperator(lhs, rhs)
         } else if rhs.isBoundToPythonInterpreter {
-            fatalError("Placeholder")
+            lhs = rhs.xorInPlaceOperator(lhs, rhs)
         } else {
             fatalError("Placeholder")
         }

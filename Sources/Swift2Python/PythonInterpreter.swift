@@ -521,7 +521,7 @@ public actor PythonInterpreter {
         }
         
         
-                
+        
         public func callAsFunction(_ args: any SafePythonConvertible...) async throws -> SafePythonObject {
             fatalError("Placeholder")
         }
@@ -708,17 +708,6 @@ public actor PythonInterpreter {
             }
         }
         
-        internal func divideOperator(dividend: SafePythonConvertible, divisor: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncDivide(dividend: dividend.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
         internal func subtractInPlaceOperator(diffend: SafePythonConvertible, subtrahend: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
@@ -730,11 +719,189 @@ public actor PythonInterpreter {
             }
         }
         
+        // Python subtraction results:
+        static internal func unboundPythonSubtract(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+            switch lhs.state {
+            case .bound:
+                fatalError("This can never happen.")
+            case .deferredDouble(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return SafePythonObject(floatLiteral: lhsVal - rhsVal)
+                case .deferredInt(let rhsVal):
+                    return SafePythonObject(floatLiteral: lhsVal - Double(rhsVal))
+                case .deferredString(let rhsVal):
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return SafePythonObject(floatLiteral: lhsVal - (rhsVal ? 1.0 : 0.0))
+                }
+            case .deferredInt(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return SafePythonObject(floatLiteral: Double(lhsVal) - rhsVal)
+                case .deferredInt(let rhsVal):
+                    return SafePythonObject(integerLiteral: lhsVal - rhsVal)
+                case .deferredString(let rhsVal):
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return SafePythonObject(integerLiteral: lhsVal - (rhsVal ? 1 : 0))
+                }
+            case .deferredString(let lhsVal):
+                fatalError("Python TypeError")
+            case .deferredBool(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) - rhsVal)
+                case .deferredInt(let rhsVal):
+                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) - rhsVal)
+                case .deferredString(let rhsVal):
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) - (rhsVal ? 1 : 0))
+                }
+            }
+        }
+        
+        internal func divideOperator(dividend: SafePythonConvertible, divisor: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncDivide(dividend: dividend.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
         internal func divideInPlaceOperator(quotientand: SafePythonConvertible, divisor: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
                 return try localInterpreter.assumeIsolated {
                     try $0.syncInPlaceDivide(quotientand: quotientand.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        // Python division results:
+        static internal func unboundPythonDivide(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+            switch lhs.state {
+            case .bound:
+                fatalError("This can never happen.")
+            case .deferredDouble(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return SafePythonObject(floatLiteral: lhsVal / rhsVal)
+                case .deferredInt(let rhsVal):
+                    return SafePythonObject(floatLiteral: lhsVal / Double(rhsVal))
+                case .deferredString(let rhsVal):
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    guard rhsVal else { fatalError("Python Divide By Zero") }
+                    return SafePythonObject(floatLiteral: lhsVal) // n / 1 == n
+                }
+            case .deferredInt(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return SafePythonObject(floatLiteral: Double(lhsVal) / rhsVal)
+                case .deferredInt(let rhsVal):
+                    return SafePythonObject(integerLiteral: lhsVal / rhsVal)
+                case .deferredString(let rhsVal):
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    guard rhsVal else { fatalError("Python Divide By Zero") }
+                    return SafePythonObject(integerLiteral: lhsVal) // n / 1 == n
+                }
+            case .deferredString(let lhsVal):
+                fatalError("Python TypeError")
+            case .deferredBool(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    return SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) / rhsVal)
+                case .deferredInt(let rhsVal):
+                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) / rhsVal)
+                case .deferredString(let rhsVal):
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    guard rhsVal else { fatalError("Python Divide By Zero") }
+                    return SafePythonObject(integerLiteral: lhsVal ? 1 : 0) // n / 1 == n
+                }
+            }
+        }
+        
+        internal func andOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncAnd(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        internal func andInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncInPlaceAnd(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        internal func orOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncOr(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        internal func orInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncInPlaceOr(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        internal func xorOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncXor(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        internal func xorInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncInPlaceXor(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
                 }
             } catch {
                 fatalError("Failed: \(error)")
@@ -959,38 +1126,21 @@ public actor PythonInterpreter {
         return SafePythonObject(interpreter: self, id: sumId)
     }
     
-    internal func syncSubtract(minuend: SafePythonObject, subtrahend: SafePythonObject) throws -> SafePythonObject {
-        guard let pyNumber_Subtract = safeSymbolsCache.PyNumber_Subtract else {
-            throw PythonError.nullPointer("Failed ")
-        }
-        
-        let minuendPtr = getRegisteredPythonObjectPointer(minuend.id)!
-        let subtrahendPtr = getRegisteredPythonObjectPointer(subtrahend.id)!
-        
-        logger.trace("CPyton API call in synchronous mode: PyNumber_Subtract")
-        guard let differencePtr = pyNumber_Subtract(minuendPtr, subtrahendPtr) else {
-            throw PythonError.nullPointer("Python '-' failed")
-        }
-        
-        let differenceId = registerPythonObjectPointer(differencePtr)
-        return SafePythonObject(interpreter: self, id: differenceId)
-    }
-    
-    internal func syncMultiply(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
-        guard let pyMultiply = safeSymbolsCache.PyNumber_Multiply else {
+    internal func syncAnd(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
+        guard let pyAnd = safeSymbolsCache.PyNumber_And else {
             throw PythonError.nullPointer("Failed ")
         }
         
         let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
         let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
         
-        logger.trace("CPyton API call in synchronous mode: PyNumber_Multiply")
-        guard let productPtr = pyMultiply(lhsPtr, rhsPtr) else {
-            throw PythonError.nullPointer("Python '*' failed")
+        logger.trace("CPyton API call in synchronous mode: PyNumber_And")
+        guard let resultPtr = pyAnd(lhsPtr, rhsPtr) else {
+            throw PythonError.nullPointer("Python '&' failed")
         }
         
-        let productId = registerPythonObjectPointer(productPtr)
-        return SafePythonObject(interpreter: self, id: productId)
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
     }
     
     internal func syncDivide(dividend: SafePythonObject, divisor: SafePythonObject) throws -> SafePythonObject {
@@ -1027,21 +1177,38 @@ public actor PythonInterpreter {
         return SafePythonObject(interpreter: self, id: sumId)
     }
     
-    internal func syncInPlaceSubtract(diffend: SafePythonObject, subtrahend: SafePythonObject) throws -> SafePythonObject {
-        guard let pyInPlaceSubtract = safeSymbolsCache.PyNumber_InPlaceSubtract else {
-            throw PythonError.nullPointer("PyNumber_InPlaceSubtract not loaded")
+    internal func syncInPlaceAnd(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
+        guard let pyInPlaceAnd = safeSymbolsCache.PyNumber_InPlaceAnd else {
+            throw PythonError.nullPointer("PyNumber_InPlaceAnd not loaded")
         }
         
-        let diffendPtr = getRegisteredPythonObjectPointer(diffend.id)!
-        let subtrahendPtr = getRegisteredPythonObjectPointer(subtrahend.id)!
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
         
-        logger.trace("CPyton API call in synchronous mode: PyNumber_InPlaceSubtract")
-        guard let differencePtr = pyInPlaceSubtract(diffendPtr, subtrahendPtr) else {
-            throw PythonError.nullPointer("Python '-=' failed")
+        logger.trace("CPyton API call in synchronous mode: PyNumber_InPlaceAnd")
+        guard let resultPtr = pyInPlaceAnd(lhsPtr, rhsPtr) else {
+            throw PythonError.nullPointer("Python '&=' failed")
         }
         
-        let differenceId = registerPythonObjectPointer(differencePtr)
-        return SafePythonObject(interpreter: self, id: differenceId)
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    internal func syncInPlaceDivide(quotientand: SafePythonObject, divisor: SafePythonObject) throws -> SafePythonObject {
+        guard let pyInPlaceDivide = safeSymbolsCache.PyNumber_InPlaceTrueDivide else {
+            throw PythonError.nullPointer("PyNumber_InPlaceTrueDivide not loaded")
+        }
+        
+        let quotientandPtr = getRegisteredPythonObjectPointer(quotientand.id)!
+        let divisorPtr = getRegisteredPythonObjectPointer(divisor.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyNumber_InPlaceTrueDivide")
+        guard let quotientPtr = pyInPlaceDivide(quotientandPtr, divisorPtr) else {
+            throw PythonError.nullPointer("Python '/=' failed")
+        }
+        
+        let quotientId = registerPythonObjectPointer(quotientPtr)
+        return SafePythonObject(interpreter: self, id: quotientId)
     }
     
     internal func syncInPlaceMultiply(productand: SafePythonObject, multiplicand: SafePythonObject) throws -> SafePythonObject {
@@ -1061,21 +1228,123 @@ public actor PythonInterpreter {
         return SafePythonObject(interpreter: self, id: productId)
     }
     
-    internal func syncInPlaceDivide(quotientand: SafePythonObject, divisor: SafePythonObject) throws -> SafePythonObject {
-        guard let pyInPlaceDivide = safeSymbolsCache.PyNumber_InPlaceTrueDivide else {
-            throw PythonError.nullPointer("PyNumber_InPlaceTrueDivide not loaded")
+    internal func syncInPlaceOr(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
+        guard let pyInPlaceOr = safeSymbolsCache.PyNumber_InPlaceOr else {
+            throw PythonError.nullPointer("PyNumber_InPlaceOr not loaded")
         }
         
-        let quotientandPtr = getRegisteredPythonObjectPointer(quotientand.id)!
-        let divisorPtr = getRegisteredPythonObjectPointer(divisor.id)!
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
         
-        logger.trace("CPyton API call in synchronous mode: PyNumber_InPlaceTrueDivide")
-        guard let quotientPtr = pyInPlaceDivide(quotientandPtr, divisorPtr) else {
-            throw PythonError.nullPointer("Python '/=' failed")
+        logger.trace("CPyton API call in synchronous mode: PyNumber_InPlaceOr")
+        guard let resultPtr = pyInPlaceOr(lhsPtr, rhsPtr) else {
+            throw PythonError.nullPointer("Python '|=' failed")
         }
         
-        let quotientId = registerPythonObjectPointer(quotientPtr)
-        return SafePythonObject(interpreter: self, id: quotientId)
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    internal func syncInPlaceSubtract(diffend: SafePythonObject, subtrahend: SafePythonObject) throws -> SafePythonObject {
+        guard let pyInPlaceSubtract = safeSymbolsCache.PyNumber_InPlaceSubtract else {
+            throw PythonError.nullPointer("PyNumber_InPlaceSubtract not loaded")
+        }
+        
+        let diffendPtr = getRegisteredPythonObjectPointer(diffend.id)!
+        let subtrahendPtr = getRegisteredPythonObjectPointer(subtrahend.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyNumber_InPlaceSubtract")
+        guard let differencePtr = pyInPlaceSubtract(diffendPtr, subtrahendPtr) else {
+            throw PythonError.nullPointer("Python '-=' failed")
+        }
+        
+        let differenceId = registerPythonObjectPointer(differencePtr)
+        return SafePythonObject(interpreter: self, id: differenceId)
+    }
+    
+    internal func syncInPlaceXor(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
+        guard let pyInPlaceXor = safeSymbolsCache.PyNumber_InPlaceXor else {
+            throw PythonError.nullPointer("PyNumber_InPlaceXor not loaded")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyNumber_InPlaceXor")
+        guard let resultPtr = pyInPlaceXor(lhsPtr, rhsPtr) else {
+            throw PythonError.nullPointer("Python '^=' failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    internal func syncMultiply(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
+        guard let pyMultiply = safeSymbolsCache.PyNumber_Multiply else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyNumber_Multiply")
+        guard let productPtr = pyMultiply(lhsPtr, rhsPtr) else {
+            throw PythonError.nullPointer("Python '*' failed")
+        }
+        
+        let productId = registerPythonObjectPointer(productPtr)
+        return SafePythonObject(interpreter: self, id: productId)
+    }
+    
+    internal func syncOr(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
+        guard let pyOr = safeSymbolsCache.PyNumber_Or else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyNumber_Or")
+        guard let resultPtr = pyOr(lhsPtr, rhsPtr) else {
+            throw PythonError.nullPointer("Python '|' failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    internal func syncSubtract(minuend: SafePythonObject, subtrahend: SafePythonObject) throws -> SafePythonObject {
+        guard let pyNumber_Subtract = safeSymbolsCache.PyNumber_Subtract else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        
+        let minuendPtr = getRegisteredPythonObjectPointer(minuend.id)!
+        let subtrahendPtr = getRegisteredPythonObjectPointer(subtrahend.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyNumber_Subtract")
+        guard let differencePtr = pyNumber_Subtract(minuendPtr, subtrahendPtr) else {
+            throw PythonError.nullPointer("Python '-' failed")
+        }
+        
+        let differenceId = registerPythonObjectPointer(differencePtr)
+        return SafePythonObject(interpreter: self, id: differenceId)
+    }
+    
+    internal func syncXor(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
+        guard let pyXor = safeSymbolsCache.PyNumber_Xor else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyNumber_Xor")
+        guard let resultPtr = pyXor(lhsPtr, rhsPtr) else {
+            throw PythonError.nullPointer("Python '^' failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
     }
 }
 
