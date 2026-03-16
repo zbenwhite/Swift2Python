@@ -568,7 +568,7 @@ public actor PythonInterpreter {
                     return SafePythonObject(floatLiteral: lhsVal + rhsVal)
                 case .deferredInt(let rhsVal):
                     return SafePythonObject(floatLiteral: lhsVal + Double(rhsVal))
-                case .deferredString(let rhsVal):
+                case .deferredString:
                     fatalError("Python TypeError")
                 case .deferredBool(let rhsVal):
                     return SafePythonObject(floatLiteral: lhsVal + (rhsVal ? 1.0 : 0.0))
@@ -581,7 +581,7 @@ public actor PythonInterpreter {
                     return SafePythonObject(floatLiteral: Double(lhsVal) + rhsVal)
                 case .deferredInt(let rhsVal):
                     return SafePythonObject(integerLiteral: lhsVal + rhsVal)
-                case .deferredString(let rhsVal):
+                case .deferredString:
                     fatalError("Python TypeError")
                 case .deferredBool(let rhsVal):
                     return SafePythonObject(integerLiteral: lhsVal + (rhsVal ? 1 : 0))
@@ -590,13 +590,13 @@ public actor PythonInterpreter {
                 switch rhs.state {
                 case .bound:
                     fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
+                case .deferredDouble:
                     fatalError("Python TypeError")
-                case .deferredInt(let rhsVal):
+                case .deferredInt:
                     fatalError("Python TypeError")
                 case .deferredString(let rhsVal):
                     return SafePythonObject(stringLiteral: lhsVal + rhsVal)
-                case .deferredBool(let rhsVal):
+                case .deferredBool:
                     fatalError("Python TypeError")
                 }
             case .deferredBool(let lhsVal):
@@ -607,7 +607,7 @@ public actor PythonInterpreter {
                     return SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) + rhsVal)
                 case .deferredInt(let rhsVal):
                     return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) + rhsVal)
-                case .deferredString(let rhsVal):
+                case .deferredString:
                     fatalError("Python TypeError")
                 case .deferredBool(let rhsVal):
                     return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) + (rhsVal ? 1 : 0))
@@ -650,7 +650,7 @@ public actor PythonInterpreter {
                     return SafePythonObject(floatLiteral: lhsVal * rhsVal)
                 case .deferredInt(let rhsVal):
                     return SafePythonObject(floatLiteral: lhsVal * Double(rhsVal))
-                case .deferredString(let rhsVal):
+                case .deferredString:
                     fatalError("Python TypeError")
                 case .deferredBool(let rhsVal):
                     return SafePythonObject(floatLiteral: lhsVal * (rhsVal ? 1.0 : 0.0))
@@ -672,11 +672,11 @@ public actor PythonInterpreter {
                 switch rhs.state {
                 case .bound:
                     fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
+                case .deferredDouble:
                     fatalError("Python TypeError")
                 case .deferredInt(let rhsVal):
                     return (rhsVal < 1) ? SafePythonObject(stringLiteral: "") : SafePythonObject(stringLiteral: String(repeating: lhsVal, count: rhsVal))
-                case .deferredString(let rhsVal):
+                case .deferredString:
                     fatalError("Python TypeError")
                 case .deferredBool(let rhsVal):
                     return rhsVal ? SafePythonObject(stringLiteral: lhsVal) : SafePythonObject(stringLiteral: "")
@@ -732,7 +732,7 @@ public actor PythonInterpreter {
                     return SafePythonObject(floatLiteral: lhsVal - rhsVal)
                 case .deferredInt(let rhsVal):
                     return SafePythonObject(floatLiteral: lhsVal - Double(rhsVal))
-                case .deferredString(let rhsVal):
+                case .deferredString:
                     fatalError("Python TypeError")
                 case .deferredBool(let rhsVal):
                     return SafePythonObject(floatLiteral: lhsVal - (rhsVal ? 1.0 : 0.0))
@@ -745,12 +745,12 @@ public actor PythonInterpreter {
                     return SafePythonObject(floatLiteral: Double(lhsVal) - rhsVal)
                 case .deferredInt(let rhsVal):
                     return SafePythonObject(integerLiteral: lhsVal - rhsVal)
-                case .deferredString(let rhsVal):
+                case .deferredString:
                     fatalError("Python TypeError")
                 case .deferredBool(let rhsVal):
                     return SafePythonObject(integerLiteral: lhsVal - (rhsVal ? 1 : 0))
                 }
-            case .deferredString(let lhsVal):
+            case .deferredString:
                 fatalError("Python TypeError")
             case .deferredBool(let lhsVal):
                 switch rhs.state {
@@ -760,7 +760,7 @@ public actor PythonInterpreter {
                     return SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) - rhsVal)
                 case .deferredInt(let rhsVal):
                     return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) - rhsVal)
-                case .deferredString(let rhsVal):
+                case .deferredString:
                     fatalError("Python TypeError")
                 case .deferredBool(let rhsVal):
                     return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) - (rhsVal ? 1 : 0))
@@ -805,7 +805,7 @@ public actor PythonInterpreter {
                 case .deferredInt(let rhsVal):
                     guard rhsVal != 0 else { fatalError("Python Divide By Zero") }
                     return SafePythonObject(floatLiteral: lhsVal / Double(rhsVal))
-                case .deferredString(let rhsVal):
+                case .deferredString:
                     fatalError("Python TypeError")
                 case .deferredBool(let rhsVal):
                     guard rhsVal else { fatalError("Python Divide By Zero") }
@@ -821,13 +821,13 @@ public actor PythonInterpreter {
                 case .deferredInt(let rhsVal):
                     guard rhsVal != 0 else { fatalError("Python Divide By Zero") }
                     return SafePythonObject(floatLiteral: Double(lhsVal) / Double(rhsVal))   // Python division always return floating point
-                case .deferredString(let rhsVal):
+                case .deferredString:
                     fatalError("Python TypeError")
                 case .deferredBool(let rhsVal):
                     guard rhsVal else { fatalError("Python Divide By Zero") }
                     return SafePythonObject(floatLiteral: Double(lhsVal)) // n / 1 == n
                 }
-            case .deferredString(let lhsVal):
+            case .deferredString:
                 fatalError("Python TypeError")
             case .deferredBool(let lhsVal):
                 switch rhs.state {
@@ -839,7 +839,7 @@ public actor PythonInterpreter {
                 case .deferredInt(let rhsVal):
                     guard rhsVal != 0 else { fatalError("Python Divide By Zero") }
                     return SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) / Double(rhsVal))    // Python division always return floating point
-                case .deferredString(let rhsVal):
+                case .deferredString:
                     fatalError("Python TypeError")
                 case .deferredBool(let rhsVal):
                     guard rhsVal else { fatalError("Python Divide By Zero") }
@@ -914,6 +914,28 @@ public actor PythonInterpreter {
             }
         }
         
+        internal func doubleEqualsEquatableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncDoubleEqualsEquatable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        internal func doubleEqualsOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncDoubleEquals(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
         static internal func unboundPythonDoubleEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
             SafePythonObject(booleanLiteral: unboundPythonDoubleEqualsEquatable(lhs: lhs, rhs: rhs))
         }
@@ -978,6 +1000,28 @@ public actor PythonInterpreter {
                 case .deferredBool(let rhsVal):
                     return lhsVal == rhsVal
                 }
+            }
+        }
+        
+        internal func notEqualsEquatableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncNotEqualsEquatable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        internal func notEqualsOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncNotEquals(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
             }
         }
         
@@ -1048,11 +1092,33 @@ public actor PythonInterpreter {
             }
         }
         
+        internal func lessThanComparableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncLessThanComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        internal func lessThanOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncLessThan(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
         static internal func unboundPythonLessThan(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            SafePythonObject(booleanLiteral: unboundPythonLessThanEquatable(lhs: lhs, rhs: rhs))
+            SafePythonObject(booleanLiteral: unboundPythonLessThanComparable(lhs: lhs, rhs: rhs))
         }
 
-        static internal func unboundPythonLessThanEquatable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+        static internal func unboundPythonLessThanComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
             switch lhs.state {
             case .bound:
                 fatalError("This can never happen.")
@@ -1115,11 +1181,33 @@ public actor PythonInterpreter {
             }
         }
         
+        internal func lessThanOrEqualComparableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncLessThanOrEqualComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        internal func lessThanOrEqualOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncLessThanOrEqual(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
         static internal func unboundPythonLessThanOrEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            SafePythonObject(booleanLiteral: unboundPythonLessThanOrEqualsEquatable(lhs: lhs, rhs: rhs))
+            SafePythonObject(booleanLiteral: unboundPythonLessThanOrEqualsComparable(lhs: lhs, rhs: rhs))
         }
 
-        static internal func unboundPythonLessThanOrEqualsEquatable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+        static internal func unboundPythonLessThanOrEqualsComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
             switch lhs.state {
             case .bound:
                 fatalError("This can never happen.")
@@ -1182,11 +1270,33 @@ public actor PythonInterpreter {
             }
         }
         
+        internal func greaterThanComparableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncGreaterThanComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        internal func greaterThanOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncGreaterThan(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
         static internal func unboundPythonGreaterThan(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            SafePythonObject(booleanLiteral: unboundPythonGreaterThanEquatable(lhs: lhs, rhs: rhs))
+            SafePythonObject(booleanLiteral: unboundPythonGreaterThanComparable(lhs: lhs, rhs: rhs))
         }
 
-        static internal func unboundPythonGreaterThanEquatable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+        static internal func unboundPythonGreaterThanComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
             switch lhs.state {
             case .bound:
                 fatalError("This can never happen.")
@@ -1249,11 +1359,33 @@ public actor PythonInterpreter {
             }
         }
         
+        internal func greaterThanOrEqualComparableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncGreaterThanOrEqualComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        internal func greaterThanOrEqualOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncGreaterThanOrEqual(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
         static internal func unboundPythonGreaterThanOrEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            SafePythonObject(booleanLiteral: unboundPythonGreaterThanOrEqualsEquatable(lhs: lhs, rhs: rhs))
+            SafePythonObject(booleanLiteral: unboundPythonGreaterThanOrEqualsComparable(lhs: lhs, rhs: rhs))
         }
 
-        static internal func unboundPythonGreaterThanOrEqualsEquatable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+        static internal func unboundPythonGreaterThanOrEqualsComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
             switch lhs.state {
             case .bound:
                 fatalError("This can never happen.")
@@ -1322,6 +1454,27 @@ public actor PythonInterpreter {
     // No asynchronous loading of symbols, so they all need to be preloaded
     // at the beginning of synchronous mode.  They only load the first time
     // and are cached after that.
+    
+    public enum PythonRichCompareOp: CInt {
+        case lessThan           = 0     // Py_LT   →  <
+        case lessThanOrEqual    = 1     // Py_LE   →  <=
+        case equal              = 2     // Py_EQ   →  ==
+        case notEqual           = 3     // Py_NE   →  !=
+        case greaterThan        = 4     // Py_GT   →  >
+        case greaterThanOrEqual = 5     // Py_GE   →  >=
+        
+        /// The integer value expected by the Python C API.
+        public var rawValue: CInt {
+            switch self {
+            case .lessThan:           return 0
+            case .lessThanOrEqual:    return 1
+            case .equal:              return 2
+            case .notEqual:           return 3
+            case .greaterThan:        return 4
+            case .greaterThanOrEqual: return 5
+            }
+        }
+    }
     
     struct SafePythonCSymbols {
         var PyBool_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)?
@@ -1569,6 +1722,108 @@ public actor PythonInterpreter {
         return SafePythonObject(interpreter: self, id: quotientId)
     }
     
+    internal func syncDoubleEquals(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
+        guard let pyObject_RichCompare = safeSymbolsCache.PyObject_RichCompare else {
+            throw PythonError.nullPointer("PyObject_RichCompare not loaded")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyObject_RichCompare")
+        guard let resultPtr = pyObject_RichCompare(lhsPtr, rhsPtr, PythonRichCompareOp.equal.rawValue) else {
+            throw PythonError.nullPointer("Python '==' failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    internal func syncDoubleEqualsEquatable(lhs: SafePythonObject, rhs: SafePythonObject) throws -> Bool {
+        guard let pyObject_RichCompareBool = safeSymbolsCache.PyObject_RichCompareBool else {
+            throw PythonError.nullPointer("PyObject_RichCompareBool not loaded")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyObject_RichCompareBool")
+        
+        switch pyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.equal.rawValue) {
+        case 0: return false
+        case 1: return true
+        default: fatalError("Placeholder")
+        }
+    }
+    
+    internal func syncGreaterThan(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
+        guard let pyObject_RichCompare = safeSymbolsCache.PyObject_RichCompare else {
+            throw PythonError.nullPointer("PyObject_RichCompare not loaded")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyObject_RichCompare")
+        guard let resultPtr = pyObject_RichCompare(lhsPtr, rhsPtr, PythonRichCompareOp.greaterThan.rawValue) else {
+            throw PythonError.nullPointer("Python '>' failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    internal func syncGreaterThanComparable(lhs: SafePythonObject, rhs: SafePythonObject) throws -> Bool {
+        guard let pyObject_RichCompareBool = safeSymbolsCache.PyObject_RichCompareBool else {
+            throw PythonError.nullPointer("PyObject_RichCompareBool not loaded")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyObject_RichCompareBool")
+        
+        switch pyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.greaterThan.rawValue) {
+        case 0: return false
+        case 1: return true
+        default: fatalError("Placeholder")
+        }
+    }
+    
+    internal func syncGreaterThanOrEqual(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
+        guard let pyObject_RichCompare = safeSymbolsCache.PyObject_RichCompare else {
+            throw PythonError.nullPointer("PyObject_RichCompare not loaded")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyObject_RichCompare")
+        guard let resultPtr = pyObject_RichCompare(lhsPtr, rhsPtr, PythonRichCompareOp.greaterThanOrEqual.rawValue) else {
+            throw PythonError.nullPointer("Python '>=' failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    internal func syncGreaterThanOrEqualComparable(lhs: SafePythonObject, rhs: SafePythonObject) throws -> Bool {
+        guard let pyObject_RichCompareBool = safeSymbolsCache.PyObject_RichCompareBool else {
+            throw PythonError.nullPointer("PyObject_RichCompareBool not loaded")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyObject_RichCompareBool")
+        
+        switch pyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.greaterThanOrEqual.rawValue) {
+        case 0: return false
+        case 1: return true
+        default: fatalError("Placeholder")
+        }
+    }
+    
     internal func syncInPlaceAdd(sumend: SafePythonObject, addend: SafePythonObject) throws -> SafePythonObject {
         guard let pyInPlaceAdd = safeSymbolsCache.PyNumber_InPlaceAdd else {
             throw PythonError.nullPointer("PyNumber_InPlaceAdd not loaded")
@@ -1688,6 +1943,74 @@ public actor PythonInterpreter {
         return SafePythonObject(interpreter: self, id: resultId)
     }
     
+    internal func syncLessThan(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
+        guard let pyObject_RichCompare = safeSymbolsCache.PyObject_RichCompare else {
+            throw PythonError.nullPointer("PyObject_RichCompare not loaded")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyObject_RichCompare")
+        guard let resultPtr = pyObject_RichCompare(lhsPtr, rhsPtr, PythonRichCompareOp.lessThan.rawValue) else {
+            throw PythonError.nullPointer("Python '<' failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    internal func syncLessThanComparable(lhs: SafePythonObject, rhs: SafePythonObject) throws -> Bool {
+        guard let pyObject_RichCompareBool = safeSymbolsCache.PyObject_RichCompareBool else {
+            throw PythonError.nullPointer("PyObject_RichCompareBool not loaded")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyObject_RichCompareBool")
+        
+        switch pyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.lessThan.rawValue) {
+        case 0: return false
+        case 1: return true
+        default: fatalError("Placeholder")
+        }
+    }
+    
+    internal func syncLessThanOrEqual(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
+        guard let pyObject_RichCompare = safeSymbolsCache.PyObject_RichCompare else {
+            throw PythonError.nullPointer("PyObject_RichCompare not loaded")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyObject_RichCompare")
+        guard let resultPtr = pyObject_RichCompare(lhsPtr, rhsPtr, PythonRichCompareOp.lessThanOrEqual.rawValue) else {
+            throw PythonError.nullPointer("Python '<=' failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    internal func syncLessThanOrEqualComparable(lhs: SafePythonObject, rhs: SafePythonObject) throws -> Bool {
+        guard let pyObject_RichCompareBool = safeSymbolsCache.PyObject_RichCompareBool else {
+            throw PythonError.nullPointer("PyObject_RichCompareBool not loaded")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyObject_RichCompareBool")
+        
+        switch pyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.lessThanOrEqual.rawValue) {
+        case 0: return false
+        case 1: return true
+        default: fatalError("Placeholder")
+        }
+    }
+    
     internal func syncMultiply(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
         guard let pyMultiply = safeSymbolsCache.PyNumber_Multiply else {
             throw PythonError.nullPointer("Failed ")
@@ -1703,6 +2026,40 @@ public actor PythonInterpreter {
         
         let productId = registerPythonObjectPointer(productPtr)
         return SafePythonObject(interpreter: self, id: productId)
+    }
+    
+    internal func syncNotEquals(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
+        guard let pyObject_RichCompare = safeSymbolsCache.PyObject_RichCompare else {
+            throw PythonError.nullPointer("PyObject_RichCompare not loaded")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyObject_RichCompare")
+        guard let resultPtr = pyObject_RichCompare(lhsPtr, rhsPtr, PythonRichCompareOp.notEqual.rawValue) else {
+            throw PythonError.nullPointer("Python '!=' failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    internal func syncNotEqualsEquatable(lhs: SafePythonObject, rhs: SafePythonObject) throws -> Bool {
+        guard let pyObject_RichCompareBool = safeSymbolsCache.PyObject_RichCompareBool else {
+            throw PythonError.nullPointer("PyObject_RichCompareBool not loaded")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyObject_RichCompareBool")
+        
+        switch pyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.notEqual.rawValue) {
+        case 0: return false
+        case 1: return true
+        default: fatalError("Placeholder")
+        }
     }
     
     internal func syncOr(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
