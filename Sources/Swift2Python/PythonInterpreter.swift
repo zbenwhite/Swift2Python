@@ -531,6 +531,7 @@ public actor PythonInterpreter {
         
         // MARK: SafePythonObject Operator support
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func addOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
@@ -542,6 +543,7 @@ public actor PythonInterpreter {
             }
         }
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func addInPlaceOperator(sumend: SafePythonConvertible, addend: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
@@ -615,6 +617,7 @@ public actor PythonInterpreter {
             }
         }
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func multiplyOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
@@ -626,6 +629,7 @@ public actor PythonInterpreter {
             }
         }
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func multiplyInPlaceOperator(productand: SafePythonConvertible, multiplicand: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
@@ -697,6 +701,7 @@ public actor PythonInterpreter {
             }
         }
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func subtractOperator(minuend: SafePythonConvertible, subtrahend: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
@@ -708,6 +713,7 @@ public actor PythonInterpreter {
             }
         }
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func subtractInPlaceOperator(diffend: SafePythonConvertible, subtrahend: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
@@ -768,6 +774,7 @@ public actor PythonInterpreter {
             }
         }
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func divideOperator(dividend: SafePythonConvertible, divisor: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
@@ -779,6 +786,7 @@ public actor PythonInterpreter {
             }
         }
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func divideInPlaceOperator(quotientand: SafePythonConvertible, divisor: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
@@ -848,72 +856,193 @@ public actor PythonInterpreter {
             }
         }
         
-        internal func andOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        internal func bitwiseAndOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
                 return try localInterpreter.assumeIsolated {
-                    try $0.syncAnd(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
+                    try $0.syncBitwiseAnd(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
                 }
             } catch {
                 fatalError("Failed: \(error)")
             }
         }
         
-        internal func andInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        internal func bitwiseAndInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
                 return try localInterpreter.assumeIsolated {
-                    try $0.syncInPlaceAnd(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
+                    try $0.syncInPlaceBitwiseAnd(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
                 }
             } catch {
                 fatalError("Failed: \(error)")
             }
         }
         
-        internal func orOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+        // Python bitwise AND results:
+        static internal func unboundPythonBitwiseAnd(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+            switch lhs.state {
+            case .bound:
+                fatalError("This can never happen.")
+            case .deferredDouble(let lhsVal):
+                fatalError("Python TypeError")
+            case .deferredInt(let lhsVal):
+                    switch rhs.state {
+                    case .bound:
+                        fatalError("This can never happen.")
+                    case .deferredDouble:
+                        fatalError("Python TypeError")
+                    case .deferredInt(let rhsVal):
+                        return SafePythonObject(integerLiteral: lhsVal & rhsVal)
+                    case .deferredString:
+                        fatalError("Python TypeError")
+                    case .deferredBool(let rhsVal):
+                        return SafePythonObject(integerLiteral: lhsVal & (rhsVal ? 1 : 0))
+                    }
+            case .deferredString:
+                fatalError("Python TypeError")
+            case .deferredBool(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    fatalError("Python TypeError")
+                case .deferredInt(let rhsVal):
+                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) & rhsVal)
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) & (rhsVal ? 1 : 0))
+                }
+            }
+        }
+        
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        internal func bitwiseOrOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
                 return try localInterpreter.assumeIsolated {
-                    try $0.syncOr(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
+                    try $0.syncBitwiseOr(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
                 }
             } catch {
                 fatalError("Failed: \(error)")
             }
         }
         
-        internal func orInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        internal func bitwiseOrInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
                 return try localInterpreter.assumeIsolated {
-                    try $0.syncInPlaceOr(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
+                    try $0.syncInPlaceBitwiseOr(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
                 }
             } catch {
                 fatalError("Failed: \(error)")
             }
         }
         
-        internal func xorOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+        // Python bitwise OR results:
+        static internal func unboundPythonBitwiseOr(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+            switch lhs.state {
+            case .bound:
+                fatalError("This can never happen.")
+            case .deferredDouble(let lhsVal):
+                fatalError("Python TypeError")
+            case .deferredInt(let lhsVal):
+                    switch rhs.state {
+                    case .bound:
+                        fatalError("This can never happen.")
+                    case .deferredDouble:
+                        fatalError("Python TypeError")
+                    case .deferredInt(let rhsVal):
+                        return SafePythonObject(integerLiteral: lhsVal | rhsVal)
+                    case .deferredString:
+                        fatalError("Python TypeError")
+                    case .deferredBool(let rhsVal):
+                        return SafePythonObject(integerLiteral: lhsVal | (rhsVal ? 1 : 0))
+                    }
+            case .deferredString:
+                fatalError("Python TypeError")
+            case .deferredBool(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    fatalError("Python TypeError")
+                case .deferredInt(let rhsVal):
+                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) | rhsVal)
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) | (rhsVal ? 1 : 0))
+                }
+            }
+        }
+        
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        internal func bitwiseXorOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
                 return try localInterpreter.assumeIsolated {
-                    try $0.syncXor(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
+                    try $0.syncBitwiseXor(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
                 }
             } catch {
                 fatalError("Failed: \(error)")
             }
         }
         
-        internal func xorInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        internal func bitwiseXorInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
                 return try localInterpreter.assumeIsolated {
-                    try $0.syncInPlaceXor(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
+                    try $0.syncInPlaceBitwiseXor(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
                 }
             } catch {
                 fatalError("Failed: \(error)")
             }
         }
         
+        // Python bitwise XOR results:
+        static internal func unboundPythonBitwiseXor(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+            switch lhs.state {
+            case .bound:
+                fatalError("This can never happen.")
+            case .deferredDouble(let lhsVal):
+                fatalError("Python TypeError")
+            case .deferredInt(let lhsVal):
+                    switch rhs.state {
+                    case .bound:
+                        fatalError("This can never happen.")
+                    case .deferredDouble:
+                        fatalError("Python TypeError")
+                    case .deferredInt(let rhsVal):
+                        return SafePythonObject(integerLiteral: lhsVal ^ rhsVal)
+                    case .deferredString:
+                        fatalError("Python TypeError")
+                    case .deferredBool(let rhsVal):
+                        return SafePythonObject(integerLiteral: lhsVal ^ (rhsVal ? 1 : 0))
+                    }
+            case .deferredString:
+                fatalError("Python TypeError")
+            case .deferredBool(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble(let rhsVal):
+                    fatalError("Python TypeError")
+                case .deferredInt(let rhsVal):
+                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) ^ rhsVal)
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) ^ (rhsVal ? 1 : 0))
+                }
+            }
+        }
+        
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func doubleEqualsEquatableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
             do {
                 let localInterpreter = interpreter
@@ -925,6 +1054,7 @@ public actor PythonInterpreter {
             }
         }
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func doubleEqualsOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
@@ -936,6 +1066,7 @@ public actor PythonInterpreter {
             }
         }
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         static internal func unboundPythonDoubleEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
             SafePythonObject(booleanLiteral: unboundPythonDoubleEqualsEquatable(lhs: lhs, rhs: rhs))
         }
@@ -1003,6 +1134,7 @@ public actor PythonInterpreter {
             }
         }
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func notEqualsEquatableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
             do {
                 let localInterpreter = interpreter
@@ -1014,6 +1146,7 @@ public actor PythonInterpreter {
             }
         }
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func notEqualsOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
@@ -1092,6 +1225,7 @@ public actor PythonInterpreter {
             }
         }
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func lessThanComparableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
             do {
                 let localInterpreter = interpreter
@@ -1103,6 +1237,7 @@ public actor PythonInterpreter {
             }
         }
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func lessThanOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
@@ -1181,6 +1316,7 @@ public actor PythonInterpreter {
             }
         }
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func lessThanOrEqualComparableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
             do {
                 let localInterpreter = interpreter
@@ -1192,6 +1328,7 @@ public actor PythonInterpreter {
             }
         }
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func lessThanOrEqualOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
@@ -1270,6 +1407,7 @@ public actor PythonInterpreter {
             }
         }
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func greaterThanComparableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
             do {
                 let localInterpreter = interpreter
@@ -1281,6 +1419,7 @@ public actor PythonInterpreter {
             }
         }
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func greaterThanOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
@@ -1359,6 +1498,7 @@ public actor PythonInterpreter {
             }
         }
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func greaterThanOrEqualComparableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
             do {
                 let localInterpreter = interpreter
@@ -1370,6 +1510,7 @@ public actor PythonInterpreter {
             }
         }
         
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func greaterThanOrEqualOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
@@ -1478,6 +1619,8 @@ public actor PythonInterpreter {
     
     struct SafePythonCSymbols {
         var PyBool_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)?
+        var PyImport_AddModule: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?)?
+        var PyImport_ImportModule: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?)?
         var PyFloat_FromDouble: (@convention(c) (Double) -> UnsafeMutableRawPointer?)?
         var PyLong_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)?
         var PyNumber_Add: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
@@ -1494,6 +1637,7 @@ public actor PythonInterpreter {
         var PyNumber_Subtract: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyNumber_TrueDivide: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyNumber_Xor: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
+        var PyObject_Call: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?)?
         var PyObject_GetAttrString: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?)?
         var PyObject_RichCompare: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, Int32) -> UnsafeMutableRawPointer?)?
         var PyObject_RichCompareBool: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, Int32) -> Int32)?
@@ -1509,6 +1653,10 @@ public actor PythonInterpreter {
         guard safeSymbolsCache.PyRun_SimpleString == nil else { return }
         safeSymbolsCache.PyBool_FromLong = try await runtime.loadSendableSymbol("PyBool_FromLong",
                     as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyImport_AddModule = try await runtime.loadSendableSymbol("PyImport_AddModule",
+                    as: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyImport_ImportModule = try await runtime.loadSendableSymbol("PyImport_ImportModule",
+                    as: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyFloat_FromDouble = try await runtime.loadSendableSymbol("PyFloat_FromDouble",
                     as: (@convention(c) (Double) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyLong_FromLong = try await runtime.loadSendableSymbol("PyLong_FromLong",
@@ -1543,6 +1691,8 @@ public actor PythonInterpreter {
                     as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyRun_SimpleString = try await runtime.loadSendableSymbol("PyRun_SimpleString",
                     as: (@convention(c) (UnsafePointer<CChar>) -> Int32).self).function
+        safeSymbolsCache.PyObject_Call = try await runtime.loadSendableSymbol("PyObject_Call",
+                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyObject_GetAttrString = try await runtime.loadSendableSymbol("PyObject_GetAttrString",
                     as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyObject_RichCompare = try await runtime.loadSendableSymbol("PyObject_RichCompare",
@@ -1555,8 +1705,89 @@ public actor PythonInterpreter {
                     as: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?).self).function
     }
     
+    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
     public func bind(_ obj: PythonObject) -> PythonInterpreter.SafePythonObject {
         return SafePythonObject(interpreter: self, id: obj.id)
+    }
+    
+    // MARK: Module Import (synchronous mode)
+    // Primitive type conversions in synchronous mode ----------
+    
+    /// Synchronous overload of `import` — **only** call this inside `withIsolatedContext`.
+    /// It returns a `SafePythonObject` that supports the full synchronous operator / subscript / attribute API.
+    ///
+    /// Example:
+    /// ```swift
+    /// try await interpreter.withIsolatedContext { iso in
+    ///     let np = try iso.`import`("numpy", as: "np")
+    ///     let arr = try np.array([1, 2, 3])   // synchronous call
+    ///     np.pi = 3.14                        // synchronous attribute set
+    /// }
+    /// ```
+    @available(*, noasync,
+                message: "Use the async version `try await interpreter.import(...)` outside of withIsolatedContext. This synchronous version is only safe inside withIsolatedContext.")
+    public func `import`(_ name: String, as alias: String? = nil) throws -> SafePythonObject {
+        if let alias = alias {
+            return try syncImportWithAlias(name, alias: alias)
+        } else {
+            return try syncImportStandard(name)
+        }
+    }
+    
+    private func syncImportStandard(_ name: String) throws -> SafePythonObject {
+        logger.trace("CPyton API call in synchronous mode: PyImport_ImportModule")
+        guard let pyImport = safeSymbolsCache.PyImport_ImportModule else {
+            throw PythonError.nullPointer("PyImport_ImportModule symbol not loaded (ensureSymbolsLoaded was not called)")
+        }
+        
+        guard let ptr = name.withCString({ pyImport($0) }) else {
+            throw PythonError.nullPointer("Failed to import module: \(name)")
+        }
+        
+        let id = registerPythonObjectPointer(ptr)
+        return SafePythonObject(interpreter: self, id: id)
+    }
+    
+    private func syncGetFromMain(_ attrName: String) throws -> SafePythonObject {
+        logger.trace("Synchronous getFromMain")
+        
+        logger.trace("CPyton API call in synchronous mode: PyImport_AddModule")
+        guard let pyAdd = safeSymbolsCache.PyImport_AddModule else {
+            throw PythonError.nullPointer("PyImport_AddModule symbol not loaded")
+        }
+        guard let mainModulePtr = "__main__".withCString({ pyAdd($0) }) else {
+            throw PythonError.nullPointer("Could not access Python __main__ module")
+        }
+        
+        logger.trace("CPyton API call in synchronous mode: PyObject_GetAttrString")
+        guard let getAttr = safeSymbolsCache.PyObject_GetAttrString else {
+            throw PythonError.nullPointer("PyObject_GetAttrString symbol not loaded")
+        }
+        guard let aliasPtr = attrName.withCString({ getAttr(mainModulePtr, $0) }) else {
+            throw PythonError.nullPointer("Alias '\(attrName)' not found in Python scope")
+        }
+        
+        let id = registerPythonObjectPointer(aliasPtr)
+        return SafePythonObject(interpreter: self, id: id)
+    }
+    
+    private func syncImportWithAlias(_ name: String, alias: String) throws -> SafePythonObject {
+        logger.trace("Synchronous importWithAlias")
+        
+        // 1. Execute "import name as alias"
+        let command = "import \(name) as \(alias)"
+        logger.trace("CPyton API call in synchronous mode: PyRun_SimpleString")
+        guard let pyRun = safeSymbolsCache.PyRun_SimpleString else {
+            throw PythonError.nullPointer("PyRun_SimpleString symbol not loaded")
+        }
+        let result = command.withCString { pyRun($0) }
+        
+        guard result == 0 else {
+            throw PythonError.stringConversionFailed("Python execution failed for: \(command)")
+        }
+        
+        // 2. Retrieve the alias from __main__
+        return try syncGetFromMain(alias)
     }
     
     // MARK: Conversions from primitives (synchronous mode)
@@ -1688,7 +1919,7 @@ public actor PythonInterpreter {
         return SafePythonObject(interpreter: self, id: sumId)
     }
     
-    internal func syncAnd(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
+    internal func syncBitwiseAnd(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
         guard let pyAnd = safeSymbolsCache.PyNumber_And else {
             throw PythonError.nullPointer("Failed ")
         }
@@ -1699,6 +1930,40 @@ public actor PythonInterpreter {
         logger.trace("CPyton API call in synchronous mode: PyNumber_And")
         guard let resultPtr = pyAnd(lhsPtr, rhsPtr) else {
             throw PythonError.nullPointer("Python '&' failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    internal func syncBitwiseOr(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
+        guard let pyOr = safeSymbolsCache.PyNumber_Or else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyNumber_Or")
+        guard let resultPtr = pyOr(lhsPtr, rhsPtr) else {
+            throw PythonError.nullPointer("Python '|' failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    internal func syncBitwiseXor(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
+        guard let pyXor = safeSymbolsCache.PyNumber_Xor else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyNumber_Xor")
+        guard let resultPtr = pyXor(lhsPtr, rhsPtr) else {
+            throw PythonError.nullPointer("Python '^' failed")
         }
         
         let resultId = registerPythonObjectPointer(resultPtr)
@@ -1841,7 +2106,7 @@ public actor PythonInterpreter {
         return SafePythonObject(interpreter: self, id: sumId)
     }
     
-    internal func syncInPlaceAnd(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
+    internal func syncInPlaceBitwiseAnd(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
         guard let pyInPlaceAnd = safeSymbolsCache.PyNumber_InPlaceAnd else {
             throw PythonError.nullPointer("PyNumber_InPlaceAnd not loaded")
         }
@@ -1852,6 +2117,40 @@ public actor PythonInterpreter {
         logger.trace("CPyton API call in synchronous mode: PyNumber_InPlaceAnd")
         guard let resultPtr = pyInPlaceAnd(lhsPtr, rhsPtr) else {
             throw PythonError.nullPointer("Python '&=' failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    internal func syncInPlaceBitwiseOr(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
+        guard let pyInPlaceOr = safeSymbolsCache.PyNumber_InPlaceOr else {
+            throw PythonError.nullPointer("PyNumber_InPlaceOr not loaded")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyNumber_InPlaceOr")
+        guard let resultPtr = pyInPlaceOr(lhsPtr, rhsPtr) else {
+            throw PythonError.nullPointer("Python '|=' failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    internal func syncInPlaceBitwiseXor(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
+        guard let pyInPlaceXor = safeSymbolsCache.PyNumber_InPlaceXor else {
+            throw PythonError.nullPointer("PyNumber_InPlaceXor not loaded")
+        }
+        
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyNumber_InPlaceXor")
+        guard let resultPtr = pyInPlaceXor(lhsPtr, rhsPtr) else {
+            throw PythonError.nullPointer("Python '^=' failed")
         }
         
         let resultId = registerPythonObjectPointer(resultPtr)
@@ -1892,23 +2191,6 @@ public actor PythonInterpreter {
         return SafePythonObject(interpreter: self, id: productId)
     }
     
-    internal func syncInPlaceOr(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
-        guard let pyInPlaceOr = safeSymbolsCache.PyNumber_InPlaceOr else {
-            throw PythonError.nullPointer("PyNumber_InPlaceOr not loaded")
-        }
-        
-        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
-        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
-        
-        logger.trace("CPyton API call in synchronous mode: PyNumber_InPlaceOr")
-        guard let resultPtr = pyInPlaceOr(lhsPtr, rhsPtr) else {
-            throw PythonError.nullPointer("Python '|=' failed")
-        }
-        
-        let resultId = registerPythonObjectPointer(resultPtr)
-        return SafePythonObject(interpreter: self, id: resultId)
-    }
-    
     internal func syncInPlaceSubtract(diffend: SafePythonObject, subtrahend: SafePythonObject) throws -> SafePythonObject {
         guard let pyInPlaceSubtract = safeSymbolsCache.PyNumber_InPlaceSubtract else {
             throw PythonError.nullPointer("PyNumber_InPlaceSubtract not loaded")
@@ -1924,23 +2206,6 @@ public actor PythonInterpreter {
         
         let differenceId = registerPythonObjectPointer(differencePtr)
         return SafePythonObject(interpreter: self, id: differenceId)
-    }
-    
-    internal func syncInPlaceXor(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
-        guard let pyInPlaceXor = safeSymbolsCache.PyNumber_InPlaceXor else {
-            throw PythonError.nullPointer("PyNumber_InPlaceXor not loaded")
-        }
-        
-        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
-        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
-        
-        logger.trace("CPyton API call in synchronous mode: PyNumber_InPlaceXor")
-        guard let resultPtr = pyInPlaceXor(lhsPtr, rhsPtr) else {
-            throw PythonError.nullPointer("Python '^=' failed")
-        }
-        
-        let resultId = registerPythonObjectPointer(resultPtr)
-        return SafePythonObject(interpreter: self, id: resultId)
     }
     
     internal func syncLessThan(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
@@ -2062,23 +2327,6 @@ public actor PythonInterpreter {
         }
     }
     
-    internal func syncOr(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
-        guard let pyOr = safeSymbolsCache.PyNumber_Or else {
-            throw PythonError.nullPointer("Failed ")
-        }
-        
-        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
-        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
-        
-        logger.trace("CPyton API call in synchronous mode: PyNumber_Or")
-        guard let resultPtr = pyOr(lhsPtr, rhsPtr) else {
-            throw PythonError.nullPointer("Python '|' failed")
-        }
-        
-        let resultId = registerPythonObjectPointer(resultPtr)
-        return SafePythonObject(interpreter: self, id: resultId)
-    }
-    
     internal func syncSubtract(minuend: SafePythonObject, subtrahend: SafePythonObject) throws -> SafePythonObject {
         guard let pyNumber_Subtract = safeSymbolsCache.PyNumber_Subtract else {
             throw PythonError.nullPointer("Failed ")
@@ -2094,23 +2342,6 @@ public actor PythonInterpreter {
         
         let differenceId = registerPythonObjectPointer(differencePtr)
         return SafePythonObject(interpreter: self, id: differenceId)
-    }
-    
-    internal func syncXor(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
-        guard let pyXor = safeSymbolsCache.PyNumber_Xor else {
-            throw PythonError.nullPointer("Failed ")
-        }
-        
-        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
-        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
-        
-        logger.trace("CPyton API call in synchronous mode: PyNumber_Xor")
-        guard let resultPtr = pyXor(lhsPtr, rhsPtr) else {
-            throw PythonError.nullPointer("Python '^' failed")
-        }
-        
-        let resultId = registerPythonObjectPointer(resultPtr)
-        return SafePythonObject(interpreter: self, id: resultId)
     }
 }
 

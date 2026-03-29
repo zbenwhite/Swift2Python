@@ -57,7 +57,7 @@ public extension PythonInterpreter.SafePythonObject {
         } else if divisor.isBoundToPythonInterpreter {
             return divisor.divideOperator(dividend: dividend, divisor: divisor)
         } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonSubtract(lhs:dividend, rhs:divisor)
+            return PythonInterpreter.SafePythonObject.unboundPythonDivide(lhs:dividend, rhs:divisor)
         }
     }
     
@@ -103,68 +103,65 @@ public extension PythonInterpreter.SafePythonObject {
     
     static func & (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         if lhs.isBoundToPythonInterpreter {
-            return lhs.andOperator(lhs, rhs)
+            return lhs.bitwiseAndOperator(lhs, rhs)
         } else if rhs.isBoundToPythonInterpreter {
-            return rhs.andOperator(lhs, rhs)
+            return rhs.bitwiseAndOperator(lhs, rhs)
         } else {
-            fatalError("Placeholder")
+            return PythonInterpreter.SafePythonObject.unboundPythonBitwiseAnd(lhs:lhs, rhs:rhs)
         }
-        //return performBinaryOp(PyNumber_And, lhs: lhs, rhs: rhs)
     }
 
     static func | (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         if lhs.isBoundToPythonInterpreter {
-            return lhs.orOperator(lhs, rhs)
+            return lhs.bitwiseOrOperator(lhs, rhs)
         } else if rhs.isBoundToPythonInterpreter {
-            return rhs.orOperator(lhs, rhs)
+            return rhs.bitwiseOrOperator(lhs, rhs)
         } else {
-            fatalError("Placeholder")
+            return PythonInterpreter.SafePythonObject.unboundPythonBitwiseOr(lhs:lhs, rhs:rhs)
         }
-        //return performBinaryOp(PyNumber_Or, lhs: lhs, rhs: rhs)
     }
 
     static func ^ (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         if lhs.isBoundToPythonInterpreter {
-            return lhs.xorOperator(lhs, rhs)
+            return lhs.bitwiseXorOperator(lhs, rhs)
         } else if rhs.isBoundToPythonInterpreter {
-            return rhs.xorOperator(lhs, rhs)
+            return rhs.bitwiseXorOperator(lhs, rhs)
         } else {
-            fatalError("Placeholder")
+            return PythonInterpreter.SafePythonObject.unboundPythonBitwiseXor(lhs:lhs, rhs:rhs)
         }
-        //return performBinaryOp(PyNumber_Xor, lhs: lhs, rhs: rhs)
     }
 
+    // Bitwise and in place
     static func &= (lhs: inout PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) {
         if lhs.isBoundToPythonInterpreter {
-            lhs = lhs.andInPlaceOperator(lhs, rhs)
+            lhs = lhs.bitwiseAndInPlaceOperator(lhs, rhs)
         } else if rhs.isBoundToPythonInterpreter {
-            lhs = rhs.andInPlaceOperator(lhs, rhs)
+            lhs = rhs.bitwiseAndInPlaceOperator(lhs, rhs)
         } else {
-            fatalError("Placeholder")
+            lhs = PythonInterpreter.SafePythonObject.unboundPythonBitwiseAnd(lhs:lhs, rhs:rhs)
         }
-        //lhs = performBinaryOp(PyNumber_InPlaceAnd, lhs: lhs, rhs: rhs)
     }
 
+    // Bitwise or in place
     static func |= (lhs: inout PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) {
         if lhs.isBoundToPythonInterpreter {
-            lhs = lhs.orInPlaceOperator(lhs, rhs)
+            lhs = lhs.bitwiseOrInPlaceOperator(lhs, rhs)
         } else if rhs.isBoundToPythonInterpreter {
-            lhs = rhs.orInPlaceOperator(lhs, rhs)
+            lhs = rhs.bitwiseOrInPlaceOperator(lhs, rhs)
         } else {
-            fatalError("Placeholder")
+            lhs = PythonInterpreter.SafePythonObject.unboundPythonBitwiseOr(lhs:lhs, rhs:rhs)
         }
-        //lhs = performBinaryOp(PyNumber_InPlaceOr, lhs: lhs, rhs: rhs)
     }
 
+    // Bitwise xor in place
     static func ^= (lhs: inout PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) {
         if lhs.isBoundToPythonInterpreter {
-            lhs = lhs.xorInPlaceOperator(lhs, rhs)
+            lhs = lhs.bitwiseXorInPlaceOperator(lhs, rhs)
         } else if rhs.isBoundToPythonInterpreter {
-            lhs = rhs.xorInPlaceOperator(lhs, rhs)
+            lhs = rhs.bitwiseXorInPlaceOperator(lhs, rhs)
         } else {
-            fatalError("Placeholder")
+            lhs = PythonInterpreter.SafePythonObject.unboundPythonBitwiseXor(lhs:lhs, rhs:rhs)
         }
-        //lhs = performBinaryOp(PyNumber_InPlaceXor, lhs: lhs, rhs: rhs)
     }
 
     static prefix func ~ (_ operand: Self) -> Self {
