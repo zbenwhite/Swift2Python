@@ -520,13 +520,28 @@ public actor PythonInterpreter {
             }
         }
         
-        public func callAsFunction(_ args: any SafePythonConvertible...) async throws -> SafePythonObject {
-            fatalError("Placeholder")
+        // MARK: SafePythonObject Callable support
+        
+        public func callAsFunction() throws -> SafePythonObject {
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                return try $0.syncCall(callable:self)
+            }
+        }
+        
+        public func callAsFunction(_ args: any SafePythonConvertible...) throws -> SafePythonObject {
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                return try $0.syncCall(callable:self, args:args)
+            }
         }
         
         public func callAsFunction(_ args: any SafePythonConvertible...,
-                                   kwargs: [String: SafePythonConvertible] = [:]) async throws -> SafePythonObject {
-            fatalError("Placeholder")
+                                   kwargs: [String: SafePythonConvertible] = [:]) throws -> SafePythonObject {
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                return try $0.syncCall(callable:self, args:args, kwargs:kwargs)
+            }
         }
         
         // MARK: SafePythonObject Operator support
@@ -1647,6 +1662,8 @@ public actor PythonInterpreter {
     
     struct SafePythonCSymbols {
         var PyBool_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)?
+        var PyDict_New: (@convention(c) () -> UnsafeMutableRawPointer?)?
+        var PyDict_SetItem: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32)?
         var PyImport_AddModule: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?)?
         var PyImport_ImportModule: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?)?
         var PyFloat_FromDouble: (@convention(c) (Double) -> UnsafeMutableRawPointer?)?
@@ -1667,11 +1684,15 @@ public actor PythonInterpreter {
         var PyNumber_TrueDivide: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyNumber_Xor: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyObject_Call: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?)?
+        var PyObject_CallNoArgs: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
+        var PyObject_CallObject: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?)?
         var PyObject_GetAttrString: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?)?
         var PyObject_RichCompare: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, Int32) -> UnsafeMutableRawPointer?)?
         var PyObject_RichCompareBool: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, Int32) -> Int32)?
         var PyObject_SetAttrString: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Int32)?
         var PyRun_SimpleString: (@convention(c) (UnsafePointer<CChar>) -> Int32)?
+        var PyTuple_New: (@convention(c) (Int) -> UnsafeMutableRawPointer?)?
+        var PyTuple_SetItem: (@convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Int32)?
         var PyUnicode_FromStringAndSize: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?)?
     }
     
@@ -1682,6 +1703,10 @@ public actor PythonInterpreter {
         guard safeSymbolsCache.PyRun_SimpleString == nil else { return }
         safeSymbolsCache.PyBool_FromLong = try await runtime.loadSendableSymbol("PyBool_FromLong",
                     as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyDict_New = try await runtime.loadSendableSymbol("PyDict_New",
+                    as: (@convention(c) () -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyDict_SetItem = try await runtime.loadSendableSymbol("PyDict_SetItem",
+                    as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32).self).function
         safeSymbolsCache.PyImport_AddModule = try await runtime.loadSendableSymbol("PyImport_AddModule",
                     as: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyImport_ImportModule = try await runtime.loadSendableSymbol("PyImport_ImportModule",
@@ -1724,6 +1749,8 @@ public actor PythonInterpreter {
                     as: (@convention(c) (UnsafePointer<CChar>) -> Int32).self).function
         safeSymbolsCache.PyObject_Call = try await runtime.loadSendableSymbol("PyObject_Call",
                     as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyObject_CallNoArgs = try await runtime.loadSendableSymbol("PyObject_CallNoArgs",
+                    as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyObject_GetAttrString = try await runtime.loadSendableSymbol("PyObject_GetAttrString",
                     as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyObject_RichCompare = try await runtime.loadSendableSymbol("PyObject_RichCompare",
@@ -1732,6 +1759,10 @@ public actor PythonInterpreter {
                     as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, Int32) -> Int32).self).function
         safeSymbolsCache.PyObject_SetAttrString = try await runtime.loadSendableSymbol("PyObject_SetAttrString",
                     as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Int32).self).function
+        safeSymbolsCache.PyTuple_New = try await runtime.loadSendableSymbol("PyTuple_New",
+                    as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyTuple_SetItem = try await runtime.loadSendableSymbol("PyTuple_SetItem",
+                    as: (@convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Int32).self).function
         safeSymbolsCache.PyUnicode_FromStringAndSize = try await runtime.loadSendableSymbol("PyUnicode_FromStringAndSize",
                     as: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?).self).function
     }
@@ -1928,6 +1959,138 @@ public actor PythonInterpreter {
         let objPtr = getRegisteredPythonObjectPointer(obj.id)!
         let valuePtr = getRegisteredPythonObjectPointer(value.id)!
         _ = setAttr(objPtr, name, valuePtr)
+    }
+    
+    // MARK: Callable support (synchronous mode)
+    
+    private func syncCallCreateTuplePtr(from elements: [any SafePythonConvertible]) throws -> UnsafeMutableRawPointer {
+        guard let pyTupleNew = safeSymbolsCache.PyTuple_New else {
+            throw PythonError.nullPointer("PyTuple_New not loaded")
+        }
+        
+        guard let pyTupleSetItem = safeSymbolsCache.PyTuple_SetItem else {
+            throw PythonError.nullPointer("PyTuple_SetItem not loaded")
+        }
+        
+        let count = elements.count
+        logger.trace("CPyton API call in synchronous mode: PyTuple_New")
+        guard let tuplePtr = pyTupleNew(count) else {
+            throw PythonError.nullPointer("Failed to create Python tuple")
+        }
+        
+        logger.trace("CPyton API call in synchronous mode: PyTuple_SetItem in a loop.")
+        for (index, element) in elements.enumerated() {
+            
+            // Convert args from SafePythonConvertible to SafePythonObject
+            let pyObj = try element.toSafePythonObject(interpreter: self)
+            guard let itemPtr = getRegisteredPythonObjectPointer(pyObj.id) else {
+                throw PythonError.nullPointer("Argument conversion failed")
+            }
+            
+            let res = pyTupleSetItem(tuplePtr, index, itemPtr)
+            if res != 0 {
+                throw PythonError.stringConversionFailed("PyTuple_SetItem failed at index \(index)")
+            }
+        }
+        
+        return tuplePtr
+    }
+    
+    private func syncCallCreateDictPtr(from dict: [String: any SafePythonConvertible]) throws -> UnsafeMutableRawPointer {
+        guard let pyDictNew = safeSymbolsCache.PyDict_New else {
+            throw PythonError.nullPointer("PyDict_New not loaded")
+        }
+        
+        guard let pyDictSetItem = safeSymbolsCache.PyDict_SetItem else {
+            throw PythonError.nullPointer("PyDict_SetItem not loaded")
+        }
+        
+        logger.trace("CPyton API call in synchronous mode: PyDict_New")
+        guard let dictPtr = pyDictNew() else {
+            throw PythonError.nullPointer("Failed to create Python dict")
+        }
+        
+        for (key, value) in dict {
+            let keyObj = try convertToSafePython(string: key)           // or use your existing string converter
+            let valueObj = try value.toSafePythonObject(interpreter: self)
+            
+            let keyPtr = getRegisteredPythonObjectPointer(keyObj.id)!
+            let valuePtr = getRegisteredPythonObjectPointer(valueObj.id)!
+            
+            let res = pyDictSetItem(dictPtr, keyPtr, valuePtr)
+            if res != 0 {
+                throw PythonError.stringConversionFailed("PyDict_SetItem failed for key: \(key)")
+            }
+        }
+        
+        return dictPtr
+    }
+    
+    fileprivate func syncCall(callable: SafePythonObject) throws -> SafePythonObject {
+        
+        // TODO: Check for Python < 3.10 and call the other one
+        
+        logger.trace("CPyton API call in synchronous mode: PyObject_CallObject")
+        guard let pyCall = safeSymbolsCache.PyObject_CallNoArgs else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        
+        let callablePtr = getRegisteredPythonObjectPointer(callable.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyObject_CallNoArgs")
+        guard let resultPtr = pyCall(callablePtr) else {
+            throw PythonError.nullPointer("Python call failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    fileprivate func syncCall(callable: SafePythonObject, args: [any SafePythonConvertible]) throws -> SafePythonObject {
+        
+        // Put args in a tuple
+        let argTuplePtr = try syncCallCreateTuplePtr(from: args)
+        
+        let callablePtr = getRegisteredPythonObjectPointer(callable.id)!
+        
+        guard let pyCallObj = safeSymbolsCache.PyObject_CallObject else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        
+        logger.trace("CPyton API call in synchronous mode: PyObject_CallObject")
+        guard let resultPtr = pyCallObj(callablePtr, argTuplePtr) else {
+            throw PythonError.nullPointer("Python call failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    fileprivate func syncCall(callable: SafePythonObject,
+                             args: [any SafePythonConvertible],
+                             kwargs: [String: any SafePythonConvertible]) throws -> SafePythonObject {
+        
+        // Put args in a tuple
+        let argTuplePtr = try syncCallCreateTuplePtr(from: args)
+        
+        // Create kwargs dictionary (can be NULL if no keyword args)
+        let kwDictPtr: UnsafeMutableRawPointer? = kwargs.isEmpty ? nil : try syncCallCreateDictPtr(from: kwargs)
+        
+        let callablePtr = getRegisteredPythonObjectPointer(callable.id)!
+        
+        logger.trace("CPython API call (sync): PyObject_Call")
+        
+        guard let pyCall = safeSymbolsCache.PyObject_Call else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        
+        logger.trace("CPyton API call in synchronous mode: PyObject_Call")
+        guard let resultPtr = pyCall(callablePtr, argTuplePtr, kwDictPtr) else {
+            throw PythonError.nullPointer("Python call failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
     }
     
     // MARK: Operator support (synchronous mode)
