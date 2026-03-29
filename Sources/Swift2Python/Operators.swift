@@ -7,8 +7,6 @@
 
 public extension PythonInterpreter.SafePythonObject {
     
-    
-    // TODO: allow operations on unbound objects
     //       if they are both unbound and if the internal types are able to be operated on,
     //       then these operations might still make sense.  Example:
     //           let x: SafePythonObject = 5
@@ -166,11 +164,10 @@ public extension PythonInterpreter.SafePythonObject {
 
     static prefix func ~ (_ operand: Self) -> Self {
         if operand.isBoundToPythonInterpreter {
-            fatalError("Placeholder")
+            return operand.bitwiseNotOperator(operand)
         } else {
-            fatalError("Placeholder")
+            return PythonInterpreter.SafePythonObject.unboundPythonBitwiseNot(operand: operand)
         }
-        //return performUnaryOp(PyNumber_Invert, operand: operand)
     }
 
 }
@@ -180,23 +177,6 @@ public extension PythonInterpreter.SafePythonObject {
 extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
     // `Equatable` and `Comparable` are implemented using rich comparison.
     // This is consistent with how Python handles comparisons.
-//    private func compared(to other: PythonObject, byOp: Int32) -> Bool {
-//        let lhsObject = ownedPyObject
-//        let rhsObject = other.ownedPyObject
-//        defer {
-//            Py_DecRef(lhsObject)
-//            Py_DecRef(rhsObject)
-//        }
-//        assert(PyErr_Occurred() == nil,
-//               "Python error occurred somewhere but wasn't handled")
-//        switch PyObject_RichCompareBool(lhsObject, rhsObject, byOp) {
-//        case 0: return false
-//        case 1: return true
-//        default:
-//            try! throwPythonErrorIfPresent()
-//            fatalError("No result or error returned when comparing \(self) to \(other)")
-//        }
-//    }
 
     public static func == (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
         if lhs.isBoundToPythonInterpreter {
@@ -216,7 +196,6 @@ extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
         } else {
             return PythonInterpreter.SafePythonObject.unboundPythonNotEqualsEquatable(lhs:lhs, rhs:rhs)
         }
-        //return lhs.compared(to: rhs, byOp: Py_NE)
     }
 
     public static func < (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
@@ -227,7 +206,6 @@ extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
         } else {
             return PythonInterpreter.SafePythonObject.unboundPythonLessThanComparable(lhs:lhs, rhs:rhs)
         }
-        //return lhs.compared(to: rhs, byOp: Py_LT)
     }
 
     public static func <= (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
@@ -238,7 +216,6 @@ extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
         } else {
             return PythonInterpreter.SafePythonObject.unboundPythonLessThanOrEqualsComparable(lhs:lhs, rhs:rhs)
         }
-        //return lhs.compared(to: rhs, byOp: Py_LE)
     }
 
     public static func > (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
@@ -249,7 +226,6 @@ extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
         } else {
             return PythonInterpreter.SafePythonObject.unboundPythonGreaterThanComparable(lhs:lhs, rhs:rhs)
         }
-        //return lhs.compared(to: rhs, byOp: Py_GT)
     }
 
     public static func >= (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
@@ -260,27 +236,10 @@ extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
         } else {
             return PythonInterpreter.SafePythonObject.unboundPythonGreaterThanOrEqualsComparable(lhs:lhs, rhs:rhs)
         }
-        //return lhs.compared(to: rhs, byOp: Py_GE)
     }
 }
 
 public extension PythonInterpreter.SafePythonObject {
-//    private func compared(to other: PythonObject, byOp: Int32) -> PythonObject {
-//        let lhsObject = ownedPyObject
-//        let rhsObject = other.ownedPyObject
-//        defer {
-//            Py_DecRef(lhsObject)
-//            Py_DecRef(rhsObject)
-//        }
-//        assert(PyErr_Occurred() == nil,
-//               "Python error occurred somewhere but wasn't handled")
-//        guard let result = PyObject_RichCompare(lhsObject, rhsObject, byOp) else {
-//            // If a Python exception was thrown, throw a corresponding Swift error.
-//            try! throwPythonErrorIfPresent()
-//            fatalError("No result or error returned when comparing \(self) to \(other)")
-//        }
-//        return PythonObject(consuming: result)
-//    }
 
     static func == (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         if lhs.isBoundToPythonInterpreter {
@@ -300,7 +259,6 @@ public extension PythonInterpreter.SafePythonObject {
         } else {
             return PythonInterpreter.SafePythonObject.unboundPythonNotEquals(lhs:lhs, rhs:rhs)
         }
-        //return lhs.compared(to: rhs, byOp: Py_NE)
     }
 
     static func < (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
@@ -311,7 +269,6 @@ public extension PythonInterpreter.SafePythonObject {
         } else {
             return PythonInterpreter.SafePythonObject.unboundPythonLessThan(lhs:lhs, rhs:rhs)
         }
-        //return lhs.compared(to: rhs, byOp: Py_LT)
     }
 
     static func <= (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
@@ -322,7 +279,6 @@ public extension PythonInterpreter.SafePythonObject {
         } else {
             return PythonInterpreter.SafePythonObject.unboundPythonLessThanOrEquals(lhs:lhs, rhs:rhs)
         }
-        //return lhs.compared(to: rhs, byOp: Py_LE)
     }
 
     static func > (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
@@ -333,7 +289,6 @@ public extension PythonInterpreter.SafePythonObject {
         } else {
             return PythonInterpreter.SafePythonObject.unboundPythonGreaterThan(lhs:lhs, rhs:rhs)
         }
-        //return lhs.compared(to: rhs, byOp: Py_GT)
     }
 
     static func >= (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
@@ -344,6 +299,5 @@ public extension PythonInterpreter.SafePythonObject {
         } else {
             return PythonInterpreter.SafePythonObject.unboundPythonGreaterThanOrEquals(lhs:lhs, rhs:rhs)
         }
-        //return lhs.compared(to: rhs, byOp: Py_GE)
     }
 }

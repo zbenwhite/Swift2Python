@@ -1043,6 +1043,34 @@ public actor PythonInterpreter {
         }
         
         @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        internal func bitwiseNotOperator(_ operand: SafePythonConvertible) -> SafePythonObject {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncBitwiseNot(operand.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        // Python bitwise NOT results:
+        static internal func unboundPythonBitwiseNot(operand: SafePythonObject) -> SafePythonObject {
+            switch operand.state {
+            case .bound:
+                fatalError("This can never happen.")
+            case .deferredDouble(let operandVal):
+                fatalError("Python TypeError")
+            case .deferredInt(let operandVal):
+                return SafePythonObject(integerLiteral: ~operandVal)
+            case .deferredString:
+                fatalError("Python TypeError")
+            case .deferredBool(let operandVal):
+                return SafePythonObject(integerLiteral: ~(operandVal ? 1 : 0))
+            }
+        }
+        
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func doubleEqualsEquatableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
             do {
                 let localInterpreter = interpreter
@@ -1632,6 +1660,7 @@ public actor PythonInterpreter {
         var PyNumber_InPlaceSubtract: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyNumber_InPlaceTrueDivide: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyNumber_InPlaceXor: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
+        var PyNumber_Invert: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyNumber_Multiply: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyNumber_Or: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyNumber_Subtract: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
@@ -1679,6 +1708,8 @@ public actor PythonInterpreter {
                     as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyNumber_InPlaceXor = try await runtime.loadSendableSymbol("PyNumber_InPlaceXor",
                     as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyNumber_Invert = try await runtime.loadSendableSymbol("PyNumber_Invert",
+                    as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyNumber_Multiply = try await runtime.loadSendableSymbol("PyNumber_Multiply",
                     as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyNumber_Or = try await runtime.loadSendableSymbol("PyNumber_Or",
@@ -1930,6 +1961,22 @@ public actor PythonInterpreter {
         logger.trace("CPyton API call in synchronous mode: PyNumber_And")
         guard let resultPtr = pyAnd(lhsPtr, rhsPtr) else {
             throw PythonError.nullPointer("Python '&' failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    internal func syncBitwiseNot(_ operand: SafePythonObject) throws -> SafePythonObject {
+        guard let pyInvert = safeSymbolsCache.PyNumber_Invert else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        
+        let operandPtr = getRegisteredPythonObjectPointer(operand.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyNumber_Invert")
+        guard let resultPtr = pyInvert(operandPtr) else {
+            throw PythonError.nullPointer("Python '~' failed")
         }
         
         let resultId = registerPythonObjectPointer(resultPtr)
