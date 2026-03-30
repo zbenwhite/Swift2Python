@@ -219,6 +219,7 @@ public actor PythonInterpreter {
         try await py_DecRef(pointer)
     }
     
+    // MARK: Import support (async mode)
     
     /// Standard import using PyImport_ImportModule
     private func importStandard(_ name: String) async throws -> PythonObject {
@@ -276,6 +277,9 @@ public actor PythonInterpreter {
             return try await importStandard(name)
         }
     }
+    
+    
+    // MARK: Conversion or primative types (async mode)
     
     public func convertBoolToPython(_ val: Bool) async throws -> PythonObject {
         guard let ptr = try await pyBool_FromLong(val) else {
@@ -350,6 +354,8 @@ public actor PythonInterpreter {
         let id = registerPythonObjectPointer(dictPtr)
         return PythonObject(id: id, interpreter: self)
     }
+    
+    // MARK: Attribute access (async mode)
     
     public func getObjectAttribute(_ obj: PythonObject, _ name: String) async throws -> PythonObject {
         let objPtr = pythonObjectRegistry[obj.id]!
@@ -615,11 +621,25 @@ public actor PythonInterpreter {
         public subscript(key: SafePythonConvertible...) -> SafePythonConvertible {
             // a[key]
             get {
-                fatalError("Placeholder")
+                let localInterpreter = interpreter
+                return localInterpreter.assumeIsolated {
+                    do {
+                        return try $0.syncGetObjectItem(obj:self, key:key)
+                    } catch {
+                        fatalError("Failed to get item: \(error)")
+                    }
+                }
             }
             // a[key] = value
             set {
-                fatalError("Placeholder")
+                let localInterpreter = interpreter
+                return localInterpreter.assumeIsolated {
+                    do {
+                        try $0.syncSetObjectItem(obj:self, key:key, newValue:newValue)
+                    } catch {
+                        fatalError("Failed to set item: \(error)")
+                    }
+                }
             }
         }
         
@@ -1790,8 +1810,10 @@ public actor PythonInterpreter {
         var PyObject_CallNoArgs: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyObject_CallObject: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?)?
         var PyObject_GetAttrString: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?)?
+        var PyObject_GetItem: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyObject_RichCompare: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, Int32) -> UnsafeMutableRawPointer?)?
         var PyObject_RichCompareBool: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, Int32) -> Int32)?
+        var PyObject_SetItem: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32)?
         var PyObject_SetAttrString: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Int32)?
         var PyRun_SimpleString: (@convention(c) (UnsafePointer<CChar>) -> Int32)?
         var PyTuple_New: (@convention(c) (Int) -> UnsafeMutableRawPointer?)?
@@ -1856,12 +1878,16 @@ public actor PythonInterpreter {
                     as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyObject_GetAttrString = try await runtime.loadSendableSymbol("PyObject_GetAttrString",
                     as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyObject_GetItem = try await runtime.loadSendableSymbol("PyObject_GetItem",
+                    as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?.self).function
         safeSymbolsCache.PyObject_RichCompare = try await runtime.loadSendableSymbol("PyObject_RichCompare",
                     as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, Int32) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyObject_RichCompareBool = try await runtime.loadSendableSymbol("PyObject_RichCompareBool",
                     as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, Int32) -> Int32).self).function
         safeSymbolsCache.PyObject_SetAttrString = try await runtime.loadSendableSymbol("PyObject_SetAttrString",
                     as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Int32).self).function
+        safeSymbolsCache.PyObject_SetItem = try await runtime.loadSendableSymbol("PyObject_SetItem",
+                    as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32).self).function
         safeSymbolsCache.PyTuple_New = try await runtime.loadSendableSymbol("PyTuple_New",
                     as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyTuple_SetItem = try await runtime.loadSendableSymbol("PyTuple_SetItem",
@@ -2062,6 +2088,60 @@ public actor PythonInterpreter {
         let objPtr = getRegisteredPythonObjectPointer(obj.id)!
         let valuePtr = getRegisteredPythonObjectPointer(value.id)!
         _ = setAttr(objPtr, name, valuePtr)
+    }
+    
+    fileprivate func syncGetObjectItem(obj: SafePythonObject, key: [any SafePythonConvertible]) throws -> SafePythonObject {
+        guard let pyGetItem = safeSymbolsCache.PyObject_GetItem else {
+            throw PythonError.nullPointer("PyObject_GetItem not loaded")
+        }
+        
+        let pyKeyPtr: UnsafeMutableRawPointer
+        
+        switch key.count {
+        case 0:
+            fatalError("Subscript with zero keys is not valid")
+        case 1:
+            let pyKey = try! key[0].toSafePythonObject(interpreter: self)
+            pyKeyPtr = getRegisteredPythonObjectPointer(pyKey.id)!
+        default:
+            pyKeyPtr = try! syncCallCreateTuplePtr(from: key)
+        }
+        
+        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyObject_GetItem")
+        guard let resultPtr = pyGetItem(objPtr, pyKeyPtr) else {
+            throw PythonError.nullPointer("Python subscript get failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    fileprivate func syncSetObjectItem(obj: SafePythonObject, key: [any SafePythonConvertible], newValue:SafePythonConvertible) throws {
+        guard let pySetItem = safeSymbolsCache.PyObject_SetItem else {
+            throw PythonError.nullPointer("PyObject_SetItem not loaded")
+        }
+        
+        let pyKeyPtr: UnsafeMutableRawPointer
+        
+        switch key.count {
+        case 0:
+            fatalError("Subscript with zero keys is not valid")
+        case 1:
+            let pyKey = try! key[0].toSafePythonObject(interpreter: self)
+            pyKeyPtr = getRegisteredPythonObjectPointer(pyKey.id)!
+        default:
+            pyKeyPtr = try! syncCallCreateTuplePtr(from: key)
+        }
+        
+        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        
+        let newValuePyObj = try! newValue.toSafePythonObject(interpreter: self)
+        let newValuePtr = getRegisteredPythonObjectPointer(newValuePyObj.id)!
+        
+        logger.trace("CPyton API call in synchronous mode: PyObject_SetItem")
+        _ = pySetItem(objPtr, pyKeyPtr, newValuePtr)
     }
     
     // MARK: Callable support (synchronous mode)
