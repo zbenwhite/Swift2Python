@@ -58,8 +58,8 @@ public actor PythonInterpreter {
         }
     }
     
-    //
-    // ── CPyton wrappers ───────────────────────────────────────────────
+    // MARK: Python C API wrappers (async mode)
+    
     private func py_DecRef(_ pointer: UnsafeMutableRawPointer) async throws {
         logger.trace("CPyton wrapper called: py_DecRef")
         let decrementRefCount = try await runtime.loadSendableSymbol("Py_DecRef",
@@ -139,11 +139,19 @@ public actor PythonInterpreter {
         return pyLongFromLong.function(value)
     }
     
+    private func pyObject_Call(_ callable: UnsafeMutableRawPointer, _ args: UnsafeMutableRawPointer?, _ kwargs: UnsafeMutableRawPointer?) async throws -> UnsafeMutableRawPointer? {
+        logger.trace("CPython wrapper called: pyObject_Call")
+        // Signature: PyObject *PyObject_Call(PyObject *callable, PyObject *args, PyObject *kwargs)
+        let pyCall = try await runtime.loadSendableSymbol("PyObject_Call",
+                    as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self)
+        return pyCall.function(callable, args, kwargs)
+    }
+    
     private func pyObject_CallObject(_ objPtr: UnsafeMutableRawPointer, _ args: UnsafeMutableRawPointer? = nil) async throws -> UnsafeMutableRawPointer? {
         logger.trace("CPyton wrapper called: pyObject_CallObject")
         // Signature: PyObject* PyObject_CallObject(PyObject *callable_object, PyObject *args)
         let pyObjectCallObject = try await runtime.loadSendableSymbol("PyObject_CallObject",
-                                                                      as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self)
+                    as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self)
         return pyObjectCallObject.function(objPtr, args)
     }
     
@@ -178,9 +186,20 @@ public actor PythonInterpreter {
     
     public func pyRun_SimpleString(_ command: String) async throws -> Int32 {
         logger.trace("CPyton wrapper called: pyRun_SimpleString")
-        let pyRun = try await runtime.loadSendableSymbol("PyRun_SimpleString",
-                                                         as: (@convention(c) (UnsafePointer<CChar>) -> Int32).self)
+        let pyRun = try await runtime.loadSendableSymbol("PyRun_SimpleString", as: (@convention(c) (UnsafePointer<CChar>) -> Int32).self)
         return command.withCString { pyRun.function($0) }
+    }
+    
+    private func pyTuple_New(_ length: Int) async throws -> UnsafeMutableRawPointer? {
+        logger.trace("CPython wrapper called: pyTuple_New")
+        let fn = try await runtime.loadSendableSymbol("PyTuple_New", as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self)
+        return fn.function(length)
+    }
+
+    private func pyTuple_SetItem(_ tuple: UnsafeMutableRawPointer, _ index: Int, _ item: UnsafeMutableRawPointer) async throws -> Int32 {
+        logger.trace("CPython wrapper called: pyTuple_SetItem")
+        let fn = try await runtime.loadSendableSymbol("PyTuple_SetItem", as: (@convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Int32).self)
+        return fn.function(tuple, index, item)
     }
     
     private func pyUnicode_FromStringAndSize(_ st: String) async throws -> UnsafeMutableRawPointer? {
@@ -345,13 +364,97 @@ public actor PythonInterpreter {
         _ = try await pyObject_SetAttrString(objPtr, name, valuePtr)
     }
     
-    public func callPythonMethod(object: PythonObject, methodName: String, collectedArgs: [any PendingPythonConvertible]) async throws -> PythonObject {
-        fatalError("shut up xcode")
+    // MARK: Callable Support (async mode)
+    
+    // Private helper that does the actual call (used by both above)
+    private func callPythonCallable(_ callable: PythonObject,
+                                    args: [any PendingPythonConvertible],
+                                    kwargs: [String: PendingPythonConvertible]) async throws -> PythonObject {
+        
+        // Build args tuple
+        let argTuplePtr: UnsafeMutableRawPointer? = try await createArgsTupleAsync(args)
+        // Build kwargs dict (if any)
+        let kwDictPtr: UnsafeMutableRawPointer? = kwargs.isEmpty
+            ? nil
+            : try await createKwargsDictAsync(kwargs)
+        
+        guard let callablePtr = pythonObjectRegistry[callable.id] else {
+            throw PythonError.nullPointer("Callable pointer not found")
+        }
+        
+        // Use PyObject_Call (most flexible)
+        guard let resultPtr = try await pyObject_Call(callablePtr, argTuplePtr, kwDictPtr) else {
+            throw PythonError.nullPointer("Python call returned NULL")
+        }
+        let resultID = registerPythonObjectPointer(resultPtr)
+        return PythonObject(id: resultID, interpreter: self)
+    }
+    
+    private func createArgsTupleAsync(_ args: [any PendingPythonConvertible]) async throws -> UnsafeMutableRawPointer {
+        guard let tuplePtr = try await pyTuple_New(args.count) else {
+            throw PythonError.nullPointer("Failed to create argument tuple")
+        }
+        
+        for (index, element) in args.enumerated() {
+            let pyObj = try await element.toPythonObject(interpreter: self)
+            guard let itemPtr = pythonObjectRegistry[pyObj.id] else {
+                throw PythonError.nullPointer("Argument conversion failed")
+            }
+            _ = try await pyTuple_SetItem(tuplePtr, index, itemPtr)
+        }
+        return tuplePtr
+    }
+
+    private func createKwargsDictAsync(_ kwargs: [String: PendingPythonConvertible]) async throws -> UnsafeMutableRawPointer {
+        guard let dictPtr = try await pyDict_New() else {
+            throw PythonError.nullPointer("Failed to create kwargs dict")
+        }
+        
+        for (key, value) in kwargs {
+            let keyObj = try await convertStringToPython(key)
+            let valueObj = try await value.toPythonObject(interpreter: self)
+            
+            guard let keyPtr = pythonObjectRegistry[keyObj.id],
+                  let valuePtr = pythonObjectRegistry[valueObj.id] else {
+                throw PythonError.nullPointer("Kwargs conversion failed")
+            }
+            _ = try await pyDict_SetItem(dictPtr, keyPtr, valuePtr)
+        }
+        return dictPtr
     }
     
     public func callPythonMethod(object: PythonObject, methodName: String, collectedArgs: [any PendingPythonConvertible],
-                                 kwargs: [String: PendingPythonConvertible] = [:]) async throws -> PythonObject {
-        fatalError("shut up xcode")
+                                 kwargs: [String: PendingPythonConvertible]) async throws -> PythonObject {
+        
+        guard let objPtr = pythonObjectRegistry[object.id] else {
+            throw PythonError.nullPointer("Object pointer not found")
+        }
+        
+        guard let methodPtr = try await pyObject_GetAttrString(objPtr, methodName) else {
+            throw PythonError.nullPointer("Method '\(methodName)' not found on object")
+        }
+        
+        let methodID = registerPythonObjectPointer(methodPtr)
+        let methodObject = PythonObject(id: methodID, interpreter: self)
+        
+        return try await callPythonCallable(methodObject, args: collectedArgs, kwargs: kwargs)
+    }
+    
+    public func callPythonMethod(object: PythonObject, methodName: String,
+                                 collectedArgs: [any PendingPythonConvertible]) async throws -> PythonObject {
+        
+        guard let objPtr = pythonObjectRegistry[object.id] else {
+            throw PythonError.nullPointer("Object pointer not found")
+        }
+        
+        guard let methodPtr = try await pyObject_GetAttrString(objPtr, methodName) else {
+            throw PythonError.nullPointer("Method '\(methodName)' not found on object")
+        }
+        
+        let methodID = registerPythonObjectPointer(methodPtr)
+        let methodObject = PythonObject(id: methodID, interpreter: self)
+        
+        return try await callPythonCallable(methodObject, args: collectedArgs, kwargs: [:])
     }
     
     public func callPythonMethod(_ obj: PythonObject, _ name: String, _ args: any PendingPythonConvertible...) async throws -> PythonObject {

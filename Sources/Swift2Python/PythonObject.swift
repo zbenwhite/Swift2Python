@@ -39,14 +39,11 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         }
                 
         public func callAsFunction(_ args: any PendingPythonConvertible...) async throws -> PythonObject {
-            let allArgs = args as [any PendingPythonConvertible]
-            return try await obj.interpreter.callPythonMethod(object:obj, methodName:method, collectedArgs: allArgs)
+            return try await obj.interpreter.callPythonMethod(object:obj, methodName:method, collectedArgs: args)
         }
         
-        public func callAsFunction(_ args: any PendingPythonConvertible...,
-                                   kwargs: [String: PendingPythonConvertible] = [:]) async throws -> PythonObject {
-            let allArgs = args as [any PendingPythonConvertible]
-            return try await obj.interpreter.callPythonMethod(object:obj, methodName:method, collectedArgs: allArgs, kwargs:kwargs)
+        public func callAsFunction(_ args: any PendingPythonConvertible..., kwargs: [String: PendingPythonConvertible] = [:]) async throws -> PythonObject {
+            return try await obj.interpreter.callPythonMethod(object:obj, methodName:method, collectedArgs: args, kwargs:kwargs)
         }
     }
     
