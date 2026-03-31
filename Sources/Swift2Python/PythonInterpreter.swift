@@ -493,7 +493,22 @@ public actor PythonInterpreter {
         _ body: @Sendable (isolated PythonInterpreter) throws -> T
     ) async throws -> T {
         try await ensureSymbolsLoaded()
-        return try body(self)
+        return try syncWithGIL {
+            try body(self)
+        }
+    }
+    
+    // A GIL handler for synchronous mode
+    public func syncWithGIL<Result>(_ body: () throws -> Result) throws -> Result {
+        
+        // Manage the GIL
+        let gilEnsure = safeSymbolsCache.PyGILState_Ensure!
+        let gilRelease = safeSymbolsCache.PyGILState_Release!
+        let gstate = gilEnsure()
+        defer { gilRelease(gstate) }
+
+        // All Python C API usage is now safe here.
+        return try body()
     }
     
     
@@ -1883,9 +1898,11 @@ public actor PythonInterpreter {
         var PyBool_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)?
         var PyDict_New: (@convention(c) () -> UnsafeMutableRawPointer?)?
         var PyDict_SetItem: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32)?
+        var PyFloat_FromDouble: (@convention(c) (Double) -> UnsafeMutableRawPointer?)?
+        var PyGILState_Ensure: (@convention(c) () -> UnsafeMutableRawPointer?)?
+        var PyGILState_Release: (@convention(c) (UnsafeMutableRawPointer?) -> Void)?
         var PyImport_AddModule: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?)?
         var PyImport_ImportModule: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?)?
-        var PyFloat_FromDouble: (@convention(c) (Double) -> UnsafeMutableRawPointer?)?
         var PyLong_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)?
         var PyNumber_Add: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         var PyNumber_And: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
@@ -1928,12 +1945,16 @@ public actor PythonInterpreter {
                     as: (@convention(c) () -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyDict_SetItem = try await runtime.loadSendableSymbol("PyDict_SetItem",
                     as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32).self).function
+        safeSymbolsCache.PyFloat_FromDouble = try await runtime.loadSendableSymbol("PyFloat_FromDouble",
+                    as: (@convention(c) (Double) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyGILState_Ensure = try await runtime.loadSendableSymbol("PyGILState_Ensure",
+                    as: (@convention(c) () -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyGILState_Release = try await runtime.loadSendableSymbol("PyGILState_Release",
+                    as: (@convention(c) (UnsafeMutableRawPointer?) -> Void).self).function
         safeSymbolsCache.PyImport_AddModule = try await runtime.loadSendableSymbol("PyImport_AddModule",
                     as: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyImport_ImportModule = try await runtime.loadSendableSymbol("PyImport_ImportModule",
                     as: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?).self).function
-        safeSymbolsCache.PyFloat_FromDouble = try await runtime.loadSendableSymbol("PyFloat_FromDouble",
-                    as: (@convention(c) (Double) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyLong_FromLong = try await runtime.loadSendableSymbol("PyLong_FromLong",
                     as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyNumber_Add = try await runtime.loadSendableSymbol("PyNumber_Add",
