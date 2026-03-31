@@ -1970,8 +1970,13 @@ public actor PythonInterpreter {
                     as: (@convention(c) (UnsafePointer<CChar>) -> Int32).self).function
         safeSymbolsCache.PyObject_Call = try await runtime.loadSendableSymbol("PyObject_Call",
                     as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self).function
-        safeSymbolsCache.PyObject_CallNoArgs = try await runtime.loadSendableSymbol("PyObject_CallNoArgs",
+        // This one can fail on old Python
+        do {
+            safeSymbolsCache.PyObject_CallNoArgs = try await runtime.loadSendableSymbol("PyObject_CallNoArgs",
                     as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
+        } catch {
+            safeSymbolsCache.PyObject_CallNoArgs = nil
+        }
         safeSymbolsCache.PyObject_GetAttrString = try await runtime.loadSendableSymbol("PyObject_GetAttrString",
                     as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyObject_GetItem = try await runtime.loadSendableSymbol("PyObject_GetItem",
@@ -2306,23 +2311,19 @@ public actor PythonInterpreter {
     }
     
     fileprivate func syncCall(callable: SafePythonObject) throws -> SafePythonObject {
-        
-        // TODO: Check for Python < 3.10 and call the other one
-        
-        logger.trace("CPyton API call in synchronous mode: PyObject_CallObject")
-        guard let pyCall = safeSymbolsCache.PyObject_CallNoArgs else {
-            throw PythonError.nullPointer("Failed ")
+        if let pyCall = safeSymbolsCache.PyObject_CallNoArgs {
+            let callablePtr = getRegisteredPythonObjectPointer(callable.id)!
+            
+            logger.trace("CPyton API call in synchronous mode: PyObject_CallNoArgs")
+            guard let resultPtr = pyCall(callablePtr) else {
+                throw PythonError.nullPointer("Python call failed")
+            }
+            let resultId = registerPythonObjectPointer(resultPtr)
+            return SafePythonObject(interpreter: self, id: resultId)
+        } else {
+            logger.debug("PyObject_CallNoArgs not available → falling back to syncCall with empty args")
+            return try syncCall(callable: callable, args: [])
         }
-        
-        let callablePtr = getRegisteredPythonObjectPointer(callable.id)!
-        
-        logger.trace("CPyton API call in synchronous mode: PyObject_CallNoArgs")
-        guard let resultPtr = pyCall(callablePtr) else {
-            throw PythonError.nullPointer("Python call failed")
-        }
-        
-        let resultId = registerPythonObjectPointer(resultPtr)
-        return SafePythonObject(interpreter: self, id: resultId)
     }
     
     fileprivate func syncCall(callable: SafePythonObject, args: [any SafePythonConvertible]) throws -> SafePythonObject {
