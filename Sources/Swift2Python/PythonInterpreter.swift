@@ -479,6 +479,16 @@ public actor PythonInterpreter {
     // MARK: SYNCHRONOUS MODE
     //
     
+    // Synchronous mode lives inside this function.  There are many Python-esque things that users might
+    // like to do, but they don't really work when you need to await.  You can't await:
+    //    - setting an attribute like a.name = "Ted"
+    //    - anything with operators, like x = a.qty + 7
+    //
+    // So this function with closure exists to create a synchronous bit of code running isolated
+    // with the PythonInterpreter actor.  Everythin is prepared at the beginning.  All the sysmbols are
+    // ensured loaded.  For GIL Python, the GIL is setup correctly.  Every operation inside this closure
+    // happens on SafePythonObject, and all the SafePythonObject methods use assumeIsolated.  So they'll
+    // definitely fail outside this closure.  But inside the closure, do Python stuff.  Don't use await.
     public func withIsolatedContext<T>(
         _ body: @Sendable (isolated PythonInterpreter) throws -> T
     ) async throws -> T {
@@ -496,11 +506,15 @@ public actor PythonInterpreter {
     // because I want to enable code like safeObject.count = safeObject.count + 1.  This requires
     // a constructor that just takes an int or a float.
     //
+    
+    // TODO: This was/is Sendable.  That's probably not needed, right?
     @dynamicMemberLookup
-    public struct SafePythonObject: Sendable, SafePythonConvertible,
+    public struct SafePythonObject: SafePythonConvertible, Sequence,
                                     ExpressibleByFloatLiteral, ExpressibleByIntegerLiteral,
                                     ExpressibleByStringLiteral, ExpressibleByBooleanLiteral {
         
+        
+        // MARK: ExpressibleBy stuff, so operators can work
         
         // The state of SafePythonObject.  Is it real or is it just a value to be made real later?
         private enum State: Sendable {
@@ -587,6 +601,8 @@ public actor PythonInterpreter {
             }
         }
         
+        // MARK: SafePythonObject @dynamicMemberLookup support
+        
         //
         // a.name
         public subscript(dynamicMember name: String) -> SafePythonObject {
@@ -665,6 +681,86 @@ public actor PythonInterpreter {
             return try localInterpreter.assumeIsolated {
                 return try $0.syncCall(callable:self, args:args, kwargs:kwargs)
             }
+        }
+        
+        // MARK: SafePythonObject Sequence support
+        
+        public typealias Element = SafePythonObject
+        
+        public struct SafePythonIterator: IteratorProtocol {
+            private var pyIterator: SafePythonObject
+            
+            fileprivate init(sequence: SafePythonObject) throws {
+                self.pyIterator = try sequence.__iter__()
+            }
+            
+            public mutating func next() -> SafePythonObject? {
+                do {
+                    return try pyIterator.__next__()
+                } catch {
+                    // StopIteration or any other error → end of sequence (Swift Iterator contract)
+                    return nil
+                }
+            }
+        }
+        
+        @available(*, noasync, message: "SafePythonObject Sequence conformance is only valid inside withIsolatedContext()")
+        public func makeIterator() -> SafePythonIterator {
+            do {
+                return try SafePythonIterator(sequence: self)
+            } catch {
+                fatalError("Failed to create iterator for SafePythonObject: \(error)")
+            }
+        }
+        
+        // MARK: SafePythonObject items() Sequence support
+        
+        public struct ItemsSequence: Sequence {
+            public typealias Element = (key: SafePythonObject, value: SafePythonObject)
+            
+            private let dictView: SafePythonObject
+                    
+            fileprivate init(dictView: SafePythonObject) {
+                self.dictView = dictView
+            }
+            
+            public struct Iterator: IteratorProtocol {
+                private var pyIterator: SafePythonObject   // the iterator from items()
+                
+                fileprivate init(dictView: SafePythonObject) throws {
+                    self.pyIterator = try dictView.__iter__()
+                }
+                
+                public mutating func next() -> Element? {
+                    do {
+                        // Each item from dict.items() is a 2-element tuple in Python
+                        let item = try pyIterator.__next__()
+                        
+                        // Unpack the Python tuple using subscript (already implemented)
+                        let key   = item[0] as! SafePythonObject   // or item[SafePythonObject(0)] if needed
+                        let value = item[1] as! SafePythonObject
+                        
+                        return (key: key, value: value)
+                    } catch {
+                        // StopIteration → end
+                        return nil
+                    }
+                }
+            }
+            
+            public func makeIterator() -> Iterator {
+                do {
+                    return try Iterator(dictView: dictView)
+                } catch {
+                    fatalError("Failed to create items() iterator: \(error)")
+                }
+            }
+        }
+        
+        // The items() function for a dictionary
+        @available(*, noasync, message: "items() is only valid inside withIsolatedContext()")
+        public func items() -> ItemsSequence {
+            ItemsSequence(dictView: self)
         }
         
         // MARK: SafePythonObject Operator support
@@ -1023,7 +1119,7 @@ public actor PythonInterpreter {
             switch lhs.state {
             case .bound:
                 fatalError("This can never happen.")
-            case .deferredDouble(let lhsVal):
+            case .deferredDouble:
                 fatalError("Python TypeError")
             case .deferredInt(let lhsVal):
                     switch rhs.state {
@@ -1044,7 +1140,7 @@ public actor PythonInterpreter {
                 switch rhs.state {
                 case .bound:
                     fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
+                case .deferredDouble:
                     fatalError("Python TypeError")
                 case .deferredInt(let rhsVal):
                     return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) & rhsVal)
@@ -1085,7 +1181,7 @@ public actor PythonInterpreter {
             switch lhs.state {
             case .bound:
                 fatalError("This can never happen.")
-            case .deferredDouble(let lhsVal):
+            case .deferredDouble:
                 fatalError("Python TypeError")
             case .deferredInt(let lhsVal):
                     switch rhs.state {
@@ -1106,7 +1202,7 @@ public actor PythonInterpreter {
                 switch rhs.state {
                 case .bound:
                     fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
+                case .deferredDouble:
                     fatalError("Python TypeError")
                 case .deferredInt(let rhsVal):
                     return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) | rhsVal)
@@ -1147,7 +1243,7 @@ public actor PythonInterpreter {
             switch lhs.state {
             case .bound:
                 fatalError("This can never happen.")
-            case .deferredDouble(let lhsVal):
+            case .deferredDouble:
                 fatalError("Python TypeError")
             case .deferredInt(let lhsVal):
                     switch rhs.state {
@@ -1168,7 +1264,7 @@ public actor PythonInterpreter {
                 switch rhs.state {
                 case .bound:
                     fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
+                case .deferredDouble:
                     fatalError("Python TypeError")
                 case .deferredInt(let rhsVal):
                     return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) ^ rhsVal)
@@ -1197,7 +1293,7 @@ public actor PythonInterpreter {
             switch operand.state {
             case .bound:
                 fatalError("This can never happen.")
-            case .deferredDouble(let operandVal):
+            case .deferredDouble:
                 fatalError("Python TypeError")
             case .deferredInt(let operandVal):
                 return SafePythonObject(integerLiteral: ~operandVal)

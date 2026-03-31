@@ -102,7 +102,7 @@ struct InterpreterTests {
         // 2. Create a blank Python object (SimpleNamespace)
         let myObject = try await types.SimpleNamespace()
         
-        py.withIsolatedContext { interpreter in
+        try await py.withIsolatedContext { interpreter in
             var safeObj = interpreter.bind(myObject)
             
             // --- TEST 1: SETTING & GETTING ATTRIBUTES (Dynamic Member Lookup) ---
@@ -118,7 +118,7 @@ struct InterpreterTests {
 
             // --- TEST 2: SUBSCRIPT ACCESS (Dictionary Mapping) ---
             // In Python, you can view an object's attributes as a dictionary using __dict__
-            let dictView = safeObj.__dict__
+            var dictView = safeObj.__dict__
 
             // Set a new value via subscript (Bracket notation)
             dictView["location"] = "Cupertino"
