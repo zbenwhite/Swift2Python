@@ -195,7 +195,7 @@ public actor PythonInterpreter {
         let fn = try await runtime.loadSendableSymbol("PyTuple_New", as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self)
         return fn.function(length)
     }
-
+    
     private func pyTuple_SetItem(_ tuple: UnsafeMutableRawPointer, _ index: Int, _ item: UnsafeMutableRawPointer) async throws -> Int32 {
         logger.trace("CPython wrapper called: pyTuple_SetItem")
         let fn = try await runtime.loadSendableSymbol("PyTuple_SetItem", as: (@convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Int32).self)
@@ -381,8 +381,8 @@ public actor PythonInterpreter {
         let argTuplePtr: UnsafeMutableRawPointer? = try await createArgsTupleAsync(args)
         // Build kwargs dict (if any)
         let kwDictPtr: UnsafeMutableRawPointer? = kwargs.isEmpty
-            ? nil
-            : try await createKwargsDictAsync(kwargs)
+        ? nil
+        : try await createKwargsDictAsync(kwargs)
         
         guard let callablePtr = pythonObjectRegistry[callable.id] else {
             throw PythonError.nullPointer("Callable pointer not found")
@@ -410,7 +410,7 @@ public actor PythonInterpreter {
         }
         return tuplePtr
     }
-
+    
     private func createKwargsDictAsync(_ kwargs: [String: PendingPythonConvertible]) async throws -> UnsafeMutableRawPointer {
         guard let dictPtr = try await pyDict_New() else {
             throw PythonError.nullPointer("Failed to create kwargs dict")
@@ -506,7 +506,7 @@ public actor PythonInterpreter {
         let gilRelease = safeSymbolsCache.PyGILState_Release!
         let gstate = gilEnsure()
         defer { gilRelease(gstate) }
-
+        
         // All Python C API usage is now safe here.
         return try body()
     }
@@ -734,7 +734,7 @@ public actor PythonInterpreter {
             public typealias Element = (key: SafePythonObject, value: SafePythonObject)
             
             private let dictView: SafePythonObject
-                    
+            
             fileprivate init(dictView: SafePythonObject) {
                 self.dictView = dictView
             }
@@ -776,6 +776,66 @@ public actor PythonInterpreter {
         @available(*, noasync, message: "items() is only valid inside withIsolatedContext()")
         public func items() -> ItemsSequence {
             ItemsSequence(dictView: self)
+        }
+        
+        // MARK: SafePythonObject Bytes support
+        
+        public var isBytes: Bool {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncIsBytes(self)
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        public var isBytesArray: Bool {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncIsBytesArray(self)
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        public var isBytesType: Bool { return isBytes || isBytesArray}
+        
+        /// Safe copy of Python bytes → Swift Data
+        public func asCopiedData() throws -> Data {
+            try withUnsafeBytes { Data($0) }
+        }
+        
+        /// Safe copy of Python bytes → Swift `String` (recommended for SVG, JSON, text)
+        public func asCopiedString(encoding: String.Encoding = .utf8) throws -> String {
+            try withUnsafeBytesString(encoding: encoding) { $0 }
+        }
+        
+        /// Do something with the bytes before the closure ends
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        public func withUnsafeBytes<R : Sendable>(_ body: @Sendable (UnsafeBufferPointer<UInt8>) throws -> R) throws -> R {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.withUnsafeBytes(self, body: body)
+                }
+            } catch {
+                fatalError("Failed: \(error)")
+            }
+        }
+        
+        /// Do something with the bytes before the closure ends
+        public func withUnsafeBytesString<R : Sendable>( encoding: String.Encoding = .utf8, _ body: @Sendable (String) throws -> R ) throws -> R {
+            try withUnsafeBytes { buffer in
+                guard let str = String(bytes: buffer, encoding: encoding) else {
+                    //throw PythonError.valueError("Cannot decode bytes as \(encoding)")
+                    fatalError("placeholder")
+                }
+                return try body(str)
+            }
         }
         
         // MARK: SafePythonObject Operator support
@@ -1137,18 +1197,18 @@ public actor PythonInterpreter {
             case .deferredDouble:
                 fatalError("Python TypeError")
             case .deferredInt(let lhsVal):
-                    switch rhs.state {
-                    case .bound:
-                        fatalError("This can never happen.")
-                    case .deferredDouble:
-                        fatalError("Python TypeError")
-                    case .deferredInt(let rhsVal):
-                        return SafePythonObject(integerLiteral: lhsVal & rhsVal)
-                    case .deferredString:
-                        fatalError("Python TypeError")
-                    case .deferredBool(let rhsVal):
-                        return SafePythonObject(integerLiteral: lhsVal & (rhsVal ? 1 : 0))
-                    }
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble:
+                    fatalError("Python TypeError")
+                case .deferredInt(let rhsVal):
+                    return SafePythonObject(integerLiteral: lhsVal & rhsVal)
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return SafePythonObject(integerLiteral: lhsVal & (rhsVal ? 1 : 0))
+                }
             case .deferredString:
                 fatalError("Python TypeError")
             case .deferredBool(let lhsVal):
@@ -1199,18 +1259,18 @@ public actor PythonInterpreter {
             case .deferredDouble:
                 fatalError("Python TypeError")
             case .deferredInt(let lhsVal):
-                    switch rhs.state {
-                    case .bound:
-                        fatalError("This can never happen.")
-                    case .deferredDouble:
-                        fatalError("Python TypeError")
-                    case .deferredInt(let rhsVal):
-                        return SafePythonObject(integerLiteral: lhsVal | rhsVal)
-                    case .deferredString:
-                        fatalError("Python TypeError")
-                    case .deferredBool(let rhsVal):
-                        return SafePythonObject(integerLiteral: lhsVal | (rhsVal ? 1 : 0))
-                    }
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble:
+                    fatalError("Python TypeError")
+                case .deferredInt(let rhsVal):
+                    return SafePythonObject(integerLiteral: lhsVal | rhsVal)
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return SafePythonObject(integerLiteral: lhsVal | (rhsVal ? 1 : 0))
+                }
             case .deferredString:
                 fatalError("Python TypeError")
             case .deferredBool(let lhsVal):
@@ -1261,18 +1321,18 @@ public actor PythonInterpreter {
             case .deferredDouble:
                 fatalError("Python TypeError")
             case .deferredInt(let lhsVal):
-                    switch rhs.state {
-                    case .bound:
-                        fatalError("This can never happen.")
-                    case .deferredDouble:
-                        fatalError("Python TypeError")
-                    case .deferredInt(let rhsVal):
-                        return SafePythonObject(integerLiteral: lhsVal ^ rhsVal)
-                    case .deferredString:
-                        fatalError("Python TypeError")
-                    case .deferredBool(let rhsVal):
-                        return SafePythonObject(integerLiteral: lhsVal ^ (rhsVal ? 1 : 0))
-                    }
+                switch rhs.state {
+                case .bound:
+                    fatalError("This can never happen.")
+                case .deferredDouble:
+                    fatalError("Python TypeError")
+                case .deferredInt(let rhsVal):
+                    return SafePythonObject(integerLiteral: lhsVal ^ rhsVal)
+                case .deferredString:
+                    fatalError("Python TypeError")
+                case .deferredBool(let rhsVal):
+                    return SafePythonObject(integerLiteral: lhsVal ^ (rhsVal ? 1 : 0))
+                }
             case .deferredString:
                 fatalError("Python TypeError")
             case .deferredBool(let lhsVal):
@@ -1529,7 +1589,7 @@ public actor PythonInterpreter {
         static internal func unboundPythonLessThan(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
             SafePythonObject(booleanLiteral: unboundPythonLessThanComparable(lhs: lhs, rhs: rhs))
         }
-
+        
         static internal func unboundPythonLessThanComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
             switch lhs.state {
             case .bound:
@@ -1620,7 +1680,7 @@ public actor PythonInterpreter {
         static internal func unboundPythonLessThanOrEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
             SafePythonObject(booleanLiteral: unboundPythonLessThanOrEqualsComparable(lhs: lhs, rhs: rhs))
         }
-
+        
         static internal func unboundPythonLessThanOrEqualsComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
             switch lhs.state {
             case .bound:
@@ -1711,7 +1771,7 @@ public actor PythonInterpreter {
         static internal func unboundPythonGreaterThan(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
             SafePythonObject(booleanLiteral: unboundPythonGreaterThanComparable(lhs: lhs, rhs: rhs))
         }
-
+        
         static internal func unboundPythonGreaterThanComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
             switch lhs.state {
             case .bound:
@@ -1802,7 +1862,7 @@ public actor PythonInterpreter {
         static internal func unboundPythonGreaterThanOrEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
             SafePythonObject(booleanLiteral: unboundPythonGreaterThanOrEqualsComparable(lhs: lhs, rhs: rhs))
         }
-
+        
         static internal func unboundPythonGreaterThanOrEqualsComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
             switch lhs.state {
             case .bound:
@@ -1896,6 +1956,12 @@ public actor PythonInterpreter {
     
     struct SafePythonCSymbols {
         var PyBool_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)?
+        var PyBytes_AsString: (@convention(c) (UnsafeRawPointer?) -> UnsafeMutablePointer<CChar>?)?
+        var PyBytes_Check: (@convention(c) (UnsafeRawPointer?) -> Int32)?
+        var PyBytes_Size: (@convention(c) (UnsafeRawPointer?) -> Int32)?
+        var PyByteArray_AsString: (@convention(c) (UnsafeRawPointer?) -> UnsafeMutablePointer<CChar>?)?
+        var PyBytesArray_Check: (@convention(c) (UnsafeRawPointer?) -> Int32)?
+        var PyBytesArray_Size: (@convention(c) (UnsafeRawPointer?) -> Int32)?
         var PyDict_New: (@convention(c) () -> UnsafeMutableRawPointer?)?
         var PyDict_SetItem: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32)?
         var PyFloat_FromDouble: (@convention(c) (Double) -> UnsafeMutableRawPointer?)?
@@ -1941,6 +2007,18 @@ public actor PythonInterpreter {
         guard safeSymbolsCache.PyRun_SimpleString == nil else { return }
         safeSymbolsCache.PyBool_FromLong = try await runtime.loadSendableSymbol("PyBool_FromLong",
                     as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function
+        safeSymbolsCache.PyBytes_AsString = try await runtime.loadSendableSymbol("PyBytes_AsString",
+                    as: (@convention(c) (UnsafeRawPointer?) -> UnsafeMutablePointer<CChar>?).self).function
+        safeSymbolsCache.PyBytes_Check = try await runtime.loadSendableSymbol("PyBytes_Check",
+                    as: (@convention(c) (UnsafeRawPointer?) -> Int32).self).function
+        safeSymbolsCache.PyBytes_Size = try await runtime.loadSendableSymbol("PyBytes_Size",
+                    as: (@convention(c) (UnsafeRawPointer?) -> Int32).self).function
+        safeSymbolsCache.PyByteArray_AsString = try await runtime.loadSendableSymbol("PyByteArray_AsString",
+                    as: (@convention(c) (UnsafeRawPointer?) -> UnsafeMutablePointer<CChar>?).self).function
+        safeSymbolsCache.PyBytesArray_Check = try await runtime.loadSendableSymbol("PyBytesArray_Check",
+                    as: (@convention(c) (UnsafeRawPointer?) -> Int32).self).function
+        safeSymbolsCache.PyBytesArray_Size = try await runtime.loadSendableSymbol("PyBytesArray_Size",
+                    as: (@convention(c) (UnsafeRawPointer?) -> Int32).self).function
         safeSymbolsCache.PyDict_New = try await runtime.loadSendableSymbol("PyDict_New",
                     as: (@convention(c) () -> UnsafeMutableRawPointer?).self).function
         safeSymbolsCache.PyDict_SetItem = try await runtime.loadSendableSymbol("PyDict_SetItem",
@@ -2853,6 +2931,82 @@ public actor PythonInterpreter {
         
         let differenceId = registerPythonObjectPointer(differencePtr)
         return SafePythonObject(interpreter: self, id: differenceId)
+    }
+    
+    // MARK: Bytes support (synchronous mode)
+    
+    internal func syncIsBytes(_ obj: SafePythonObject) throws -> Bool {
+        guard let isBytes = safeSymbolsCache.PyBytes_Check else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        
+        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        return isBytes(objPtr) != 0
+    }
+    
+    internal func syncIsBytesArray(_ obj: SafePythonObject) throws -> Bool {
+        guard let isBytesArray = safeSymbolsCache.PyBytesArray_Check else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        
+        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        return isBytesArray(objPtr) != 0
+    }
+    
+    internal func syncBytesSize(_ obj: SafePythonObject) throws -> Int {
+        guard let bytesSize = safeSymbolsCache.PyBytes_Size else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        
+        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        return Int(bytesSize(objPtr))
+    }
+    
+    internal func syncBytesArraySize(_ obj: SafePythonObject) throws -> Int {
+        guard let bytesArraySize = safeSymbolsCache.PyBytesArray_Size else {
+            throw PythonError.nullPointer("Failed ")
+        }
+        
+        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        return Int(bytesArraySize(objPtr))
+    }
+    
+    @available(*, noasync, message: "Synchronous Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    internal func withUnsafeBytes<R>(_ obj: SafePythonObject, body: @Sendable (UnsafeBufferPointer<UInt8>) throws -> R) throws -> R {
+        guard obj.isBytesType else {
+            fatalError("placeholder")
+        }
+        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        
+        var bufferPtr: UnsafePointer<UInt8>?
+        var length: Int = 0
+
+        if obj.isBytes {
+            guard let bytesAsString = safeSymbolsCache.PyBytes_AsString else {
+                throw PythonError.nullPointer("Failed ")
+            }
+            
+            guard let cStr = bytesAsString(objPtr) else {
+                fatalError("placeholder")
+            }
+            bufferPtr = UnsafeRawPointer(cStr).assumingMemoryBound(to: UInt8.self)
+            length = try syncBytesSize(obj)
+        } else { // bytes array
+            guard let bytesArrayAsString = safeSymbolsCache.PyByteArray_AsString else {
+                throw PythonError.nullPointer("Failed ")
+            }
+            guard let cStr = bytesArrayAsString(objPtr) else {
+                fatalError("placeholder")
+            }
+            bufferPtr = UnsafeRawPointer(cStr).assumingMemoryBound(to: UInt8.self)
+            length = try syncBytesArraySize(obj)
+        }
+        guard let bufferPtr else {
+            fatalError("placeholder")
+        }
+
+        let ubp = UnsafeBufferPointer(start: bufferPtr, count: length)
+        return try body(ubp)
     }
 }
 
