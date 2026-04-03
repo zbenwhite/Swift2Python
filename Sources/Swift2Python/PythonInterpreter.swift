@@ -60,6 +60,7 @@ public actor PythonInterpreter {
     
     // MARK: Python C API wrappers (async mode)
     
+    
     private func py_DecRef(_ pointer: UnsafeMutableRawPointer) async throws {
         logger.trace("CPyton wrapper called: py_DecRef")
         let decrementRefCount = try await runtime.loadSendableSymbol("Py_DecRef",
@@ -72,6 +73,48 @@ public actor PythonInterpreter {
         let pyBoolFromLong = try await runtime.loadSendableSymbol("PyBool_FromLong",
                                                                   as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self)
         return pyBoolFromLong.function(value ? 1 : 0)
+    }
+    
+    private func pyBytes_AsString(_ pointer: UnsafeMutableRawPointer) async throws -> UnsafePointer<CChar>? {
+        logger.trace("CPyton wrapper called: pyBytes_AsString")
+        let pyBytesAsString = try await runtime.loadSendableSymbol( "PyBytes_AsString", as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafePointer<CChar>?).self)
+        if let cString = pyBytesAsString.function(pointer) {
+            return cString
+        }
+        return nil
+    }
+    
+    private func pyBytes_Check(_ pointer: UnsafeMutableRawPointer) async throws -> Bool {
+        logger.trace("CPyton wrapper called: pyBytes_Check")
+        let pyBytesCheck = try await runtime.loadSendableSymbol( "PyBytes_Check", as: (@convention(c) (UnsafeMutableRawPointer) -> Int32).self)
+        return pyBytesCheck.function(pointer) != 0
+    }
+    
+    private func pyBytes_Size(_ pointer: UnsafeMutableRawPointer) async throws -> Int32 {
+        logger.trace("CPyton wrapper called: pyBytes_Size")
+        let pyBytesSize = try await runtime.loadSendableSymbol( "PyBytes_Size", as: (@convention(c) (UnsafeMutableRawPointer) -> Int32).self)
+        return pyBytesSize.function(pointer)
+    }
+    
+    private func pyByteArray_AsString(_ pointer: UnsafeMutableRawPointer) async throws -> UnsafePointer<CChar>? {
+        logger.trace("CPyton wrapper called: pyByteArray_AsString")
+        let pyByteArrayAsString = try await runtime.loadSendableSymbol( "PyByteArray_AsString", as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafePointer<CChar>?).self)
+        if let cString = pyByteArrayAsString.function(pointer) {
+            return cString
+        }
+        return nil
+    }
+    
+    private func pyBytesArray_Check(_ pointer: UnsafeMutableRawPointer) async throws -> Bool {
+        logger.trace("CPyton wrapper called: pyBytesArray_Check")
+        let pyBytesCheck = try await runtime.loadSendableSymbol( "PyBytesArray_Check", as: (@convention(c) (UnsafeMutableRawPointer) -> Int32).self)
+        return pyBytesCheck.function(pointer) != 0
+    }
+    
+    private func pyBytesArray_Size(_ pointer: UnsafeMutableRawPointer) async throws -> Int32 {
+        logger.trace("CPyton wrapper called: pyBytesArray_Size")
+        let pyBytesArraySize = try await runtime.loadSendableSymbol( "PyBytesArray_Size", as: (@convention(c) (UnsafeMutableRawPointer) -> Int32).self)
+        return pyBytesArraySize.function(pointer)
     }
     
     private func pyDict_New() async throws -> UnsafeMutableRawPointer? {
@@ -95,6 +138,23 @@ public actor PythonInterpreter {
         let pyFloatFromDouble = try await runtime.loadSendableSymbol("PyFloat_FromDouble",
                                                                      as: (@convention(c) (Double) -> UnsafeMutableRawPointer?).self)
         return pyFloatFromDouble.function(value)
+    }
+    
+    private var pyGILState_ReleaseStored : (@convention(c) (UnsafeMutableRawPointer?) -> Void)? = nil
+    
+    private func pyGILState_Ensure() async throws -> UnsafeMutableRawPointer? {
+        logger.trace("CPyton wrapper called: pyGILState_Ensure")
+        let pyGILStateEnsure = try await runtime.loadSendableSymbol("PyGILState_Ensure", as: (@convention(c) () -> UnsafeMutableRawPointer?).self)
+        // Also load the release function because it can't be awaited
+        if pyGILState_ReleaseStored == nil {
+            pyGILState_ReleaseStored = try await runtime.loadSendableSymbol("PyGILState_Release", as: (@convention(c) (UnsafeMutableRawPointer?) -> Void).self).function
+        }
+        return pyGILStateEnsure.function()
+    }
+    
+    private func pyGILState_Release(_ gstate: UnsafeMutableRawPointer) {
+        logger.trace("CPyton wrapper called: pyGILState_Release")
+        pyGILState_ReleaseStored!(gstate)
     }
     
     private func pyImport_AddModule(_ module: String) async throws -> UnsafeMutableRawPointer? {
@@ -210,6 +270,17 @@ public actor PythonInterpreter {
         return cString.withUnsafeBufferPointer { bufferPtr in
             pyUnicodeFromStringAndSize.function(bufferPtr.baseAddress, cString.count - 1)
         }
+    }
+    
+    // A GIL handler for async mode
+    public func withGIL<Result>(_ body: () async throws -> Result) async throws -> Result {
+        
+        // Manage the GIL
+        let gstate = try await pyGILState_Ensure()
+        defer { pyGILState_Release(gstate!) }
+        
+        // All Python C API usage is now safe here.
+        return try await body()
     }
     
     
@@ -474,6 +545,68 @@ public actor PythonInterpreter {
         return try await callPythonMethod(object: obj, methodName: name, collectedArgs: allArgs, kwargs:kwargs)
     }
     
+    // MARK: Bytes Support (async mode)
+    
+    public func isBytes(_ obj: PythonObject) async throws -> Bool {
+        guard let objPtr = pythonObjectRegistry[obj.id] else {
+            throw PythonError.nullPointer("Object pointer not found")
+        }
+        return try await withGIL { try await pyBytes_Check(objPtr) }
+    }
+    
+    public func isBytesArray(_ obj: PythonObject) async throws -> Bool {
+        guard let objPtr = pythonObjectRegistry[obj.id] else {
+            throw PythonError.nullPointer("Object pointer not found")
+        }
+        return try await withGIL { try await pyBytesArray_Check(objPtr) }
+    }
+    
+    public func bytesObjectSize(_ obj: PythonObject) async throws -> Int {
+        guard let objPtr = pythonObjectRegistry[obj.id] else {
+            throw PythonError.nullPointer("Object pointer not found")
+        }
+        return try await withGIL { Int(try await pyBytes_Size(objPtr)) }
+    }
+    
+    public func bytesArrayObjectSize(_ obj: PythonObject) async throws -> Int {
+        guard let objPtr = pythonObjectRegistry[obj.id] else {
+            throw PythonError.nullPointer("Object pointer not found")
+        }
+        return try await withGIL { Int(try await pyBytesArray_Size(objPtr)) }
+    }
+    
+    public func withUnsafeBytes<R>(_ obj: PythonObject, body: @Sendable (UnsafeBufferPointer<UInt8>) throws -> R) async throws -> R {
+        try await withGIL {
+            let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+            
+            var bufferPtr: UnsafePointer<UInt8>?
+            var length: Int = 0
+            
+            if try await isBytes(obj) {
+                guard let cStr = try await pyBytes_AsString(objPtr) else {
+                    fatalError("placeholder")
+                }
+                bufferPtr = UnsafeRawPointer(cStr).assumingMemoryBound(to: UInt8.self)
+                length = try await bytesObjectSize(obj)
+                
+            } else if try await isBytesArray(obj) {
+                
+                guard let cStr = try await pyByteArray_AsString(objPtr) else {
+                    fatalError("placeholder")
+                }
+                bufferPtr = UnsafeRawPointer(cStr).assumingMemoryBound(to: UInt8.self)
+                length = try await bytesArrayObjectSize(obj)
+            } else {
+                fatalError("placeholder")
+            }
+            guard let bufferPtr else {
+                fatalError("placeholder")
+            }
+            
+            let ubp = UnsafeBufferPointer(start: bufferPtr, count: length)
+            return try body(ubp)
+        }
+    }
     
     // MARK: -
     // MARK: SYNCHRONOUS MODE
@@ -493,13 +626,13 @@ public actor PythonInterpreter {
         _ body: @Sendable (isolated PythonInterpreter) throws -> T
     ) async throws -> T {
         try await ensureSymbolsLoaded()
-        return try syncWithGIL {
+        return try withGIL {
             try body(self)
         }
     }
     
     // A GIL handler for synchronous mode
-    public func syncWithGIL<Result>(_ body: () throws -> Result) throws -> Result {
+    public func withGIL<Result>(_ body: () throws -> Result) throws -> Result {
         
         // Manage the GIL
         let gilEnsure = safeSymbolsCache.PyGILState_Ensure!
@@ -784,7 +917,7 @@ public actor PythonInterpreter {
             do {
                 let localInterpreter = interpreter
                 return try localInterpreter.assumeIsolated {
-                    try $0.syncIsBytes(self)
+                    try $0.isBytes(self)
                 }
             } catch {
                 fatalError("Failed: \(error)")
@@ -795,7 +928,7 @@ public actor PythonInterpreter {
             do {
                 let localInterpreter = interpreter
                 return try localInterpreter.assumeIsolated {
-                    try $0.syncIsBytesArray(self)
+                    try $0.isBytesArray(self)
                 }
             } catch {
                 fatalError("Failed: \(error)")
@@ -2935,7 +3068,8 @@ public actor PythonInterpreter {
     
     // MARK: Bytes support (synchronous mode)
     
-    internal func syncIsBytes(_ obj: SafePythonObject) throws -> Bool {
+    @available(*, noasync, message: "Synchronous Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    internal func isBytes(_ obj: SafePythonObject) throws -> Bool {
         guard let isBytes = safeSymbolsCache.PyBytes_Check else {
             throw PythonError.nullPointer("Failed ")
         }
@@ -2944,7 +3078,8 @@ public actor PythonInterpreter {
         return isBytes(objPtr) != 0
     }
     
-    internal func syncIsBytesArray(_ obj: SafePythonObject) throws -> Bool {
+    @available(*, noasync, message: "Synchronous Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    internal func isBytesArray(_ obj: SafePythonObject) throws -> Bool {
         guard let isBytesArray = safeSymbolsCache.PyBytesArray_Check else {
             throw PythonError.nullPointer("Failed ")
         }
@@ -2953,7 +3088,8 @@ public actor PythonInterpreter {
         return isBytesArray(objPtr) != 0
     }
     
-    internal func syncBytesSize(_ obj: SafePythonObject) throws -> Int {
+    @available(*, noasync, message: "Synchronous Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    internal func bytesObjectSize(_ obj: SafePythonObject) throws -> Int {
         guard let bytesSize = safeSymbolsCache.PyBytes_Size else {
             throw PythonError.nullPointer("Failed ")
         }
@@ -2962,7 +3098,8 @@ public actor PythonInterpreter {
         return Int(bytesSize(objPtr))
     }
     
-    internal func syncBytesArraySize(_ obj: SafePythonObject) throws -> Int {
+    @available(*, noasync, message: "Synchronous Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    internal func bytesArrayObjectSize(_ obj: SafePythonObject) throws -> Int {
         guard let bytesArraySize = safeSymbolsCache.PyBytesArray_Size else {
             throw PythonError.nullPointer("Failed ")
         }
@@ -2990,7 +3127,7 @@ public actor PythonInterpreter {
                 fatalError("placeholder")
             }
             bufferPtr = UnsafeRawPointer(cStr).assumingMemoryBound(to: UInt8.self)
-            length = try syncBytesSize(obj)
+            length = try bytesObjectSize(obj)
         } else { // bytes array
             guard let bytesArrayAsString = safeSymbolsCache.PyByteArray_AsString else {
                 throw PythonError.nullPointer("Failed ")
@@ -2999,7 +3136,7 @@ public actor PythonInterpreter {
                 fatalError("placeholder")
             }
             bufferPtr = UnsafeRawPointer(cStr).assumingMemoryBound(to: UInt8.self)
-            length = try syncBytesArraySize(obj)
+            length = try bytesArrayObjectSize(obj)
         }
         guard let bufferPtr else {
             fatalError("placeholder")

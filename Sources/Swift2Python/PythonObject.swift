@@ -82,5 +82,56 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
             return CallablePythonObject(object: self, methodName: name)
         }
     }
+    
+    // MARK: Bytes support
+    
+    /// Returns true if this object is a Python `bytes` instance.
+    public func isBytes() async throws -> Bool {
+        try await interpreter.isBytes(self)
+    }
+
+    /// Returns true if this object is a Python `bytes` or an array of `bytes`.
+    public func isBytesArray() async throws -> Bool {
+        try await interpreter.isBytesArray(self)
+    }
+
+    /// Returns true if this object is either `bytes` or an array of `bytes`.
+    public func isBytesType() async throws -> Bool {
+        if try await self.isBytes() {
+            return true
+        } else {
+            return try await self.isBytesArray()
+        }
+    }
+    
+    /// Safe copy of Python bytes → Swift Data
+    public func asCopiedData() async throws -> Data {
+        try await withUnsafeBytes { Data($0) }
+    }
+    
+    /// Safe copy of Python bytes → Swift `String` (recommended for SVG, JSON, text)
+    public func asCopiedString(encoding: String.Encoding = .utf8) async throws -> String {
+        try await withUnsafeBytesString(encoding: encoding) { $0 }
+    }
+    
+    /// Do something with the bytes before the closure ends
+    public func withUnsafeBytes<R : Sendable>(_ body: @Sendable (UnsafeBufferPointer<UInt8>) throws -> R) async throws -> R {
+        do {
+            return try await interpreter.withUnsafeBytes(self, body: body)
+        } catch {
+            fatalError("Failed: \(error)")
+        }
+    }
+    
+    /// Do something with the bytes before the closure ends
+    public func withUnsafeBytesString<R : Sendable>( encoding: String.Encoding = .utf8, _ body: @Sendable (String) throws -> R ) async throws -> R {
+        try await withUnsafeBytes { buffer in
+            guard let str = String(bytes: buffer, encoding: encoding) else {
+                //throw PythonError.valueError("Cannot decode bytes as \(encoding)")
+                fatalError("placeholder")
+            }
+            return try body(str)
+        }
+    }
 }
 
