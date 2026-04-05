@@ -86,12 +86,7 @@ public actor PythonRuntime {
     }
     
 //    // ── CPyton wrappers ───────────────────────────────────────────────
-    
-//    public func py_DecRef(_ pointer: UnsafeMutableRawPointer) throws {
-//        logger.trace("CPyton wrapper called: py_DecRef")
-//        let decrementRefCount = try loadSymbol("Py_DecRef", as: (@convention(c) (UnsafeMutableRawPointer) -> Void).self)
-//        decrementRefCount(pointer)
-//    }
+
     
     private func py_FinalizeEx() throws -> CInt {
         logger.trace("CPyton wrapper called: py_FinalizeEx")
@@ -178,37 +173,11 @@ public actor PythonRuntime {
         }
     }
     
-//    private func pyRun_SimpleString(_ code: String) throws -> CInt {
-//        logger.trace("CPyton wrapper called: pyRun_SimpleString")
-//        let pyExec = try loadSymbol("PyRun_SimpleString", as: (@convention(c) (UnsafePointer<CChar>?) -> CInt).self)
-//        return code.withCString { cStringPtr in
-//            pyExec(cStringPtr)
-//        }
-//    }
-    
- 
-//    private func pyErr_Occurred() throws {
-//        logger.trace("CPyton wrapper called: pyErr_Occurred")
-//        let pyErrOccurred = try loadSymbol("PyErr_Occurred", as: (@convention(c) () -> UnsafeMutablePointer<PyObject>?).self)
-//        pyErrOccurred()
-//    }
 //    
 //    private func pyErr_Print() throws {
 //        logger.trace("CPyton wrapper called: pyErr_Print")
 //        let pyErrPrint = try loadSymbol("PyErr_Print", as: (@convention(c) () -> Void).self)
 //        pyErrPrint()
-//    }
-//    
-//    private func pyGILState_Ensure() throws -> PyGILState_STATE {
-//        logger.trace("CPyton wrapper called: pyGILState_Ensure")
-//        let fn = try loadSymbol("PyGILState_Ensure", as: (@convention(c) () -> PyGILState_STATE).self)
-//        return fn()
-//    }
-//
-//    private func pyGILState_Release(_ state: PyGILState_STATE) throws {
-//        logger.trace("CPyton wrapper called: pyGILState_Release")
-//        let fn = try loadSymbol("PyGILState_Release", as: (@convention(c) (PyGILState_STATE) -> Void).self)
-//        fn(state)
 //    }
 //
 //    public func pyMem_RawFree(_ ptr: UnsafeMutableRawPointer?) throws {
