@@ -64,14 +64,14 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     
     // a.name
     // (can't do actual a.name because we need try await and they're not available for a.name)
-    public func get(attrName: String) async throws -> PythonObject {
-        return try await interpreter.getObjectAttribute(self, attrName)
+    public func get(attr: String) async throws -> PythonObject {
+        return try await interpreter.get(object: self, attribute: attr)
     }
     
     // a.name = value
     // (can't do actual a.name = value because we need try await ...)
-    public func set(attrName: String, value: PendingPythonConvertible) async throws {
-        try await interpreter.setObjectAttribute(self, attrName, value.toPythonObject(interpreter: self.interpreter))
+    public func set(attr: String, value: PendingPythonConvertible) async throws {
+        try await interpreter.set(object: self, attribute: attr, value: value.toPythonObject(interpreter: self.interpreter))
     }
     
     //
@@ -132,6 +132,18 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
             }
             return try body(str)
         }
+    }
+    
+    public func convertToDouble() async throws -> Double {
+        return try await interpreter.convertToDouble(self)
+    }
+    
+    public func convertToInt() async throws -> Int {
+        return try await interpreter.convertToInt(self)
+    }
+    
+    public func convertToUInt() async throws -> UInt {
+        return try await interpreter.convertToUInt(self)
     }
 }
 

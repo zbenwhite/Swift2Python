@@ -5,6 +5,23 @@
 //  Created by Ben White on 3/2/26.
 //
 
+// TODO: More
+//
+// - numpy conversions?
+// - UInt
+// - Int8
+// - Int16
+// - Int32
+// - Int64
+// - UInt8
+// - UInt16
+// - UInt32
+// - UInt64
+// - Float
+// - Optional?
+// - 
+
+
 // MARK: Asynchronous Mode Conversions
 
 public protocol PendingPythonConvertible: Sendable {
@@ -13,37 +30,58 @@ public protocol PendingPythonConvertible: Sendable {
 
 extension Bool: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
-        try await interpreter.convertBoolToPython(self)
+        try await interpreter.convertToPython(bool: self)
     }
 }
 
 extension Double: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
-        try await interpreter.convertDoubleToPython(self)
+        try await interpreter.convertToPython(double: self)
+    }
+    
+    public func from(pythonObject: PythonObject) async throws -> Self? {
+        return try await Double(pythonObject)
+    }
+}
+
+extension Double {
+    public init(_ pythonObject: PythonObject) async throws {
+        self = try await pythonObject.convertToDouble()
     }
 }
 
 extension Int: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
-        try await interpreter.convertIntToPython(self)
+        try await interpreter.convertToPython(int: self)
+    }
+    
+    public func from(pythonObject: PythonObject) async throws -> Self? {
+        return try await Int(pythonObject)
     }
 }
 
+extension Int {
+    public init(_ pythonObject: PythonObject) async throws {
+        self = try await pythonObject.convertToInt()
+    }
+}
+
+
 extension String: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
-        try await interpreter.convertStringToPython(self)
+        try await interpreter.convertToPython(string: self)
     }
 }
 
 extension Array : PendingPythonConvertible where Element : PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
-        try await interpreter.convertArrayToPython(self)
+        try await interpreter.convertToPython(array: self)
     }
 }
 
 extension Dictionary : PendingPythonConvertible where Key : PendingPythonConvertible & Hashable, Value : PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
-        try await interpreter.convertDictionaryToPython(self)
+        try await interpreter.convertToPython(dictionary: self)
     }
 }
 
