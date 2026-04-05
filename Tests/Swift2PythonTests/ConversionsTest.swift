@@ -12,7 +12,7 @@ import Logging
 @Suite("Conversions Tests")
 struct ConversionsTests {
     
-    private let setupLogging: Void = {
+    private static let setupLogging: Void = {
         LoggingSystem.bootstrap { label in
             var handler = StreamLogHandler.standardOutput(label: label)
             handler.logLevel = .debug
@@ -20,8 +20,10 @@ struct ConversionsTests {
         }
     }()
     
+    let interpreter: PythonInterpreter
+    
     init() async {
-        _ = setupLogging
+        _ = Self.setupLogging
         let runtime = PythonRuntime.shared
         do {
             try await runtime.initialize()
@@ -30,8 +32,6 @@ struct ConversionsTests {
         }
         interpreter = try! await PythonInterpreter()
     }
-    
-    let interpreter: PythonInterpreter
     
     @Test("Double → PythonObject (async)")
     func asyncDoubleConversion() async throws {
