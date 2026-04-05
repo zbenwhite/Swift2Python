@@ -30,18 +30,19 @@ struct InterpreterTests {
         } catch {
             #expect(Bool(false), "Failed to initialize Python runtime: \(error)")
         }
+        py = try! await PythonInterpreter()
     }
     
-    let py = PythonInterpreter()
+    let py: PythonInterpreter
 
     @Test("Imports sys and reads version")
     func importSysVersion() async throws {
         let sys = try await py.import("sys")
 
-        let versionInfo = try await sys.get(attrName: "version_info")
+        let versionInfo = try await sys.get(attr: "version_info")
 
-        let majorObj = try await versionInfo.get(attrName: "major")
-        let minorObj = try await versionInfo.get(attrName: "minor")
+        let majorObj = try await versionInfo.get(attr: "major")
+        let minorObj = try await versionInfo.get(attr: "minor")
 
         // Need a way to extract Swift Int — add a helper later
         // For now: just confirm we got objects back
@@ -58,10 +59,10 @@ struct InterpreterTests {
 
     @Test("Converts Swift values and calls len()")
     func convertAndCallLen() async throws {
-        let lst = try await py.convertArrayToPython([1, 42, -7])
+        let lst = try await py.convertToPython(array: [1, 42, -7])
 
         let builtins = try await py.import("builtins")
-        let lenFunc = try await builtins.get(attrName: "len")
+        let lenFunc = try await builtins.get(attr: "len")
 
         // Call len(lst)
         _ = try await lenFunc.callAsFunction(lst)
