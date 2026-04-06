@@ -211,16 +211,42 @@ public actor PythonRuntime {
         return SendableCPythonFunction(fn)
     }
     
-    private static func loadPythonLibrary(path: String?) throws -> PythonLibraryHandle {
+    private static func loadPythonLibrary(path: String?, logger: Logger) throws -> PythonLibraryHandle {
         // Implement dlopen logic here (fallback to common locations, env vars, etc.)
         // Example stub:
         let candidatePaths = path.map { [$0] } ?? defaultPythonLibraryPaths()
         for p in candidatePaths {
+            logger.trace("Checking path \(p) ...")
             if let h = dlopen(p, RTLD_LAZY | RTLD_GLOBAL) {
+                logger.trace("... found.")
                 return h
+            } else {
+                logger.trace("... not found.")
             }
         }
         throw PythonError.libraryNotFound
+    }
+    
+    private static func currentUVArchitecture() -> String {
+        var uts = utsname()
+        uname(&uts)
+        
+        let machine = withUnsafePointer(to: &uts.machine) {
+            $0.withMemoryRebound(to: CChar.self, capacity: Int(_SYS_NAMELEN)) {
+                String(cString: $0)
+            }
+        }
+        
+        // Convert to what uv expects
+        return machine == "arm64" ? "aarch64" : "x86_64"
+    }
+    
+    private static func currentUVPlatformOS() -> String {
+        #if os(macOS)
+            return "macos"
+        #else
+            return "linux"   // adjust as needed
+        #endif
     }
     
     private static func defaultPythonLibraryPaths() -> [String] {
@@ -243,6 +269,18 @@ public actor PythonRuntime {
                 paths.append("\(prefix)/lib/libpython\(dotted).dylib")
                 paths.append("\(prefix)/lib/libpython\(ver).dylib")
             }
+        }
+        
+        
+        // UV pythons
+        let uvRoot = FileManager.default.homeDirectoryForCurrentUser.path
+        let uvPrefix = "\(uvRoot)/.local/share/uv/python"
+        
+        let arch = currentUVArchitecture()
+        let os = currentUVPlatformOS()
+        
+        for ver in versions {
+            paths.append("\(uvPrefix)/cpython-\(ver)-\(os)-\(arch)-none/lib/libpython\(ver).dylib")
         }
 
         // System Python (macOS) – usually not full-featured, but sometimes useful
@@ -310,7 +348,7 @@ public actor PythonRuntime {
         logger.debug("Initializing Python runtime...")
         
         // 1. Load the shared library
-        self.pythonLibraryHandle = try Self.loadPythonLibrary(path: libraryPath)
+        self.pythonLibraryHandle = try Self.loadPythonLibrary(path: libraryPath, logger: logger)
         
         //
         // Calls Py_Initialize() instead of Py_InitializeFromConfig() because Py_InitializeFromConfig()
