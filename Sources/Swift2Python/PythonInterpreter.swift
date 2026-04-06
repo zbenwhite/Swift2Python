@@ -72,10 +72,10 @@ public actor PythonInterpreter {
         guard let count = pythonObjectSwiftRefCount[id] else { return }
         
         if count <= 1 {
-            if let ptr = pythonObjectRegistry[id] {
-                // Perform the actual Python cleanup
-                try py_DecRef(ptr)
-            }
+//            if let ptr = pythonObjectRegistry[id] {
+//                // Perform the actual Python cleanup
+//                //try py_DecRef(ptr)
+//            }
             pythonObjectRegistry.removeValue(forKey: id)
             pythonObjectSwiftRefCount.removeValue(forKey: id)
         } else {
@@ -95,11 +95,8 @@ public actor PythonInterpreter {
     private struct PreloadedPythonSymbols {
         let Py_DecRef: (@convention(c) (UnsafeMutableRawPointer) -> Void)
         let PyBool_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)
-        let PyBytes_AsString: (@convention(c) (UnsafeMutableRawPointer) -> UnsafePointer<CChar>?)
-        let PyBytes_Check: (@convention(c) (UnsafeMutableRawPointer) -> Int32)
+        let PyBuffer_Release: (@convention(c) (UnsafeMutableRawPointer) -> Void)
         let PyBytes_Size: (@convention(c) (UnsafeMutableRawPointer) -> Int32)
-        let PyByteArray_AsString: (@convention(c) (UnsafeMutableRawPointer) -> UnsafePointer<CChar>?)
-        let PyByteArray_Check: (@convention(c) (UnsafeMutableRawPointer) -> Int32)
         let PyByteArray_Size: (@convention(c) (UnsafeMutableRawPointer) -> Int32)
         let PyDict_New: (@convention(c) () -> UnsafeMutableRawPointer?)
         let PyDict_SetItem: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32)
@@ -107,16 +104,16 @@ public actor PythonInterpreter {
         let PyErr_Occurred: (@convention(c) () -> UnsafeMutableRawPointer?)
         let PyFloat_AsDouble: (@convention(c) (UnsafeMutableRawPointer) -> Double)
         let PyFloat_FromDouble: (@convention(c) (Double) -> UnsafeMutableRawPointer?)
-        let PyGILState_Ensure: (@convention(c) () -> UnsafeMutableRawPointer?)
+        let PyGILState_Ensure: (@convention(c) () -> UnsafeMutableRawPointer)
         let PyGILState_Release: (@convention(c) (UnsafeMutableRawPointer?) -> Void)
         let PyImport_AddModule: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?)
         let PyImport_ImportModule: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?)
-        let PyInt_AsLong: (@convention(c) (UnsafeMutableRawPointer) -> Int)
-        let PyInt_AsUnsignedLongMask: (@convention(c) (UnsafeMutableRawPointer) -> UInt32)
-        let PyInt_FromSize_t: (@convention(c) (UInt32) -> UnsafeMutableRawPointer?)
         let PyList_New: (@convention(c) (Int) -> UnsafeMutableRawPointer?)
         let PyList_SetItem: (@convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Int32)
+        let PyLong_AsLong: (@convention(c) (UnsafeMutableRawPointer) -> Int)
+        let PyLong_AsUnsignedLongMask: (@convention(c) (UnsafeMutableRawPointer) -> UInt32)
         let PyLong_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)
+        let PyLong_FromSize_t: (@convention(c) (UInt32) -> UnsafeMutableRawPointer?)
         let PyNumber_Add: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_And: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_InPlaceAdd: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
@@ -135,6 +132,7 @@ public actor PythonInterpreter {
         let PyObject_Call: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?)
         let PyObject_CallObject: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?)
         let PyObject_GetAttrString: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?)
+        let PyObject_GetBuffer: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer, Int32) -> Int32)
         let PyObject_GetItem: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyObject_RichCompare: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, Int32) -> UnsafeMutableRawPointer?)
         let PyObject_RichCompareBool: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, Int32) -> Int32)
@@ -157,16 +155,10 @@ public actor PythonInterpreter {
                 "Py_DecRef", as: (@convention(c) (UnsafeMutableRawPointer) -> Void).self).function,
             PyBool_FromLong: try await runtime.loadSendableSymbol(
                 "PyBool_FromLong", as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function,
-            PyBytes_AsString: try await runtime.loadSendableSymbol(
-                "PyBytes_AsString", as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafePointer<CChar>?).self).function,
-            PyBytes_Check: try await runtime.loadSendableSymbol(
-                "PyBytes_Check", as: (@convention(c) (UnsafeMutableRawPointer) -> Int32).self).function,
+            PyBuffer_Release: try await runtime.loadSendableSymbol(
+                "PyBuffer_Release", as: (@convention(c) (UnsafeMutableRawPointer) -> Void).self).function,
             PyBytes_Size: try await runtime.loadSendableSymbol(
                 "PyBytes_Size", as: (@convention(c) (UnsafeMutableRawPointer) -> Int32).self).function,
-            PyByteArray_AsString: try await runtime.loadSendableSymbol(
-                "PyByteArray_AsString", as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafePointer<CChar>?).self).function,
-            PyByteArray_Check: try await runtime.loadSendableSymbol(
-                "PyByteArray_Check", as: (@convention(c) (UnsafeMutableRawPointer) -> Int32).self).function,
             PyByteArray_Size: try await runtime.loadSendableSymbol(
                 "PyByteArray_Size", as: (@convention(c) (UnsafeMutableRawPointer) -> Int32).self).function,
             PyDict_New: try await runtime.loadSendableSymbol(
@@ -182,25 +174,25 @@ public actor PythonInterpreter {
             PyFloat_FromDouble: try await runtime.loadSendableSymbol(
                 "PyFloat_FromDouble", as: (@convention(c) (Double) -> UnsafeMutableRawPointer?).self).function,
             PyGILState_Ensure: try await runtime.loadSendableSymbol(
-                "PyGILState_Ensure", as: (@convention(c) () -> UnsafeMutableRawPointer?).self).function,
+                "PyGILState_Ensure", as: (@convention(c) () -> UnsafeMutableRawPointer).self).function,
             PyGILState_Release: try await runtime.loadSendableSymbol(
                 "PyGILState_Release", as: (@convention(c) (UnsafeMutableRawPointer?) -> Void).self).function,
             PyImport_AddModule: try await runtime.loadSendableSymbol(
                 "PyImport_AddModule", as: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?).self).function,
             PyImport_ImportModule: try await runtime.loadSendableSymbol(
                 "PyImport_ImportModule", as: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?).self).function,
-            PyInt_AsLong: try await runtime.loadSendableSymbol(
-                "PyInt_AsLong", as: (@convention(c) (UnsafeMutableRawPointer) -> Int).self).function,
-            PyInt_AsUnsignedLongMask: try await runtime.loadSendableSymbol(
-                "PyInt_AsUnsignedLongMask", as: (@convention(c) (UnsafeMutableRawPointer) -> UInt32).self).function,
-            PyInt_FromSize_t: try await runtime.loadSendableSymbol(
-                "PyInt_FromSize_t", as: (@convention(c) (UInt32) -> UnsafeMutableRawPointer?).self).function,
             PyList_New: try await runtime.loadSendableSymbol(
                 "PyList_New", as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function,
             PyList_SetItem: try await runtime.loadSendableSymbol(
                 "PyList_SetItem", as: (@convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Int32).self).function,
+            PyLong_AsLong: try await runtime.loadSendableSymbol(
+                "PyLong_AsLong", as: (@convention(c) (UnsafeMutableRawPointer) -> Int).self).function,
+            PyLong_AsUnsignedLongMask: try await runtime.loadSendableSymbol(
+                "PyLong_AsUnsignedLongMask", as: (@convention(c) (UnsafeMutableRawPointer) -> UInt32).self).function,
             PyLong_FromLong: try await runtime.loadSendableSymbol(
                 "PyLong_FromLong", as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function,
+            PyLong_FromSize_t: try await runtime.loadSendableSymbol(
+                "PyLong_FromSize_t", as: (@convention(c) (UInt32) -> UnsafeMutableRawPointer?).self).function,
             PyNumber_Add: try await runtime.loadSendableSymbol(
                 "PyNumber_Add", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             PyNumber_And: try await runtime.loadSendableSymbol(
@@ -237,6 +229,8 @@ public actor PythonInterpreter {
                 "PyObject_CallObject", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self).function,
             PyObject_GetAttrString: try await runtime.loadSendableSymbol(
                 "PyObject_GetAttrString", as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?).self).function,
+            PyObject_GetBuffer: try await runtime.loadSendableSymbol(
+                "PyObject_GetBuffer", as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer, Int32) -> Int32).self).function,
             PyObject_GetItem: try await runtime.loadSendableSymbol(
                 "PyObject_GetItem", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             PyObject_RichCompare: try await runtime.loadSendableSymbol(
@@ -257,19 +251,12 @@ public actor PythonInterpreter {
                 "PyUnicode_FromStringAndSize", as: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?).self).function,
 
             // Only this one is allowed to be missing
-            PyObject_CallNoArgs: {
-                do {
-                    return try await runtime.loadSendableSymbol(
-                        "PyObject_CallNoArgs", as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function
-                } catch {
-                    return nil
-                }
-            }()
+            PyObject_CallNoArgs: (try? await runtime.loadSendableSymbol(
+                "PyObject_CallNoArgs", as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function)
         )
     }
     
     // MARK: Python C API wrappers
-    
     
     private func py_DecRef(_ pointer: UnsafeMutableRawPointer) throws {
         logger.trace("CPyton API Call: Py_DecRef")
@@ -281,35 +268,9 @@ public actor PythonInterpreter {
         return api.PyBool_FromLong(value ? 1 : 0)
     }
     
-    private func pyBytes_AsString(_ pointer: UnsafeMutableRawPointer) throws -> UnsafePointer<CChar>? {
-        logger.trace("CPyton API Call: PyBytes_AsString")
-        if let cString = api.PyBytes_AsString(pointer) {
-            return cString
-        }
-        return nil
-    }
-    
-    private func pyBytes_Check(_ pointer: UnsafeMutableRawPointer) -> Bool {
-        logger.trace("CPyton API Call: PyBytes_Check")
-        return api.PyBytes_Check(pointer) != 0
-    }
-    
     private func pyBytes_Size(_ pointer: UnsafeMutableRawPointer) throws -> Int {
         logger.trace("CPyton API Call: PyBytes_Size")
         return Int(api.PyBytes_Size(pointer))
-    }
-    
-    private func pyByteArray_AsString(_ pointer: UnsafeMutableRawPointer) throws -> UnsafePointer<CChar>? {
-        logger.trace("CPyton API Call: PyByteArray_AsString")
-        if let cString = api.PyByteArray_AsString(pointer) {
-            return cString
-        }
-        return nil
-    }
-    
-    private func pyByteArray_Check(_ pointer: UnsafeMutableRawPointer) -> Bool {
-        logger.trace("CPyton API Call: PyByteArray_Check")
-        return api.PyByteArray_Check(pointer) != 0
     }
     
     private func pyByteArray_Size(_ pointer: UnsafeMutableRawPointer) throws -> Int {
@@ -348,7 +309,7 @@ public actor PythonInterpreter {
         return api.PyFloat_AsDouble(pointer)
     }
     
-    private func pyGILState_Ensure() -> UnsafeMutableRawPointer? {
+    private func pyGILState_Ensure() -> UnsafeMutableRawPointer {
         logger.trace("CPyton API Call: PyGILState_Ensure")
         return api.PyGILState_Ensure()
     }
@@ -368,21 +329,6 @@ public actor PythonInterpreter {
         return module.withCString({ api.PyImport_ImportModule($0) })
     }
     
-    private func pyInt_AsLong(_ valuePtr: UnsafeMutableRawPointer) throws -> Int {
-        logger.trace("CPyton API Call: PyInt_AsLong")
-        return api.PyInt_AsLong(valuePtr)
-    }
-    
-    private func pyInt_AsUnsignedLongMask(_ valuePtr: UnsafeMutableRawPointer) throws -> UInt32 {
-        logger.trace("CPyton API Call: PyInt_AsUnsignedLongMask")
-        return api.PyInt_AsUnsignedLongMask(valuePtr)
-    }
-    
-    private func pyInt_FromSize_t(_ value: UInt64) throws -> UnsafeMutableRawPointer? {
-        logger.trace("CPyton API Call: PyInt_FromSize_t")
-        return api.PyInt_FromSize_t(UInt32(value))
-    }
-    
     private func pyList_New(_ length: Int) throws -> UnsafeMutableRawPointer? {
         logger.trace("CPyton API Call: PyList_New")
         return api.PyList_New(length)
@@ -393,9 +339,24 @@ public actor PythonInterpreter {
         return api.PyList_SetItem(listPtr, index, valuePtr)
     }
     
+    private func pyLong_AsLong(_ valuePtr: UnsafeMutableRawPointer) throws -> Int {
+        logger.trace("CPyton API Call: PyLong_AsLong")
+        return api.PyLong_AsLong(valuePtr)
+    }
+    
+    private func pyLong_AsUnsignedLongMask(_ valuePtr: UnsafeMutableRawPointer) throws -> UInt32 {
+        logger.trace("CPyton API Call: PyLong_AsUnsignedLongMask")
+        return api.PyLong_AsUnsignedLongMask(valuePtr)
+    }
+    
     private func pyLong_FromLong(_ value: Int) -> UnsafeMutableRawPointer? {
         logger.trace("CPyton API Call: PyLong_FromLong")
         return api.PyLong_FromLong(value)
+    }
+    
+    private func pyLong_FromSize_t(_ value: UInt64) throws -> UnsafeMutableRawPointer? {
+        logger.trace("CPyton API Call: PyLong_FromSize_t")
+        return api.PyLong_FromSize_t(UInt32(value))
     }
     
     private func pyObject_Call(_ callable: UnsafeMutableRawPointer, _ args: UnsafeMutableRawPointer, _ kwargs: UnsafeMutableRawPointer?) throws -> UnsafeMutableRawPointer? {
@@ -459,7 +420,7 @@ public actor PythonInterpreter {
         
         // Manage the GIL
         let gstate = pyGILState_Ensure()
-        defer { pyGILState_Release(gstate!) }
+        defer { pyGILState_Release(gstate) }
         
         // All Python C API usage is now safe here.
         return try await body()
@@ -595,7 +556,7 @@ public actor PythonInterpreter {
     
     public func convertToPython(uint val: UInt) async throws -> PythonObject {
         return try withGIL {
-            guard let ptr = try pyInt_FromSize_t(UInt64(val)) else {
+            guard let ptr = try pyLong_FromSize_t(UInt64(val)) else {
                 throw PythonError.nullPointer("Failed to convert int: \(val)")
             }
             
@@ -792,19 +753,26 @@ public actor PythonInterpreter {
     
     // MARK: Bytes Support (async mode)
     
-    public func isBytes(_ obj: PythonObject) async throws -> Bool {
-        guard let objPtr = pythonObjectRegistry[obj.id] else {
-            throw PythonError.nullPointer("Object pointer not found")
-        }
-        return try withGIL { pyBytes_Check(objPtr) }
-    }
+    public let PyBUF_SIMPLE      = Int32(0)
+    public let PyBUF_WRITABLE    = Int32(1 << 0)
+    public let PyBUF_FORMAT      = Int32(1 << 1)
+    public let PyBUF_ND          = Int32(1 << 2)
+    public let PyBUF_STRIDES     = Int32(1 << 3)
+    public let PyBUF_C_CONTIGUOUS = Int32(1 << 4)
     
-    public func isBytesArray(_ obj: PythonObject) async throws -> Bool {
-        guard let objPtr = pythonObjectRegistry[obj.id] else {
-            throw PythonError.nullPointer("Object pointer not found")
-        }
-        return try withGIL { pyByteArray_Check(objPtr) }
-    }
+//    public func isBytes(_ obj: PythonObject) async throws -> Bool {
+//        guard let objPtr = pythonObjectRegistry[obj.id] else {
+//            throw PythonError.nullPointer("Object pointer not found")
+//        }
+//        return try withGIL { pyBytes_Check(objPtr) }
+//    }
+//    
+//    public func isBytesArray(_ obj: PythonObject) async throws -> Bool {
+//        guard let objPtr = pythonObjectRegistry[obj.id] else {
+//            throw PythonError.nullPointer("Object pointer not found")
+//        }
+//        return try withGIL { pyByteArray_Check(objPtr) }
+//    }
     
     public func bytesObjectSize(_ obj: PythonObject) async throws -> Int {
         guard let objPtr = pythonObjectRegistry[obj.id] else {
@@ -820,36 +788,29 @@ public actor PythonInterpreter {
         return try withGIL { try pyByteArray_Size(objPtr) }
     }
     
+    // REMOVED DUPLICATE async withUnsafeBytes that manually handled bytes and bytearray here
+    
     public func withUnsafeBytes<R>(_ obj: PythonObject, body: @Sendable (UnsafeBufferPointer<UInt8>) throws -> R) async throws -> R {
-        try await withGIL {
+        try withGIL {
             let objPtr = getRegisteredPythonObjectPointer(obj.id)!
             
-            var bufferPtr: UnsafePointer<UInt8>?
-            var length: Int = 0
+            var view = Py_buffer()
             
-            if try await isBytes(obj) {
-                guard let cStr = try pyBytes_AsString(objPtr) else {
-                    fatalError("placeholder")
-                }
-                bufferPtr = UnsafeRawPointer(cStr).assumingMemoryBound(to: UInt8.self)
-                length = try await bytesObjectSize(obj)
-                
-            } else if try await isBytesArray(obj) {
-                
-                guard let cStr = try pyByteArray_AsString(objPtr) else {
-                    fatalError("placeholder")
-                }
-                bufferPtr = UnsafeRawPointer(cStr).assumingMemoryBound(to: UInt8.self)
-                length = try await bytesArrayObjectSize(obj)
-            } else {
-                fatalError("placeholder")
+            guard api.PyObject_GetBuffer(objPtr, &view, PyBUF_SIMPLE) == 0 else {
+                fatalError()
             }
-            guard let bufferPtr else {
-                fatalError("placeholder")
+            defer {
+                api.PyBuffer_Release(&view)
             }
             
-            let ubp = UnsafeBufferPointer(start: bufferPtr, count: length)
-            return try body(ubp)
+            guard let base = view.buf else {
+                throw PythonError.nullPointer("Buffer pointer is null")
+            }
+            
+            let ptr = base.assumingMemoryBound(to: UInt8.self)
+            let buffer = UnsafeBufferPointer(start: ptr, count: Int(view.len))
+            
+            return try body(buffer)
         }
     }
     
@@ -880,7 +841,7 @@ public actor PythonInterpreter {
         
         // Manage the GIL
         let gstate = pyGILState_Ensure()
-        defer { pyGILState_Release(gstate!) }
+        defer { pyGILState_Release(gstate) }
         
         // All Python C API usage is now safe here.
         return try body()
@@ -1155,29 +1116,29 @@ public actor PythonInterpreter {
         
         // MARK: SafePythonObject Bytes support
         
-        public var isBytes: Bool {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.isBytes(self)
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        public var isBytesArray: Bool {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.isBytesArray(self)
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        public var isBytesType: Bool { return isBytes || isBytesArray}
+//        public var isBytes: Bool {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.isBytes(self)
+//                }
+//            } catch {
+//                fatalError("Failed: \(error)")
+//            }
+//        }
+//        
+//        public var isBytesArray: Bool {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.isBytesArray(self)
+//                }
+//            } catch {
+//                fatalError("Failed: \(error)")
+//            }
+//        }
+//        
+//        public var isBytesType: Bool { return isBytes || isBytesArray}
         
         /// Safe copy of Python bytes → Swift Data
         public func asCopiedData() throws -> Data {
@@ -2991,17 +2952,17 @@ public actor PythonInterpreter {
     
     // MARK: Bytes support (synchronous mode)
     
-    @available(*, noasync, message: "Synchronous Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    internal func isBytes(_ obj: SafePythonObject) throws -> Bool {
-        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
-        return pyBytes_Check(objPtr)
-    }
-    
-    @available(*, noasync, message: "Synchronous Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    internal func isBytesArray(_ obj: SafePythonObject) throws -> Bool {
-        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
-        return pyByteArray_Check(objPtr)
-    }
+//    @available(*, noasync, message: "Synchronous Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//    internal func isBytes(_ obj: SafePythonObject) throws -> Bool {
+//        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+//        return pyBytes_Check(objPtr)
+//    }
+//    
+//    @available(*, noasync, message: "Synchronous Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//    internal func isBytesArray(_ obj: SafePythonObject) throws -> Bool {
+//        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+//        return pyByteArray_Check(objPtr)
+//    }
     
     @available(*, noasync, message: "Synchronous Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     internal func bytesObjectSize(_ obj: SafePythonObject) throws -> Int {
@@ -3017,33 +2978,25 @@ public actor PythonInterpreter {
     
     @available(*, noasync, message: "Synchronous Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     internal func withUnsafeBytes<R>(_ obj: SafePythonObject, body: @Sendable (UnsafeBufferPointer<UInt8>) throws -> R) throws -> R {
-        guard obj.isBytesType else {
-            fatalError("placeholder")
-        }
         let objPtr = getRegisteredPythonObjectPointer(obj.id)!
         
-        var bufferPtr: UnsafePointer<UInt8>?
-        var length: Int = 0
-
-        if obj.isBytes {
-            guard let cStr = try pyBytes_AsString(objPtr) else {
-                fatalError("placeholder")
-            }
-            bufferPtr = UnsafeRawPointer(cStr).assumingMemoryBound(to: UInt8.self)
-            length = try bytesObjectSize(obj)
-        } else { // bytes array
-            guard let cStr = try pyByteArray_AsString(objPtr) else {
-                fatalError("placeholder")
-            }
-            bufferPtr = UnsafeRawPointer(cStr).assumingMemoryBound(to: UInt8.self)
-            length = try byteArrayObjectSize(obj)
+        var view = Py_buffer()
+        
+        guard api.PyObject_GetBuffer(objPtr, &view, PyBUF_SIMPLE) == 0 else {
+            fatalError()
         }
-        guard let bufferPtr else {
-            fatalError("placeholder")
+        defer {
+            api.PyBuffer_Release(&view)
         }
-
-        let ubp = UnsafeBufferPointer(start: bufferPtr, count: length)
-        return try body(ubp)
+        
+        guard let base = view.buf else {
+            throw PythonError.nullPointer("Buffer pointer is null")
+        }
+        
+        let ptr = base.assumingMemoryBound(to: UInt8.self)
+        let buffer = UnsafeBufferPointer(start: ptr, count: Int(view.len))
+        
+        return try body(buffer)
     }
 }
 

@@ -86,23 +86,23 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     // MARK: Bytes support
     
     /// Returns true if this object is a Python `bytes` instance.
-    public func isBytes() async throws -> Bool {
-        try await interpreter.isBytes(self)
-    }
-
-    /// Returns true if this object is a Python `bytes` or an array of `bytes`.
-    public func isBytesArray() async throws -> Bool {
-        try await interpreter.isBytesArray(self)
-    }
-
-    /// Returns true if this object is either `bytes` or an array of `bytes`.
-    public func isBytesType() async throws -> Bool {
-        if try await self.isBytes() {
-            return true
-        } else {
-            return try await self.isBytesArray()
-        }
-    }
+//    public func isBytes() async throws -> Bool {
+//        try await interpreter.isBytes(self)
+//    }
+//
+//    /// Returns true if this object is a Python `bytes` or an array of `bytes`.
+//    public func isBytesArray() async throws -> Bool {
+//        try await interpreter.isBytesArray(self)
+//    }
+//
+//    /// Returns true if this object is either `bytes` or an array of `bytes`.
+//    public func isBytesType() async throws -> Bool {
+//        if try await self.isBytes() {
+//            return true
+//        } else {
+//            return try await self.isBytesArray()
+//        }
+//    }
     
     /// Safe copy of Python bytes → Swift Data
     public func asCopiedData() async throws -> Data {
