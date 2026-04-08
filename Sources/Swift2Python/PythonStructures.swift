@@ -32,3 +32,7 @@ public struct Py_buffer {
         self.internal = nil
     }
 }
+
+public typealias PyGILState_STATE = Int32
+
+public typealias PyThreadState = OpaquePointer
