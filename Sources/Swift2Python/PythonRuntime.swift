@@ -12,70 +12,20 @@ import Logging
 import Darwin
 import Foundation
 
-public struct SendableCPythonFunction<T>: @unchecked Sendable {
-    public let function: T
-    init(_ function: T) { self.function = function }
-}
 
 public actor PythonRuntime {
     
-    private typealias PythonLibraryHandle = UnsafeMutableRawPointer
-    private typealias PythonConfigHandle = OpaquePointer
-    
-    // ── Singleton access (lazy + thread-safe init)
+    // ── Singleton access
     public static let shared = PythonRuntime()
-    
-    // ── Isolated state ───────────────────────────────────────────────
-    private var isReady = false
-    private var initError: Error? = nil
-    
-    private var pythonLibraryHandle: PythonLibraryHandle?
-    public private(set) var isFreeThreaded: Bool = false
-    public private(set) var version: (major: Int, minor: Int, micro: Int)?
+    private init() {}  // prevent external instantiation
     
     private let logger: Logger = Logger(label: "swift2python.PythonRuntime")
     
-    private init() {}  // prevent external instantiation
+
+    // MARK: Loading Symbols
     
     // Cached symbols (lazy-loaded inside actor)
     private var cachedSymbols: [String: Any] = [:]
-    
-    
-    // Special stuff only for deinit:
-    
-    // Store this because deinit calls it and it must be sendable
-    private var _sendablePyFinalizeEx: SendableCPythonFunction<@convention(c) () -> CInt>? = nil
-    
-    private struct SendablePythonLibHandle: @unchecked Sendable {
-        public let handle: PythonLibraryHandle
-        init(_ handle: PythonLibraryHandle) { self.handle = handle }
-    }
-    
-    private var _sendablePythonLibraryHandle: SendablePythonLibHandle? = nil
-    
-    /// Converts a null-terminated `wchar_t*` from the Python C API to a Swift `String`.
-    ///
-    /// Handles platform differences:
-    /// - Windows: wchar_t = 16-bit (UTF-16)
-    /// - macOS/Linux/iOS: wchar_t = 32-bit (UTF-32)
-    ///
-    /// - Parameter ptr: Pointer to the wide-character string returned by Python
-    /// - Returns: The decoded string, or throws if conversion fails
-    private func wideCharToString(_ ptr: UnsafePointer<wchar_t>?) -> String? {
-        guard let ptr = ptr else { return nil }
-        let rawPtr = UnsafeRawPointer(ptr)
-
-        #if os(Windows)
-        // Windows: wchar_t is 16-bit (UTF-16)
-        let codeUnits = rawPtr.assumingMemoryBound(to: UInt16.self)
-        return String(decodingCString: codeUnits, as: UTF16.self)
-        #else
-        // macOS, Linux, iOS: wchar_t is 32-bit (UTF-32)
-        let codeUnits = rawPtr.assumingMemoryBound(to: UInt32.self)
-        return String(decodingCString: codeUnits, as: UTF32.self)
-        #endif
-    }
-    
     
     // ── Darwin wrappers ───────────────────────────────────────────────
     private func dlsymWrapper(_ symbol: String) throws -> UnsafeMutableRawPointer? {
@@ -84,108 +34,6 @@ public actor PythonRuntime {
         }
         return symbol.withCString { dlsym(handle, $0) }
     }
-    
-//    // ── CPyton wrappers ───────────────────────────────────────────────
-
-    
-    private func py_FinalizeEx() throws -> CInt {
-        logger.trace("CPyton wrapper called: py_FinalizeEx")
-        let pyFinalize = try loadSymbol("Py_FinalizeEx", as: (@convention(c) () -> CInt).self)
-        return pyFinalize()
-    }
-//    
-//    private func py_GetExecPrefix() throws -> String? {
-//        logger.trace("CPython wrapper called: py_GetExecPrefix")
-//        // Signature: wchar_t* Py_GetExecPrefix(void);
-//        let fn = try loadSymbol("Py_GetExecPrefix", as: (@convention(c) () -> UnsafePointer<wchar_t>?).self)
-//        let ptr = fn()
-//        return wideCharToString(ptr)
-//    }
-//    
-//    private func py_GetPath() throws -> String? {
-//        logger.trace("CPython wrapper called: py_GetPath")
-//        // Signature: wchar_t* Py_GetPath(void);
-//        let fn = try loadSymbol("Py_GetPath", as: (@convention(c) () -> UnsafePointer<wchar_t>?).self)
-//        let ptr = fn()
-//        return wideCharToString(ptr)
-//    }
-
-//    private func py_GetPrefix() throws -> String? {
-//        logger.trace("CPython wrapper called: py_GetPrefix")
-//        // Signature: wchar_t* Py_GetPrefix(void);
-//        let fn = try loadSymbol("Py_GetPrefix", as: (@convention(c) () -> UnsafePointer<wchar_t>?).self)
-//        let ptr = fn()
-//        return wideCharToString(ptr)
-//    }
-//    
-//    private func py_GetProgramFullPath() throws -> String? {
-//        logger.trace("CPython wrapper called: py_GetProgramFullPath")
-//        // Signature: wchar_t* Py_GetProgramFullPath(void);
-//        let fn = try loadSymbol("Py_GetProgramFullPath", as: (@convention(c) () -> UnsafePointer<wchar_t>?).self)
-//        let ptr = fn()
-//        return wideCharToString(ptr)
-//    }
-//    
-//    private func py_GetProgramFName() throws -> String? {
-//        logger.trace("CPython wrapper called: py_GetProgramName")
-//        // Signature: wchar_t* py_GetProgramName(void);
-//        let fn = try loadSymbol("Py_GetProgramName", as: (@convention(c) () -> UnsafePointer<wchar_t>?).self)
-//        let ptr = fn()
-//        return wideCharToString(ptr)
-//    }
-    
-    private func py_Initialize() throws {
-        logger.trace("CPyton wrapper called: py_Initialize")
-        let pyInit = try loadSymbol("Py_Initialize", as: (@convention(c) () -> Void).self)
-        pyInit()
-    }
-    
-    private func py_IsInitialized() throws -> Bool {
-        logger.trace("CPython wrapper called: py_IsInitialized")
-        // The C signature is: int Py_IsInitialized(void);
-        // Returns non-zero if initialized, zero otherwise.
-        let pyIsInit = try loadSymbol("Py_IsInitialized", as: (@convention(c) () -> CInt).self)
-        let result = pyIsInit()
-        return result != 0
-    }
-    
-    private func py_GetProgramFullPath() throws -> String? {
-        logger.trace("CPython wrapper called: py_GetProgramFullPath")
-        // The C signature is: const char *Py_GetProgramFullPath(void);
-        let getProgramFullPath = try loadSymbol("Py_GetProgramFullPath", as: (@convention(c) () -> UnsafePointer<CChar>?).self)
-        if let cString = getProgramFullPath() {
-            return String(cString: cString)
-        }
-        else {
-            return nil
-        }
-    }
-    
-    private func py_GetVersion() throws -> String? {
-        logger.trace("CPython wrapper called: py_GetVersion")
-        // The C signature is: const char *Py_GetVersion(void);
-        let getVersion = try loadSymbol("Py_GetVersion", as: (@convention(c) () -> UnsafePointer<CChar>?).self)
-        if let cString = getVersion() {
-            return String(cString: cString)
-        }
-        else {
-            return nil
-        }
-    }
-    
-//    
-//    private func pyErr_Print() throws {
-//        logger.trace("CPyton wrapper called: pyErr_Print")
-//        let pyErrPrint = try loadSymbol("PyErr_Print", as: (@convention(c) () -> Void).self)
-//        pyErrPrint()
-//    }
-//
-//    public func pyMem_RawFree(_ ptr: UnsafeMutableRawPointer?) throws {
-//        logger.trace("CPyton wrapper called: pyMem_RawFree")
-//        guard let ptr else { return }
-//        let pyFree = try loadSymbol("PyMem_RawFree", as: (@convention(c) (UnsafeMutableRawPointer?) -> Void).self)
-//        pyFree(ptr)
-//    }
     
     // ── Symbol loading (replaces PythonKit PythonLibrary.loadSymbol) ───────
     public func loadSymbol<T>(_ name: String, as type: T.Type = T.self) throws -> T {
@@ -206,10 +54,27 @@ public actor PythonRuntime {
         return fn
     }
     
+    public struct SendableCPythonFunction<T>: @unchecked Sendable {
+        public let function: T
+        init(_ function: T) { self.function = function }
+    }
+    
     public func loadSendableSymbol<T>(_ name: String, as type: T.Type) throws -> SendableCPythonFunction<T> {
         let fn: T = try loadSymbol(name, as: T.self)
         return SendableCPythonFunction(fn)
     }
+    
+    
+    private typealias PythonLibraryHandle = UnsafeMutableRawPointer
+    private var pythonLibraryHandle: PythonLibraryHandle?
+    
+    
+    private struct SendablePythonLibHandle: @unchecked Sendable {
+        public let handle: PythonLibraryHandle
+        init(_ handle: PythonLibraryHandle) { self.handle = handle }
+    }
+    
+    private var _sendablePythonLibraryHandle: SendablePythonLibHandle? = nil
     
     private static func loadPythonLibrary(path: String?, logger: Logger) throws -> PythonLibraryHandle {
         // Implement dlopen logic here (fallback to common locations, env vars, etc.)
@@ -226,6 +91,8 @@ public actor PythonRuntime {
         }
         throw PythonError.libraryNotFound
     }
+    
+    // MARK: Finding Python library
     
     private static func currentUVArchitecture() -> String {
         var uts = utsname()
@@ -271,7 +138,6 @@ public actor PythonRuntime {
             }
         }
         
-        
         // UV pythons
         let uvRoot = FileManager.default.homeDirectoryForCurrentUser.path
         let uvPrefix = "\(uvRoot)/.local/share/uv/python"
@@ -303,7 +169,24 @@ public actor PythonRuntime {
 //        let versionStr = String(sys.version)
 //        return versionStr.lowercased().contains("free-threading")
 //    }
-//    
+//
+    
+    // MARK: Python Version stuff
+    
+    public private(set) var version: (major: Int, minor: Int, micro: Int)?
+    
+    private func py_GetVersion() throws -> String? {
+        logger.trace("CPython wrapper called: py_GetVersion")
+        // The C signature is: const char *Py_GetVersion(void);
+        let getVersion = try loadSymbol("Py_GetVersion", as: (@convention(c) () -> UnsafePointer<CChar>?).self)
+        if let cString = getVersion() {
+            return String(cString: cString)
+        }
+        else {
+            return nil
+        }
+    }
+    
     private func detectPythonVersion() throws {
         logger.trace("detectPythonVersion() called.")
         guard let versionString = try py_GetVersion() else {
@@ -344,11 +227,88 @@ public actor PythonRuntime {
         logger.debug("Detected Python version from C API: \(major).\(minor).\(micro)")
     }
     
-    private func performInitialization(libraryPath: String? = nil) async throws {
-        logger.debug("Initializing Python runtime...")
+    /// The major, minor, micro version tuple of the loaded Python interpreter,
+    /// or `nil` if initialization has not yet succeeded or failed.
+    public var pythonVersion: (major: Int, minor: Int, micro: Int)? {
+        version
+    }
+
+    /// A convenience string in the form "3.13.0" (or similar).
+    /// Returns `nil` if version has not been detected.
+    public var pythonVersionString: String? {
+        guard let v = version else { return nil }
+        return "\(v.major).\(v.minor).\(v.micro)"
+    }
+    
+    // MARK: Initialize and Finalize
+    
+    private var isReady = false
+    
+    private var initTask: Task<Void, Swift.Error>? = nil
+    
+    // Special stuff only initialization and deinitialization.
+    // A bunch of stuff needs to be sendable because it needs to be run on specific threads
+    
+    
+    // Store this because deinit calls it and it must be sendable
+    private var _sendablePyEval_RestoreThread: SendableCPythonFunction<@convention(c) (PyThreadState?) -> Void>? = nil
+    private var _sendablePyFinalizeEx: SendableCPythonFunction<@convention(c) () -> CInt>? = nil
+    
+    
+    private struct SendableThreadState: @unchecked Sendable {
+        public let state: PyThreadState
+        init(_ state: PyThreadState) { self.state = state }
+    }
+    
+    private var _sendablePythonThreadState: SendableThreadState? = nil
+    
+    public func initialize(libraryPath: String? = nil) async throws {
+        logger.debug("Explicit call to PythonRuntime.initialize()")
         
-        // 1. Load the shared library
+        // 1. Fast path: already successfully initialized
+        if isReady {
+            logger.error("Python initiaztion is only supposed to be performed once.")
+            return
+        }
+        
+        // 2. Prevent re-entrancy: If initialization is already running, just wait for it.
+        if let existingTask = initTask {
+            try await existingTask.value
+            return
+        }
+        
+        // 3. Create the initialization task
+        let task = Task {
+            try await self._performInitialization(libraryPath: libraryPath)
+        }
+        
+        // 4. Store it so other concurrent callers will await it
+        self.initTask = task
+        
+        // 5. Wait for the task to finish, then clean up
+        do {
+            try await task.value
+            self.initTask = nil
+            self.isReady = true
+        } catch {
+            self.initTask = nil
+            throw error
+        }
+    }
+    
+    
+    private func _performInitialization(libraryPath: String?) async throws {
+        // Load the shared library
         self.pythonLibraryHandle = try Self.loadPythonLibrary(path: libraryPath, logger: logger)
+        // Save it for running on deinit thread
+        if let pythonLibraryHandle = self.pythonLibraryHandle {
+            self._sendablePythonLibraryHandle = SendablePythonLibHandle(pythonLibraryHandle)
+        }
+        
+        // Save these for deinitialization/finalize
+        self._sendablePyFinalizeEx = try loadSendableSymbol("Py_FinalizeEx", as: (@convention(c) () -> CInt).self)
+        self._sendablePyEval_RestoreThread = try loadSendableSymbol("PyEval_RestoreThread", as: (@convention(c) (PyThreadState?) -> Void).self)
+        
         
         //
         // Calls Py_Initialize() instead of Py_InitializeFromConfig() because Py_InitializeFromConfig()
@@ -375,32 +335,25 @@ public actor PythonRuntime {
         logger.debug("CWD: \(FileManager.default.currentDirectoryPath)")
         logger.debug("Swift process executable: \(CommandLine.arguments.first ?? "unknown")")
         // Add python path here
-        try py_Initialize()
         
-        // Save stuff for deinit
-        if let pythonLibraryHandle = self.pythonLibraryHandle {
-            self._sendablePythonLibraryHandle = SendablePythonLibHandle(pythonLibraryHandle)
+        
+        // Initialization + SaveThread must be on main thread
+        let pyInitSendable = try loadSendableSymbol("Py_Initialize", as: (@convention(c) () -> Void).self)
+        let pyEvalSaveThreadSendable = try loadSendableSymbol("PyEval_SaveThread", as: (@convention(c) () -> PyThreadState?).self)
+        self._sendablePythonThreadState = await MainActor.run {
+            
+            logger.debug("Calling Py_Initialize on main thread...")
+            pyInitSendable.function()
+            
+            logger.debug("Calling PyEval_SaveThread on main thread...")
+            let threadState = pyEvalSaveThreadSendable.function()
+            
+            // Return the thread state for deinitialization/finalize
+            return SendableThreadState(threadState!)
         }
-        // Load the finalize function because we need it for deinit
-        self._sendablePyFinalizeEx = try loadSendableSymbol("Py_FinalizeEx", as: (@convention(c) () -> CInt).self)
-        
+
         try detectPythonVersion()
-//
-//        self.isFreeThreaded = try detectFreeThreadedMode()
-//        
         isReady = true
-//        logger.debug("Python \(version!.major).\(version!.minor).\(version!.micro) initialized – free-threaded: \(isFreeThreaded)")
-    }
-    
-    public func initialize(libraryPath: String? = nil) async throws {
-        logger.debug("Explicit call to PythonRuntime.initialize()")
-        guard !isReady else {
-            logger.error("Python initiaztion is only supposed to be performed once.")
-            return
-        }
-        guard initError == nil else { throw initError! }
-                
-        try await performInitialization(libraryPath: libraryPath)
     }
     
     /// Whether the Python runtime has been successfully initialized.
@@ -408,22 +361,15 @@ public actor PythonRuntime {
         isReady
     }
     
-    /// The major, minor, micro version tuple of the loaded Python interpreter,
-    /// or `nil` if initialization has not yet succeeded or failed.
-    public var pythonVersion: (major: Int, minor: Int, micro: Int)? {
-        version
-    }
-
-    /// A convenience string in the form "3.13.0" (or similar).
-    /// Returns `nil` if version has not been detected.
-    public var pythonVersionString: String? {
-        guard let v = version else { return nil }
-        return "\(v.major).\(v.minor).\(v.micro)"
-    }
-    
     deinit {
         if isReady {
             logger.warning("Attempting PythonRuntime automatic deinitialization.  Calling finalize() is preferred.")
+            
+            if let ts = self._sendablePythonThreadState?.state , let pyRestoreThread = _sendablePyEval_RestoreThread?.function {
+                pyRestoreThread(ts)
+                logger.debug("Restored main thread state in deinit")
+            }
+            
             if let pyFinalizeFunc = _sendablePyFinalizeEx?.function {
                 let status = pyFinalizeFunc()
                 if status < 0 {
@@ -445,13 +391,26 @@ public actor PythonRuntime {
         isReady = false
     }
     
-    public func finalize() throws {
+    public func finalize() async throws {
         guard isReady else { return }
         logger.info("Finalizing Python runtime...")
         
-        let status = try py_FinalizeEx()
-        if status < 0 {
-            throw PythonError.finalizationFailed(status: status)
+        if let ts = self._sendablePythonThreadState?.state , let pyRestoreThread = _sendablePyEval_RestoreThread?.function {
+            await MainActor.run {
+                logger.debug("Call PyEval_RestoreThread on main thread")
+                pyRestoreThread(ts)
+            }
+        }
+        
+        if let pyFinalizeFunc = _sendablePyFinalizeEx?.function {
+            let status = pyFinalizeFunc()
+            if status < 0 {
+                logger.error("Py_FinalizeEx returned error status: \(status)")
+            } else if status > 0 {
+                logger.warning("Py_FinalizeEx returned non-zero status: \(status) (may indicate unclean shutdown)")
+            } else {
+                logger.debug("Py_FinalizeEx succeeded (status 0)")
+            }
         }
         
         isReady = false
@@ -463,4 +422,3 @@ public actor PythonRuntime {
     }
     
 }
-

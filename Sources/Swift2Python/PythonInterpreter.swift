@@ -104,8 +104,8 @@ public actor PythonInterpreter {
         let PyErr_Occurred: (@convention(c) () -> UnsafeMutableRawPointer?)
         let PyFloat_AsDouble: (@convention(c) (UnsafeMutableRawPointer) -> Double)
         let PyFloat_FromDouble: (@convention(c) (Double) -> UnsafeMutableRawPointer?)
-        let PyGILState_Ensure: (@convention(c) () -> UnsafeMutableRawPointer)
-        let PyGILState_Release: (@convention(c) (UnsafeMutableRawPointer?) -> Void)
+        let PyGILState_Ensure: (@convention(c) () -> PyGILState_STATE)
+        let PyGILState_Release: (@convention(c) (PyGILState_STATE) -> Void)
         let PyImport_AddModule: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?)
         let PyImport_ImportModule: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?)
         let PyList_New: (@convention(c) (Int) -> UnsafeMutableRawPointer?)
@@ -174,9 +174,9 @@ public actor PythonInterpreter {
             PyFloat_FromDouble: try await runtime.loadSendableSymbol(
                 "PyFloat_FromDouble", as: (@convention(c) (Double) -> UnsafeMutableRawPointer?).self).function,
             PyGILState_Ensure: try await runtime.loadSendableSymbol(
-                "PyGILState_Ensure", as: (@convention(c) () -> UnsafeMutableRawPointer).self).function,
+                "PyGILState_Ensure", as: (@convention(c) () -> PyGILState_STATE).self).function,
             PyGILState_Release: try await runtime.loadSendableSymbol(
-                "PyGILState_Release", as: (@convention(c) (UnsafeMutableRawPointer?) -> Void).self).function,
+                "PyGILState_Release", as: (@convention(c) (PyGILState_STATE) -> Void).self).function,
             PyImport_AddModule: try await runtime.loadSendableSymbol(
                 "PyImport_AddModule", as: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?).self).function,
             PyImport_ImportModule: try await runtime.loadSendableSymbol(
@@ -309,12 +309,12 @@ public actor PythonInterpreter {
         return api.PyFloat_AsDouble(pointer)
     }
     
-    private func pyGILState_Ensure() -> UnsafeMutableRawPointer {
+    private func pyGILState_Ensure() -> PyGILState_STATE {
         logger.trace("CPyton API Call: PyGILState_Ensure")
         return api.PyGILState_Ensure()
     }
     
-    private func pyGILState_Release(_ gstate: UnsafeMutableRawPointer) {
+    private func pyGILState_Release(_ gstate: PyGILState_STATE) {
         logger.trace("CPyton API Call: PyGILState_Release")
         api.PyGILState_Release(gstate)
     }
@@ -535,6 +535,18 @@ public actor PythonInterpreter {
             }
             return Double(exactly: value)!
         }
+    }
+    
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public func convertToDouble(_ obj: SafePythonObject) throws -> Double {
+        let objPtr = pythonObjectRegistry[obj.id]!
+        let value = pyFloat_AsDouble(objPtr)
+        if value == -1.0 {
+            if let pyErr = try pyErr_Occurred() {
+                fatalError("placeholder")
+            }
+        }
+        return Double(exactly: value)!
     }
     
     public func convertToPython(int val: Int) async throws -> PythonObject {
@@ -915,6 +927,29 @@ public actor PythonInterpreter {
                 return try context.assumeIsolated {
                     return try $0.convertToSafePython(bool:val)
                 }
+            }
+        }
+        
+        public func convertToDouble() throws -> Double {
+            switch state {
+            case .bound:
+                let localInterpreter = interpreter
+                return localInterpreter.assumeIsolated {
+                    do {
+                        return try $0.convertToDouble(self)
+                    } catch {
+                        fatalError("Failed to get attribute: \(error)")
+                    }
+                }
+            case .deferredDouble(let val):
+                return val
+            case .deferredInt(let val):
+                return Double(val)
+            case .deferredString(let val):
+                // mimic python string conversion to Double
+                fatalError("placeholder")
+            case .deferredBool(let val):
+                return val ? 1.0 : 0.0
             }
         }
         
