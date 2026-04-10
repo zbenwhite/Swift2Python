@@ -145,5 +145,20 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     public func convertToUInt() async throws -> UInt {
         return try await interpreter.convertToUInt(self)
     }
-}
+    
+    public func convertToUInt8() async throws -> UInt8 {
+        return try await interpreter.convertToUInt8(self)
+    }
+    
+    public func convertToUInt16() async throws -> UInt16 {
+        return try await interpreter.convertToUInt16(self)
+    }
+    
+    public func convertToUInt32() async throws -> UInt32 {
+        return try await interpreter.convertToUInt32(self)
+    }
+    
+    public func convertToUInt64() async throws -> UInt64 {
+        return try await interpreter.convertToUInt64(self)
+    }}
 

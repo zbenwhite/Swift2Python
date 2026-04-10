@@ -19,7 +19,9 @@
 // - UInt64
 // - Float
 // - Optional?
-// - 
+// - Complex number
+// - Set?
+// - Dates and Times
 
 
 // MARK: Asynchronous Mode Conversions
@@ -63,6 +65,86 @@ extension Int: PendingPythonConvertible {
 extension Int {
     public init(_ pythonObject: PythonObject) async throws {
         self = try await pythonObject.convertToInt()
+    }
+}
+
+extension UInt: PendingPythonConvertible {
+    public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        try await interpreter.convertToPython(uint: UInt64(self))
+    }
+    
+    public func from(pythonObject: PythonObject) async throws -> Self? {
+        return try await UInt(pythonObject)
+    }
+}
+
+extension UInt {
+    public init(_ pythonObject: PythonObject) async throws {
+        self = try await pythonObject.convertToUInt()
+    }
+}
+
+extension UInt8: PendingPythonConvertible {
+    public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        try await interpreter.convertToPython(uint: UInt64(self))
+    }
+    
+    public func from(pythonObject: PythonObject) async throws -> Self? {
+        return try await UInt8(pythonObject)
+    }
+}
+
+extension UInt8 {
+    public init(_ pythonObject: PythonObject) async throws {
+        self = try await pythonObject.convertToUInt8()
+    }
+}
+
+extension UInt16: PendingPythonConvertible {
+    public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        try await interpreter.convertToPython(uint: UInt64(self))
+    }
+    
+    public func from(pythonObject: PythonObject) async throws -> Self? {
+        return try await UInt16(pythonObject)
+    }
+}
+
+extension UInt16 {
+    public init(_ pythonObject: PythonObject) async throws {
+        self = try await pythonObject.convertToUInt16()
+    }
+}
+
+extension UInt32: PendingPythonConvertible {
+    public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        try await interpreter.convertToPython(uint: UInt64(self))
+    }
+    
+    public func from(pythonObject: PythonObject) async throws -> Self? {
+        return try await UInt32(pythonObject)
+    }
+}
+
+extension UInt32 {
+    public init(_ pythonObject: PythonObject) async throws {
+        self = try await pythonObject.convertToUInt32()
+    }
+}
+
+extension UInt64: PendingPythonConvertible {
+    public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        try await interpreter.convertToPython(uint: self)
+    }
+    
+    public func from(pythonObject: PythonObject) async throws -> Self? {
+        return try await UInt64(pythonObject)
+    }
+}
+
+extension UInt64 {
+    public init(_ pythonObject: PythonObject) async throws {
+        self = try await pythonObject.convertToUInt64()
     }
 }
 
@@ -131,6 +213,17 @@ extension Double: SafePythonConvertible {
             try $0.convertToSafePython(double:self)
         }
     }
+    
+    public func from(safePythonObject: PythonInterpreter.SafePythonObject) throws -> Self? {
+        return try Double(safePythonObject)
+    }
+}
+
+extension Double {
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
+        self = try safePythonObject.convertToDouble()
+    }
 }
 
 extension Int: SafePythonConvertible {
@@ -138,6 +231,88 @@ extension Int: SafePythonConvertible {
         try interpreter.assumeIsolated {
             try $0.convertToSafePython(int:self)
         }
+    }
+}
+
+extension Int {
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
+        self = try safePythonObject.convertToInt()
+    }
+}
+
+extension UInt: SafePythonConvertible {
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try interpreter.assumeIsolated {
+            try $0.convertToSafePython(uint: UInt64(self))
+        }
+    }
+}
+
+extension UInt {
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
+        self = try safePythonObject.convertToUInt()
+    }
+}
+
+extension UInt8: SafePythonConvertible {
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try interpreter.assumeIsolated {
+            try $0.convertToSafePython(uint: UInt64(self))
+        }
+    }
+}
+
+extension UInt8 {
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
+        self = try safePythonObject.convertToUInt8()
+    }
+}
+
+extension UInt16: SafePythonConvertible {
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try interpreter.assumeIsolated {
+            try $0.convertToSafePython(uint: UInt64(self))
+        }
+    }
+}
+
+extension UInt16 {
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
+        self = try safePythonObject.convertToUInt16()
+    }
+}
+
+extension UInt32: SafePythonConvertible {
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try interpreter.assumeIsolated {
+            try $0.convertToSafePython(uint: UInt64(self))
+        }
+    }
+}
+
+extension UInt32 {
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
+        self = try safePythonObject.convertToUInt32()
+    }
+}
+
+extension UInt64: SafePythonConvertible {
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try interpreter.assumeIsolated {
+            try $0.convertToSafePython(uint: self)
+        }
+    }
+}
+
+extension UInt64 {
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
+        self = try safePythonObject.convertToUInt64()
     }
 }
 

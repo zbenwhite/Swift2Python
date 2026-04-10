@@ -111,9 +111,10 @@ public actor PythonInterpreter {
         let PyList_New: (@convention(c) (Int) -> UnsafeMutableRawPointer?)
         let PyList_SetItem: (@convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Int32)
         let PyLong_AsLong: (@convention(c) (UnsafeMutableRawPointer) -> Int)
-        let PyLong_AsUnsignedLongMask: (@convention(c) (UnsafeMutableRawPointer) -> UInt32)
+        let PyLong_AsUnsignedLongLong: (@convention(c) (UnsafeMutableRawPointer) -> UInt64)
         let PyLong_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)
         let PyLong_FromSize_t: (@convention(c) (UInt32) -> UnsafeMutableRawPointer?)
+        let PyLong_FromUnsignedLongLong: (@convention(c) (UInt64) -> UnsafeMutableRawPointer?)
         let PyNumber_Add: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_And: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_InPlaceAdd: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
@@ -187,12 +188,14 @@ public actor PythonInterpreter {
                 "PyList_SetItem", as: (@convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Int32).self).function,
             PyLong_AsLong: try await runtime.loadSendableSymbol(
                 "PyLong_AsLong", as: (@convention(c) (UnsafeMutableRawPointer) -> Int).self).function,
-            PyLong_AsUnsignedLongMask: try await runtime.loadSendableSymbol(
-                "PyLong_AsUnsignedLongMask", as: (@convention(c) (UnsafeMutableRawPointer) -> UInt32).self).function,
+            PyLong_AsUnsignedLongLong: try await runtime.loadSendableSymbol(
+                "PyLong_AsUnsignedLongLong", as: (@convention(c) (UnsafeMutableRawPointer) -> UInt64).self).function,
             PyLong_FromLong: try await runtime.loadSendableSymbol(
                 "PyLong_FromLong", as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function,
             PyLong_FromSize_t: try await runtime.loadSendableSymbol(
                 "PyLong_FromSize_t", as: (@convention(c) (UInt32) -> UnsafeMutableRawPointer?).self).function,
+            PyLong_FromUnsignedLongLong: try await runtime.loadSendableSymbol(
+                "PyLong_FromUnsignedLongLong", as: (@convention(c) (UInt64) -> UnsafeMutableRawPointer?).self).function,
             PyNumber_Add: try await runtime.loadSendableSymbol(
                 "PyNumber_Add", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             PyNumber_And: try await runtime.loadSendableSymbol(
@@ -344,9 +347,9 @@ public actor PythonInterpreter {
         return api.PyLong_AsLong(valuePtr)
     }
     
-    private func pyLong_AsUnsignedLongMask(_ valuePtr: UnsafeMutableRawPointer) throws -> UInt32 {
-        logger.trace("CPyton API Call: PyLong_AsUnsignedLongMask")
-        return api.PyLong_AsUnsignedLongMask(valuePtr)
+    private func pyLong_AsUnsignedLongLong(_ valuePtr: UnsafeMutableRawPointer) throws -> UInt64 {
+        logger.trace("CPyton API Call: PyLong_AsUnsignedLongLong")
+        return api.PyLong_AsUnsignedLongLong(valuePtr)
     }
     
     private func pyLong_FromLong(_ value: Int) -> UnsafeMutableRawPointer? {
@@ -357,6 +360,11 @@ public actor PythonInterpreter {
     private func pyLong_FromSize_t(_ value: UInt64) throws -> UnsafeMutableRawPointer? {
         logger.trace("CPyton API Call: PyLong_FromSize_t")
         return api.PyLong_FromSize_t(UInt32(value))
+    }
+    
+    private func pyLong_FromUnsignedLongLong(_ value: UInt64) throws -> UnsafeMutableRawPointer? {
+        logger.trace("CPyton API Call: PyLong_FromUnsignedLongLong")
+        return api.PyLong_FromUnsignedLongLong(value)
     }
     
     private func pyObject_Call(_ callable: UnsafeMutableRawPointer, _ args: UnsafeMutableRawPointer, _ kwargs: UnsafeMutableRawPointer?) throws -> UnsafeMutableRawPointer? {
@@ -555,7 +563,6 @@ public actor PythonInterpreter {
                 throw PythonError.nullPointer("Failed to convert int: \(val)")
             }
             
-            // Register the pointer in our actor's internal hashtable
             let id = registerPythonObjectPointer(ptr)
             return PythonObject(id: id, interpreter: self)
         }
@@ -563,12 +570,32 @@ public actor PythonInterpreter {
     
     public func convertToInt(_ obj: PythonObject) async throws -> Int {
         let objPtr = pythonObjectRegistry[obj.id]!
-        fatalError("placeholder")
+        return try withGIL {
+            let value = try pyLong_AsLong(objPtr)
+            if value == -1 {
+                if let pyErr = try pyErr_Occurred() {
+                    fatalError("placeholder")
+                }
+            }
+            return value
+        }
     }
     
-    public func convertToPython(uint val: UInt) async throws -> PythonObject {
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public func convertToInt(_ obj: SafePythonObject) throws -> Int {
+        let objPtr = pythonObjectRegistry[obj.id]!
+        let value = try pyLong_AsLong(objPtr)
+        if value == -1 {
+            if let pyErr = try pyErr_Occurred() {
+                fatalError("placeholder")
+            }
+        }
+        return value
+    }
+    
+    public func convertToPython(uint val: UInt64) async throws -> PythonObject {
         return try withGIL {
-            guard let ptr = try pyLong_FromSize_t(UInt64(val)) else {
+            guard let ptr = try pyLong_FromUnsignedLongLong(UInt64(val)) else {
                 throw PythonError.nullPointer("Failed to convert int: \(val)")
             }
             
@@ -578,9 +605,94 @@ public actor PythonInterpreter {
     }
     
     public func convertToUInt(_ obj: PythonObject) async throws -> UInt {
-        let objPtr = pythonObjectRegistry[obj.id]!
-        fatalError("placeholder")
+        if let value = try await UInt(exactly: convertToUInt64(obj)) {
+            return value
+        } else {
+            fatalError("placeholder")
+        }
     }
+    
+    public func convertToUInt(_ obj: SafePythonObject) throws -> UInt {
+        if let value = try UInt(exactly: convertToUInt64(obj)) {
+            return value
+        } else {
+            fatalError("placeholder")
+        }
+    }
+    
+    public func convertToUInt8(_ obj: PythonObject) async throws -> UInt8 {
+        if let value = try await UInt8(exactly: convertToUInt64(obj)) {
+            return value
+        } else {
+            fatalError("placeholder")
+        }
+    }
+    
+    public func convertToUInt8(_ obj: SafePythonObject) throws -> UInt8 {
+        if let value = try UInt8(exactly: convertToUInt64(obj)) {
+            return value
+        } else {
+            fatalError("placeholder")
+        }
+    }
+    
+    public func convertToUInt16(_ obj: PythonObject) async throws -> UInt16 {
+        if let value = try await UInt16(exactly: convertToUInt64(obj)) {
+            return value
+        } else {
+            fatalError("placeholder")
+        }
+    }
+    
+    public func convertToUInt16(_ obj: SafePythonObject) throws -> UInt16 {
+        if let value = try UInt16(exactly: convertToUInt64(obj)) {
+            return value
+        } else {
+            fatalError("placeholder")
+        }
+    }
+    
+    public func convertToUInt32(_ obj: PythonObject) async throws -> UInt32 {
+        if let value = try await UInt32(exactly:convertToUInt64(obj)) {
+            return value
+        } else {
+            fatalError("placeholder")
+        }
+    }
+    
+    public func convertToUInt32(_ obj: SafePythonObject) throws -> UInt32 {
+        if let value = try UInt32(exactly:convertToUInt64(obj)) {
+            return value
+        } else {
+            fatalError("placeholder")
+        }
+    }
+    
+    public func convertToUInt64(_ obj: PythonObject) async throws -> UInt64 {
+        let objPtr = pythonObjectRegistry[obj.id]!
+        return try withGIL {
+            let value = try pyLong_AsUnsignedLongLong(objPtr)
+            if value == UInt64.max {              // (unsigned long long)-1 on error
+                if let pyErr = try pyErr_Occurred() {
+                    fatalError("placeholder")
+                }
+            }
+            return value
+        }
+    }
+    
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public func convertToUInt64(_ obj: SafePythonObject) throws -> UInt64 {
+        let objPtr = pythonObjectRegistry[obj.id]!
+        let value = try pyLong_AsUnsignedLongLong(objPtr)
+        if value == UInt64.max {              // (unsigned long long)-1 on error
+            if let pyErr = try pyErr_Occurred() {
+                fatalError("placeholder")
+            }
+        }
+        return value
+    }
+    
     
     public func convertToPython(string: String) async throws -> PythonObject {
         return try withGIL {
@@ -947,9 +1059,80 @@ public actor PythonInterpreter {
                 return Double(val)
             case .deferredString(let val):
                 // mimic python string conversion to Double
-                fatalError("placeholder")
+                guard let double = Double(val) else {
+                    fatalError("placeholder")
+                }
+                return double
             case .deferredBool(let val):
                 return val ? 1.0 : 0.0
+            }
+        }
+        
+        public func convertToInt() throws -> Int {
+            switch state {
+            case .bound:
+                let localInterpreter = interpreter
+                return localInterpreter.assumeIsolated {
+                    do {
+                        return try $0.convertToInt(self)
+                    } catch {
+                        fatalError("Failed to get attribute: \(error)")
+                    }
+                }
+            case .deferredDouble(let val):
+                return Int(val)
+            case .deferredInt(let val):
+                return val
+            case .deferredString(let val):
+                // Mimic Python's int("...")
+                // Python accepts decimal strings, but does NOT accept floats like "3.14"
+                // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
+                // For full fidelity you can later add radix support.
+                guard let intValue = Int(val) else {   // Swift Int(String) is close but slightly stricter than Python on some edge cases
+                    // Optional improvement: try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
+                    if let double = Double(val), double.isFinite {
+                        return Int(double)             // this would make int("3.14") == 3 (more forgiving)
+                    }
+                    fatalError("placeholder")
+                }
+                return intValue
+            case .deferredBool(let val):
+                return val ? 1 : 0
+            }
+        }
+        
+        public func convertToUInt() throws -> UInt {
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                return try $0.convertToUInt(self)
+            }
+        }
+        
+        public func convertToUInt8() throws -> UInt8 {
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                return try $0.convertToUInt8(self)
+            }
+        }
+        
+        public func convertToUInt16() throws -> UInt16 {
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                return try $0.convertToUInt16(self)
+            }
+        }
+        
+        public func convertToUInt32() throws -> UInt32 {
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                return try $0.convertToUInt32(self)
+            }
+        }
+        
+        public func convertToUInt64() throws -> UInt64 {
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                return try $0.convertToUInt64(self)
             }
         }
         
@@ -2436,6 +2619,20 @@ public actor PythonInterpreter {
     
     internal func convertToSafePythonID(int val: Int) throws -> PythonObjectUniqueID {
         guard let ptr = pyLong_FromLong(val) else {
+            throw PythonError.nullPointer("Failed to convert int: \(val)")
+        }
+        
+        let id = registerPythonObjectPointer(ptr)
+        return id
+    }
+    
+    internal func convertToSafePython(uint val: UInt64) throws -> SafePythonObject {
+        let id = try convertToSafePythonID(uint: val)
+        return SafePythonObject(interpreter: self, id: id)
+    }
+    
+    internal func convertToSafePythonID(uint val: UInt64) throws -> PythonObjectUniqueID {
+        guard let ptr = try pyLong_FromUnsignedLongLong(val) else {
             throw PythonError.nullPointer("Failed to convert int: \(val)")
         }
         
