@@ -222,6 +222,190 @@ struct ConversionsTests {
         }
     }
     
+    // MARK: I8_xxx Int8 Conversion Tests
+    
+    @Test("I8_001: Int8 → PythonObject (async)")
+    func asyncInt8Conversion() async throws {
+        
+        let value: Int8 = 123
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await Int8(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("I8_002: Int8 → PythonObject (async) for special value -1")
+    func asyncInt8ConversionNegativeOne() async throws {
+        
+        let value: Int8 = -1
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await Int8(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("I8_003: Int8 → SafePythonObject (synchronous)")
+    func safeInt8Conversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: Int8 = 123
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try Int8(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
+    @Test("I8_004: Int8 → SafePythonObject (synchronous) for special value -1")
+    func safeInt8ConversionNegativeOne() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: Int8 = -1
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try Int8(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
+    // MARK: I16_xxx Int16 Conversion Tests
+    
+    @Test("I16_001: Int16 → PythonObject (async)")
+    func asyncInt16Conversion() async throws {
+        
+        let value: Int16 = 32_000
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await Int16(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("I16_002: Int16 → PythonObject (async) for special value -1")
+    func asyncInt16ConversionNegativeOne() async throws {
+        
+        let value: Int16 = -1
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await Int16(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("I16_003: Int16 → SafePythonObject (synchronous)")
+    func safeInt16Conversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: Int16 = 32_000
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try Int16(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
+    @Test("I16_004: Int16 → SafePythonObject (synchronous) for special value -1")
+    func safeInt16ConversionNegativeOne() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: Int16 = -1
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try Int16(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
+    // MARK: I32_xxx Int32 Conversion Tests
+    
+    @Test("I32_001: Int32 → PythonObject (async)")
+    func asyncInt32Conversion() async throws {
+        
+        let value: Int32 = 2_147_483_000
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await Int32(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("I32_002: Int32 → PythonObject (async) for special value -1")
+    func asyncInt32ConversionNegativeOne() async throws {
+        
+        let value: Int32 = -1
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await Int32(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("I32_003: Int32 → SafePythonObject (synchronous)")
+    func safeInt32Conversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: Int32 = 2_147_483_000
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try Int32(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
+    @Test("I32_004: Int32 → SafePythonObject (synchronous) for special value -1")
+    func safeInt32ConversionNegativeOne() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: Int32 = -1
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try Int32(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
+    // MARK: I64_xxx Int64 Conversion Tests
+    
+    @Test("I64_001: Int64 → PythonObject (async)")
+    func asyncInt64Conversion() async throws {
+        
+        let value: Int64 = 9_223_372_036_854_775_807
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await Int64(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("I64_002: Int64 → PythonObject (async) for special value -1")
+    func asyncInt64ConversionNegativeOne() async throws {
+        
+        let value: Int64 = -1
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await Int64(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("I64_003: Int64 → SafePythonObject (synchronous)")
+    func safeInt64Conversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: Int64 = 9_223_372_036_854_775_807
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try Int64(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
+    @Test("I64_004: Int64 → SafePythonObject (synchronous) for special value -1")
+    func safeInt64ConversionNegativeOne() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: Int64 = -1
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try Int64(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
     // MARK: UI_xxx Simple UInt Conversion Tests
     
     @Test("UI_001: UInt → PythonObject (async)")
@@ -510,55 +694,55 @@ struct ConversionsTests {
 // [          ] : Test Convert SafePythonObject to Int error handling when it's not a numeric value
 // [          ] : Test Convert SafePythonObject to Int error handling when it's a huge number that won't fit in an Int
 
-// [          ] : Test Convert Int8 to PythonObject
-// [          ] : Test Convert Int8 to PythonObject special value -1
-// [          ] : Test Convert PythonObject to Int8
-// [          ] : Test Convert PythonObject to Int8 special value -1
+// [2026-04-11] : I8_001 : Test Convert Int8 to PythonObject
+// [2026-04-11] : I8_002 : Test Convert Int8 to PythonObject special value -1
+// [2026-04-11] : I8_001 : Test Convert PythonObject to Int8
+// [2026-04-11] : I8_002 : Test Convert PythonObject to Int8 special value -1
 // [          ] : Test Convert PythonObject to Int8 error handling when it's not a numeric value
 // [          ] : Test Convert PythonObject to Int8 error handling when it's a huge number that won't fit in an Int8
-// [          ] : Test Convert Int8 to SafePythonObject
-// [          ] : Test Convert Int8 to SafePythonObject special value -1
-// [          ] : Test Convert SafePythonObject to Int8
-// [          ] : Test Convert SafePythonObject to Int8 special value -1
+// [2026-04-11] : I8_003 : Test Convert Int8 to SafePythonObject
+// [2026-04-11] : I8_004 : Test Convert Int8 to SafePythonObject special value -1
+// [2026-04-11] : I8_003 : Test Convert SafePythonObject to Int8
+// [2026-04-11] : I8_004 : Test Convert SafePythonObject to Int8 special value -1
 // [          ] : Test Convert SafePythonObject to Int8 error handling when it's not a numeric value
 // [          ] : Test Convert SafePythonObject to Int8 error handling when it's a huge number that won't fit in an Int8
 
-// [          ] : Test Convert Int16 to PythonObject
-// [          ] : Test Convert Int16 to PythonObject special value -1
-// [          ] : Test Convert PythonObject to Int16
-// [          ] : Test Convert PythonObject to Int16 special value -1
+// [2026-04-11] : I16_001 : Test Convert Int16 to PythonObject
+// [2026-04-11] : I16_002 : Test Convert Int16 to PythonObject special value -1
+// [2026-04-11] : I16_001 : Test Convert PythonObject to Int16
+// [2026-04-11] : I16_002 : Test Convert PythonObject to Int16 special value -1
 // [          ] : Test Convert PythonObject to Int16 error handling when it's not a numeric value
 // [          ] : Test Convert PythonObject to Int16 error handling when it's a huge number that won't fit in an Int16
-// [          ] : Test Convert Int16 to SafePythonObject
-// [          ] : Test Convert Int16 to SafePythonObject special value -1
-// [          ] : Test Convert SafePythonObject to Int16
-// [          ] : Test Convert SafePythonObject to Int16 special value -1
+// [2026-04-11] : I16_003 : Test Convert Int16 to SafePythonObject
+// [2026-04-11] : I16_004 : Test Convert Int16 to SafePythonObject special value -1
+// [2026-04-11] : I16_003 : Test Convert SafePythonObject to Int16
+// [2026-04-11] : I16_004 : Test Convert SafePythonObject to Int16 special value -1
 // [          ] : Test Convert SafePythonObject to Int16 error handling when it's not a numeric value
 // [          ] : Test Convert SafePythonObject to Int16 error handling when it's a huge number that won't fit in an Int16
 
-// [          ] : Test Convert Int32 to PythonObject
-// [          ] : Test Convert Int32 to PythonObject special value -1
-// [          ] : Test Convert PythonObject to Int32
-// [          ] : Test Convert PythonObject to Int32 special value -1
+// [2026-04-11] : I32_001 : Test Convert Int32 to PythonObject
+// [2026-04-11] : I32_002 : Test Convert Int32 to PythonObject special value -1
+// [2026-04-11] : I32_001 : Test Convert PythonObject to Int32
+// [2026-04-11] : I32_002 : Test Convert PythonObject to Int32 special value -1
 // [          ] : Test Convert PythonObject to Int32 error handling when it's not a numeric value
 // [          ] : Test Convert PythonObject to Int32 error handling when it's a huge number that won't fit in an Int32
-// [          ] : Test Convert Int32 to SafePythonObject
-// [          ] : Test Convert Int32 to SafePythonObject special value -1
-// [          ] : Test Convert SafePythonObject to Int32
-// [          ] : Test Convert SafePythonObject to Int32 special value -1
+// [2026-04-11] : I32_003 : Test Convert Int32 to SafePythonObject
+// [2026-04-11] : I32_004 : Test Convert Int32 to SafePythonObject special value -1
+// [2026-04-11] : I32_003 : Test Convert SafePythonObject to Int32
+// [2026-04-11] : I32_004 : Test Convert SafePythonObject to Int32 special value -1
 // [          ] : Test Convert SafePythonObject to Int32 error handling when it's not a numeric value
 // [          ] : Test Convert SafePythonObject to Int32 error handling when it's a huge number that won't fit in an Int32
 
-// [          ] : Test Convert Int64 to PythonObject
-// [          ] : Test Convert Int64 to PythonObject special value -1
-// [          ] : Test Convert PythonObject to Int64
-// [          ] : Test Convert PythonObject to Int64 special value -1
+// [2026-04-11] : I64_001 : Test Convert Int64 to PythonObject
+// [2026-04-11] : I64_002 : Test Convert Int64 to PythonObject special value -1
+// [2026-04-11] : I64_001 : Test Convert PythonObject to Int64
+// [2026-04-11] : I64_002 : Test Convert PythonObject to Int64 special value -1
 // [          ] : Test Convert PythonObject to Int64 error handling when it's not a numeric value
 // [          ] : Test Convert PythonObject to Int64 error handling when it's a huge number that won't fit in an Int64
-// [          ] : Test Convert Int64 to SafePythonObject
-// [          ] : Test Convert Int64 to SafePythonObject special value -1
-// [          ] : Test Convert SafePythonObject to Int64
-// [          ] : Test Convert SafePythonObject to Int64 special value -1
+// [2026-04-11] : I64_003 : Test Convert Int64 to SafePythonObject
+// [2026-04-11] : I64_004 : Test Convert Int64 to SafePythonObject special value -1
+// [2026-04-11] : I64_003 : Test Convert SafePythonObject to Int64
+// [2026-04-11] : I64_004 : Test Convert SafePythonObject to Int64 special value -1
 // [          ] : Test Convert SafePythonObject to Int64 error handling when it's not a numeric value
 // [          ] : Test Convert SafePythonObject to Int64 error handling when it's a huge number that won't fit in an Int64
 

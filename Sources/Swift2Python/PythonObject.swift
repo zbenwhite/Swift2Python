@@ -14,12 +14,12 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     private final class LifetimeTracker: Sendable {
         let id: PythonInterpreter.PythonObjectUniqueID
         let interpreter: PythonInterpreter
-
+        
         init(id: PythonInterpreter.PythonObjectUniqueID, interpreter: PythonInterpreter) {
             self.id = id
             self.interpreter = interpreter
         }
-
+        
         deinit {
             let capturedID = id
             let capturedInterpreter = interpreter
@@ -37,7 +37,7 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
             self.obj = object
             self.method = methodName
         }
-                
+        
         public func callAsFunction(_ args: any PendingPythonConvertible...) async throws -> PythonObject {
             return try await obj.interpreter.callPythonMethod(object:obj, methodName:method, collectedArgs: args)
         }
@@ -50,7 +50,7 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     internal let id: PythonInterpreter.PythonObjectUniqueID
     private let interpreter: PythonInterpreter
     private let lifetime: LifetimeTracker
-
+    
     init(id: PythonInterpreter.PythonObjectUniqueID, interpreter: PythonInterpreter) {
         self.id = id
         self.interpreter = interpreter
@@ -86,23 +86,23 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     // MARK: Bytes support
     
     /// Returns true if this object is a Python `bytes` instance.
-//    public func isBytes() async throws -> Bool {
-//        try await interpreter.isBytes(self)
-//    }
-//
-//    /// Returns true if this object is a Python `bytes` or an array of `bytes`.
-//    public func isBytesArray() async throws -> Bool {
-//        try await interpreter.isBytesArray(self)
-//    }
-//
-//    /// Returns true if this object is either `bytes` or an array of `bytes`.
-//    public func isBytesType() async throws -> Bool {
-//        if try await self.isBytes() {
-//            return true
-//        } else {
-//            return try await self.isBytesArray()
-//        }
-//    }
+    //    public func isBytes() async throws -> Bool {
+    //        try await interpreter.isBytes(self)
+    //    }
+    //
+    //    /// Returns true if this object is a Python `bytes` or an array of `bytes`.
+    //    public func isBytesArray() async throws -> Bool {
+    //        try await interpreter.isBytesArray(self)
+    //    }
+    //
+    //    /// Returns true if this object is either `bytes` or an array of `bytes`.
+    //    public func isBytesType() async throws -> Bool {
+    //        if try await self.isBytes() {
+    //            return true
+    //        } else {
+    //            return try await self.isBytesArray()
+    //        }
+    //    }
     
     /// Safe copy of Python bytes → Swift Data
     public func asCopiedData() async throws -> Data {
@@ -142,6 +142,22 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         return try await interpreter.convertToInt(self)
     }
     
+    public func convertToInt8() async throws -> Int8 {
+        return try await interpreter.convertToInt8(self)
+    }
+    
+    public func convertToInt16() async throws -> Int16 {
+        return try await interpreter.convertToInt16(self)
+    }
+    
+    public func convertToInt32() async throws -> Int32 {
+        return try await interpreter.convertToInt32(self)
+    }
+    
+    public func convertToInt64() async throws -> Int64 {
+        return try await interpreter.convertToInt64(self)
+    }
+    
     public func convertToUInt() async throws -> UInt {
         return try await interpreter.convertToUInt(self)
     }
@@ -160,5 +176,6 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     
     public func convertToUInt64() async throws -> UInt64 {
         return try await interpreter.convertToUInt64(self)
-    }}
+    }
+}
 

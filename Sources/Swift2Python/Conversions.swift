@@ -87,7 +87,7 @@ extension Float16 {
 
 extension Int: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
-        try await interpreter.convertToPython(int: self)
+        try await interpreter.convertToPython(int: Int64(self))
     }
     
     public func from(pythonObject: PythonObject) async throws -> Self? {
@@ -98,6 +98,70 @@ extension Int: PendingPythonConvertible {
 extension Int {
     public init(_ pythonObject: PythonObject) async throws {
         self = try await pythonObject.convertToInt()
+    }
+}
+
+extension Int8: PendingPythonConvertible {
+    public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        try await interpreter.convertToPython(int: Int64(self))
+    }
+    
+    public func from(pythonObject: PythonObject) async throws -> Self? {
+        return try await Int8(pythonObject)
+    }
+}
+
+extension Int8 {
+    public init(_ pythonObject: PythonObject) async throws {
+        self = try await pythonObject.convertToInt8()
+    }
+}
+
+extension Int16: PendingPythonConvertible {
+    public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        try await interpreter.convertToPython(int: Int64(self))
+    }
+    
+    public func from(pythonObject: PythonObject) async throws -> Self? {
+        return try await Int16(pythonObject)
+    }
+}
+
+extension Int16 {
+    public init(_ pythonObject: PythonObject) async throws {
+        self = try await pythonObject.convertToInt16()
+    }
+}
+
+extension Int32: PendingPythonConvertible {
+    public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        try await interpreter.convertToPython(int: Int64(self))
+    }
+    
+    public func from(pythonObject: PythonObject) async throws -> Self? {
+        return try await Int32(pythonObject)
+    }
+}
+
+extension Int32 {
+    public init(_ pythonObject: PythonObject) async throws {
+        self = try await pythonObject.convertToInt32()
+    }
+}
+
+extension Int64: PendingPythonConvertible {
+    public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        try await interpreter.convertToPython(int: self)
+    }
+    
+    public func from(pythonObject: PythonObject) async throws -> Self? {
+        return try await Int64(pythonObject)
+    }
+}
+
+extension Int64 {
+    public init(_ pythonObject: PythonObject) async throws {
+        self = try await pythonObject.convertToInt64()
     }
 }
 
@@ -300,7 +364,7 @@ extension Float16 {
 extension Int: SafePythonConvertible {
     public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
         try interpreter.assumeIsolated {
-            try $0.convertToSafePython(int:self)
+            try $0.convertToSafePython(int: Int64(self))
         }
     }
 }
@@ -309,6 +373,66 @@ extension Int {
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
         self = try safePythonObject.convertToInt()
+    }
+}
+
+extension Int8: SafePythonConvertible {
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try interpreter.assumeIsolated {
+            try $0.convertToSafePython(int: Int64(self))
+        }
+    }
+}
+
+extension Int8 {
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
+        self = try safePythonObject.convertToInt8()
+    }
+}
+
+extension Int16: SafePythonConvertible {
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try interpreter.assumeIsolated {
+            try $0.convertToSafePython(int: Int64(self))
+        }
+    }
+}
+
+extension Int16 {
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
+        self = try safePythonObject.convertToInt16()
+    }
+}
+
+extension Int32: SafePythonConvertible {
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try interpreter.assumeIsolated {
+            try $0.convertToSafePython(int: Int64(self))
+        }
+    }
+}
+
+extension Int32 {
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
+        self = try safePythonObject.convertToInt32()
+    }
+}
+
+extension Int64: SafePythonConvertible {
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try interpreter.assumeIsolated {
+            try $0.convertToSafePython(int:self)
+        }
+    }
+}
+
+extension Int64 {
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
+        self = try safePythonObject.convertToInt64()
     }
 }
 
