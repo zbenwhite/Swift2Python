@@ -111,9 +111,10 @@ public actor PythonInterpreter {
         let PyList_New: (@convention(c) (Int) -> UnsafeMutableRawPointer?)
         let PyList_SetItem: (@convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Int32)
         let PyLong_AsLong: (@convention(c) (UnsafeMutableRawPointer) -> Int)
+        let PyLong_AsLongLong: (@convention(c) (UnsafeMutableRawPointer) -> Int64)
         let PyLong_AsUnsignedLongLong: (@convention(c) (UnsafeMutableRawPointer) -> UInt64)
         let PyLong_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)
-        let PyLong_FromSize_t: (@convention(c) (UInt32) -> UnsafeMutableRawPointer?)
+        let PyLong_FromLongLong: (@convention(c) (Int64) -> UnsafeMutableRawPointer?)
         let PyLong_FromUnsignedLongLong: (@convention(c) (UInt64) -> UnsafeMutableRawPointer?)
         let PyNumber_Add: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_And: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
@@ -188,12 +189,14 @@ public actor PythonInterpreter {
                 "PyList_SetItem", as: (@convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Int32).self).function,
             PyLong_AsLong: try await runtime.loadSendableSymbol(
                 "PyLong_AsLong", as: (@convention(c) (UnsafeMutableRawPointer) -> Int).self).function,
+            PyLong_AsLongLong: try await runtime.loadSendableSymbol(
+                "PyLong_AsLongLong", as: (@convention(c) (UnsafeMutableRawPointer) -> Int64).self).function,
             PyLong_AsUnsignedLongLong: try await runtime.loadSendableSymbol(
                 "PyLong_AsUnsignedLongLong", as: (@convention(c) (UnsafeMutableRawPointer) -> UInt64).self).function,
             PyLong_FromLong: try await runtime.loadSendableSymbol(
                 "PyLong_FromLong", as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function,
-            PyLong_FromSize_t: try await runtime.loadSendableSymbol(
-                "PyLong_FromSize_t", as: (@convention(c) (UInt32) -> UnsafeMutableRawPointer?).self).function,
+            PyLong_FromLongLong: try await runtime.loadSendableSymbol(
+                "PyLong_FromLongLong", as: (@convention(c) (Int64) -> UnsafeMutableRawPointer?).self).function,
             PyLong_FromUnsignedLongLong: try await runtime.loadSendableSymbol(
                 "PyLong_FromUnsignedLongLong", as: (@convention(c) (UInt64) -> UnsafeMutableRawPointer?).self).function,
             PyNumber_Add: try await runtime.loadSendableSymbol(
@@ -347,6 +350,11 @@ public actor PythonInterpreter {
         return api.PyLong_AsLong(valuePtr)
     }
     
+    private func pyLong_AsLongLong(_ valuePtr: UnsafeMutableRawPointer) throws -> Int64 {
+        logger.trace("CPyton API Call: PyLong_AsLongLong")
+        return api.PyLong_AsLongLong(valuePtr)
+    }
+    
     private func pyLong_AsUnsignedLongLong(_ valuePtr: UnsafeMutableRawPointer) throws -> UInt64 {
         logger.trace("CPyton API Call: PyLong_AsUnsignedLongLong")
         return api.PyLong_AsUnsignedLongLong(valuePtr)
@@ -357,9 +365,9 @@ public actor PythonInterpreter {
         return api.PyLong_FromLong(value)
     }
     
-    private func pyLong_FromSize_t(_ value: UInt64) throws -> UnsafeMutableRawPointer? {
-        logger.trace("CPyton API Call: PyLong_FromSize_t")
-        return api.PyLong_FromSize_t(UInt32(value))
+    private func pyLong_FromLongLong(_ value: Int64) -> UnsafeMutableRawPointer? {
+        logger.trace("CPyton API Call: PyLong_FromLongLong")
+        return api.PyLong_FromLongLong(value)
     }
     
     private func pyLong_FromUnsignedLongLong(_ value: UInt64) throws -> UnsafeMutableRawPointer? {
@@ -557,9 +565,9 @@ public actor PythonInterpreter {
         return Double(exactly: value)!
     }
     
-    public func convertToPython(int val: Int) async throws -> PythonObject {
+    public func convertToPython(int val: Int64) async throws -> PythonObject {
         return try withGIL {
-            guard let ptr = pyLong_FromLong(val) else {
+            guard let ptr = pyLong_FromLongLong(val) else {
                 throw PythonError.nullPointer("Failed to convert int: \(val)")
             }
             
@@ -569,9 +577,77 @@ public actor PythonInterpreter {
     }
     
     public func convertToInt(_ obj: PythonObject) async throws -> Int {
+        if let value = try await Int(exactly: convertToInt64(obj)) {
+            return value
+        } else {
+            fatalError("placeholder")
+        }
+    }
+    
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public func convertToInt(_ obj: SafePythonObject) throws -> Int {
+        if let value = try Int(exactly: convertToInt64(obj)) {
+            return value
+        } else {
+            fatalError("placeholder")
+        }
+    }
+    
+    public func convertToInt8(_ obj: PythonObject) async throws -> Int8 {
+        if let value = try await Int8(exactly: convertToInt64(obj)) {
+            return value
+        } else {
+            fatalError("placeholder")
+        }
+    }
+    
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public func convertToInt8(_ obj: SafePythonObject) throws -> Int8 {
+        if let value = try Int8(exactly: convertToInt64(obj)) {
+            return value
+        } else {
+            fatalError("placeholder")
+        }
+    }
+    
+    public func convertToInt16(_ obj: PythonObject) async throws -> Int16 {
+        if let value = try await Int16(exactly: convertToInt64(obj)) {
+            return value
+        } else {
+            fatalError("placeholder")
+        }
+    }
+    
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public func convertToInt16(_ obj: SafePythonObject) throws -> Int16 {
+        if let value = try Int16(exactly: convertToInt64(obj)) {
+            return value
+        } else {
+            fatalError("placeholder")
+        }
+    }
+    
+    public func convertToInt32(_ obj: PythonObject) async throws -> Int32 {
+        if let value = try await Int32(exactly: convertToInt64(obj)) {
+            return value
+        } else {
+            fatalError("placeholder")
+        }
+    }
+    
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public func convertToInt32(_ obj: SafePythonObject) throws -> Int32 {
+        if let value = try Int32(exactly: convertToInt64(obj)) {
+            return value
+        } else {
+            fatalError("placeholder")
+        }
+    }
+    
+    public func convertToInt64(_ obj: PythonObject) async throws -> Int64 {
         let objPtr = pythonObjectRegistry[obj.id]!
         return try withGIL {
-            let value = try pyLong_AsLong(objPtr)
+            let value = try pyLong_AsLongLong(objPtr)
             if value == -1 {
                 if let pyErr = try pyErr_Occurred() {
                     fatalError("placeholder")
@@ -582,9 +658,9 @@ public actor PythonInterpreter {
     }
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    public func convertToInt(_ obj: SafePythonObject) throws -> Int {
+    public func convertToInt64(_ obj: SafePythonObject) throws -> Int64 {
         let objPtr = pythonObjectRegistry[obj.id]!
-        let value = try pyLong_AsLong(objPtr)
+        let value = try pyLong_AsLongLong(objPtr)
         if value == -1 {
             if let pyErr = try pyErr_Occurred() {
                 fatalError("placeholder")
@@ -1029,7 +1105,7 @@ public actor PythonInterpreter {
                 }
             case .deferredInt(let val):
                 return try context.assumeIsolated {
-                    return try $0.convertToSafePython(int:val)
+                    return try $0.convertToSafePython(int:Int64(val))
                 }
             case .deferredString(let val):
                 return try context.assumeIsolated {
@@ -1080,7 +1156,12 @@ public actor PythonInterpreter {
                     }
                 }
             case .deferredDouble(let val):
-                return Int(val)
+                if let i = Int(exactly:val) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")
+                }
             case .deferredInt(let val):
                 return val
             case .deferredString(let val):
@@ -1101,38 +1182,441 @@ public actor PythonInterpreter {
             }
         }
         
+        public func convertToInt8() throws -> Int8 {
+            switch state {
+            case .bound:
+                let localInterpreter = interpreter
+                return localInterpreter.assumeIsolated {
+                    do {
+                        return try $0.convertToInt8(self)
+                    } catch {
+                        fatalError("Failed to get attribute: \(error)")
+                    }
+                }
+            case .deferredDouble(let val):
+                if let i = Int8(exactly:val) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")  // overflow
+                }
+            case .deferredInt(let val):
+                if let i = Int8(exactly:val) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")
+                }
+            case .deferredString(let val):
+                // Mimic Python's int("...")
+                // Python accepts decimal strings, but does NOT accept floats like "3.14"
+                // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
+                // For full fidelity you can later add radix support.
+                let iVal: Int
+                if let intValue = Int(val) {
+                    iVal = intValue
+                } else if let double = Double(val), double.isFinite {
+                    // try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
+                    iVal = Int(double)
+                } else {
+                    fatalError("placeholder")  // can't convert to a number
+                }
+                if let i = Int8(exactly:iVal) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")  // overflow
+                }
+            case .deferredBool(let val):
+                return val ? 1 : 0
+            }
+        }
+        
+        public func convertToInt16() throws -> Int16 {
+            switch state {
+            case .bound:
+                let localInterpreter = interpreter
+                return localInterpreter.assumeIsolated {
+                    do {
+                        return try $0.convertToInt16(self)
+                    } catch {
+                        fatalError("Failed to get attribute: \(error)")
+                    }
+                }
+            case .deferredDouble(let val):
+                if let i = Int16(exactly:val) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")  // overflow
+                }
+            case .deferredInt(let val):
+                if let i = Int16(exactly:val) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")
+                }
+            case .deferredString(let val):
+                // Mimic Python's int("...")
+                // Python accepts decimal strings, but does NOT accept floats like "3.14"
+                // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
+                // For full fidelity you can later add radix support.
+                let iVal: Int
+                if let intValue = Int(val) {
+                    iVal = intValue
+                } else if let double = Double(val), double.isFinite {
+                    // try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
+                    iVal = Int(double)
+                } else {
+                    fatalError("placeholder")  // can't convert to a number
+                }
+                if let i = Int16(exactly:iVal) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")  // overflow
+                }
+            case .deferredBool(let val):
+                return val ? 1 : 0
+            }
+        }
+        
+        public func convertToInt32() throws -> Int32 {
+            switch state {
+            case .bound:
+                let localInterpreter = interpreter
+                return localInterpreter.assumeIsolated {
+                    do {
+                        return try $0.convertToInt32(self)
+                    } catch {
+                        fatalError("Failed to get attribute: \(error)")
+                    }
+                }
+            case .deferredDouble(let val):
+                if let i = Int32(exactly:val) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")  // overflow
+                }
+            case .deferredInt(let val):
+                if let i = Int32(exactly:val) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")
+                }
+            case .deferredString(let val):
+                // Mimic Python's int("...")
+                // Python accepts decimal strings, but does NOT accept floats like "3.14"
+                // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
+                // For full fidelity you can later add radix support.
+                let iVal: Int
+                if let intValue = Int(val) {
+                    iVal = intValue
+                } else if let double = Double(val), double.isFinite {
+                    // try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
+                    iVal = Int(double)
+                } else {
+                    fatalError("placeholder")  // can't convert to a number
+                }
+                if let i = Int32(exactly:iVal) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")  // overflow
+                }
+            case .deferredBool(let val):
+                return val ? 1 : 0
+            }
+        }
+        
+        public func convertToInt64() throws -> Int64 {
+            switch state {
+            case .bound:
+                let localInterpreter = interpreter
+                return localInterpreter.assumeIsolated {
+                    do {
+                        return try $0.convertToInt64(self)
+                    } catch {
+                        fatalError("Failed to get attribute: \(error)")
+                    }
+                }
+            case .deferredDouble(let val):
+                if let i = Int64(exactly:val) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")  // overflow
+                }
+            case .deferredInt(let val):
+                if let i = Int64(exactly:val) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")
+                }
+            case .deferredString(let val):
+                // Mimic Python's int("...")
+                // Python accepts decimal strings, but does NOT accept floats like "3.14"
+                // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
+                // For full fidelity you can later add radix support.
+                if let intValue = Int64(val) {
+                   return intValue
+                } else if let double = Double(val), double.isFinite {
+                    // try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
+                    if let intValue = Int64(exactly:double) {
+                        return intValue
+                    }
+                    else {
+                        fatalError("placeholder")  // out of range
+                    }
+                } else {
+                    fatalError("placeholder")  // can't convert to a number
+                }
+            case .deferredBool(let val):
+                return val ? 1 : 0
+            }
+        }
+        
         public func convertToUInt() throws -> UInt {
-            let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                return try $0.convertToUInt(self)
+            switch state {
+            case .bound:
+                let localInterpreter = interpreter
+                return localInterpreter.assumeIsolated {
+                    do {
+                        return try $0.convertToUInt(self)
+                    } catch {
+                        fatalError("Failed to get attribute: \(error)")
+                    }
+                }
+            case .deferredDouble(let val):
+                if let i = UInt(exactly:val) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")  // overflow
+                }
+            case .deferredInt(let val):
+                if let i = UInt(exactly:val) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")
+                }
+            case .deferredString(let val):
+                // Mimic Python's int("...")
+                // Python accepts decimal strings, but does NOT accept floats like "3.14"
+                // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
+                // For full fidelity you can later add radix support.
+                if let intValue = UInt(val) {
+                   return intValue
+                } else if let double = Double(val), double.isFinite {
+                    // try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
+                    if let intValue = UInt(exactly:double) {
+                        return intValue
+                    }
+                    else {
+                        fatalError("placeholder")  // out of range
+                    }
+                } else {
+                    fatalError("placeholder")  // can't convert to a number
+                }
+            case .deferredBool(let val):
+                return val ? 1 : 0
             }
         }
         
         public func convertToUInt8() throws -> UInt8 {
-            let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                return try $0.convertToUInt8(self)
+            switch state {
+            case .bound:
+                let localInterpreter = interpreter
+                return localInterpreter.assumeIsolated {
+                    do {
+                        return try $0.convertToUInt8(self)
+                    } catch {
+                        fatalError("Failed to get attribute: \(error)")
+                    }
+                }
+            case .deferredDouble(let val):
+                if let i = UInt8(exactly:val) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")  // overflow
+                }
+            case .deferredInt(let val):
+                if let i = UInt8(exactly:val) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")
+                }
+            case .deferredString(let val):
+                // Mimic Python's int("...")
+                // Python accepts decimal strings, but does NOT accept floats like "3.14"
+                // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
+                // For full fidelity you can later add radix support.
+                if let intValue = UInt8(val) {
+                   return intValue
+                } else if let double = Double(val), double.isFinite {
+                    // try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
+                    if let intValue = UInt8(exactly:double) {
+                        return intValue
+                    }
+                    else {
+                        fatalError("placeholder")  // out of range
+                    }
+                } else {
+                    fatalError("placeholder")  // can't convert to a number
+                }
+            case .deferredBool(let val):
+                return val ? 1 : 0
             }
         }
         
         public func convertToUInt16() throws -> UInt16 {
-            let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                return try $0.convertToUInt16(self)
+            switch state {
+            case .bound:
+                let localInterpreter = interpreter
+                return localInterpreter.assumeIsolated {
+                    do {
+                        return try $0.convertToUInt16(self)
+                    } catch {
+                        fatalError("Failed to get attribute: \(error)")
+                    }
+                }
+            case .deferredDouble(let val):
+                if let i = UInt16(exactly:val) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")  // overflow
+                }
+            case .deferredInt(let val):
+                if let i = UInt16(exactly:val) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")
+                }
+            case .deferredString(let val):
+                // Mimic Python's int("...")
+                // Python accepts decimal strings, but does NOT accept floats like "3.14"
+                // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
+                // For full fidelity you can later add radix support.
+                if let intValue = UInt16(val) {
+                   return intValue
+                } else if let double = Double(val), double.isFinite {
+                    // try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
+                    if let intValue = UInt16(exactly:double) {
+                        return intValue
+                    }
+                    else {
+                        fatalError("placeholder")  // out of range
+                    }
+                } else {
+                    fatalError("placeholder")  // can't convert to a number
+                }
+            case .deferredBool(let val):
+                return val ? 1 : 0
             }
         }
         
         public func convertToUInt32() throws -> UInt32 {
-            let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                return try $0.convertToUInt32(self)
+            switch state {
+            case .bound:
+                let localInterpreter = interpreter
+                return localInterpreter.assumeIsolated {
+                    do {
+                        return try $0.convertToUInt32(self)
+                    } catch {
+                        fatalError("Failed to get attribute: \(error)")
+                    }
+                }
+            case .deferredDouble(let val):
+                if let i = UInt32(exactly:val) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")  // overflow
+                }
+            case .deferredInt(let val):
+                if let i = UInt32(exactly:val) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")
+                }
+            case .deferredString(let val):
+                // Mimic Python's int("...")
+                // Python accepts decimal strings, but does NOT accept floats like "3.14"
+                // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
+                // For full fidelity you can later add radix support.
+                if let intValue = UInt32(val) {
+                   return intValue
+                } else if let double = Double(val), double.isFinite {
+                    // try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
+                    if let intValue = UInt32(exactly:double) {
+                        return intValue
+                    }
+                    else {
+                        fatalError("placeholder")  // out of range
+                    }
+                } else {
+                    fatalError("placeholder")  // can't convert to a number
+                }
+            case .deferredBool(let val):
+                return val ? 1 : 0
             }
         }
         
         public func convertToUInt64() throws -> UInt64 {
-            let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                return try $0.convertToUInt64(self)
+            switch state {
+            case .bound:
+                let localInterpreter = interpreter
+                return localInterpreter.assumeIsolated {
+                    do {
+                        return try $0.convertToUInt64(self)
+                    } catch {
+                        fatalError("Failed to get attribute: \(error)")
+                    }
+                }
+            case .deferredDouble(let val):
+                if let i = UInt64(exactly:val) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")  // overflow
+                }
+            case .deferredInt(let val):
+                if let i = UInt64(exactly:val) {
+                    return i
+                }
+                else {
+                    fatalError("placeholder")
+                }
+            case .deferredString(let val):
+                // Mimic Python's int("...")
+                // Python accepts decimal strings, but does NOT accept floats like "3.14"
+                // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
+                // For full fidelity you can later add radix support.
+                if let intValue = UInt64(val) {
+                   return intValue
+                } else if let double = Double(val), double.isFinite {
+                    // try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
+                    if let intValue = UInt64(exactly:double) {
+                        return intValue
+                    }
+                    else {
+                        fatalError("placeholder")  // out of range
+                    }
+                } else {
+                    fatalError("placeholder")  // can't convert to a number
+                }
+            case .deferredBool(let val):
+                return val ? 1 : 0
             }
         }
         
@@ -2612,13 +3096,13 @@ public actor PythonInterpreter {
         return id
     }
     
-    internal func convertToSafePython(int val: Int) throws -> SafePythonObject {
+    internal func convertToSafePython(int val: Int64) throws -> SafePythonObject {
         let id = try convertToSafePythonID(int: val)
         return SafePythonObject(interpreter: self, id: id)
     }
     
-    internal func convertToSafePythonID(int val: Int) throws -> PythonObjectUniqueID {
-        guard let ptr = pyLong_FromLong(val) else {
+    internal func convertToSafePythonID(int val: Int64) throws -> PythonObjectUniqueID {
+        guard let ptr = pyLong_FromLongLong(val) else {
             throw PythonError.nullPointer("Failed to convert int: \(val)")
         }
         
