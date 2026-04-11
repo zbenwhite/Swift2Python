@@ -84,6 +84,98 @@ struct ConversionsTests {
         }
     }
     
+    // MARK: FF_xxx Floating Point Float Conversion Tests
+    
+    @Test("FF_001: Float → PythonObject (async)")
+    func asyncFloatConversion() async throws {
+        
+        let value: Float = 3.1415927
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await Float(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("FF_002: Float → PythonObject (async) for special value -1.0")
+    func asyncFloatConversionNegativeOne() async throws {
+        
+        let value: Float = -1.0
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await Float(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("FF_003: Float → SafePythonObject (synchronous)")
+    func safeFloatConversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: Float = 3.1415927
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try Float(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
+    @Test("FF_004: Float → SafePythonObject (synchronous) for special value -1.0")
+    func safeFloatConversionNegativeOne() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: Float = -1.0
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try Float(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
+    // MARK: F16_xxx Floating Point Float16 Conversion Tests
+    
+    @Test("F16_001: Float16 → PythonObject (async)")
+    func asyncFloat16Conversion() async throws {
+        
+        let value: Float16 = 3.14
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await Float16(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("F16_002: Float16 → PythonObject (async) for special value -1.0")
+    func asyncFloat16ConversionNegativeOne() async throws {
+        
+        let value: Float16 = -1.0
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await Float16(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("F16_003: Float16 → SafePythonObject (synchronous)")
+    func safeFloat16Conversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: Float16 = 3.14
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try Float16(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
+    @Test("F16_004: Float16 → SafePythonObject (synchronous) for special value -1.0")
+    func safeFloat16ConversionNegativeOne() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: Float16 = -1.0
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try Float16(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
     // MARK: I_xxx Simple Int Conversion Tests
     
     @Test("I_001: Int → PythonObject (async)")
@@ -381,26 +473,26 @@ struct ConversionsTests {
 // [2026-04-09] : FD_004 : Test Convert SafePythonObject to Double special -1.0
 // [          ] : Test Convert SafePythonObject to Double error handling when it's not a numeric value
 
-// [          ] : Test Convert Float to PythonObject
-// [          ] : Test Convert Float to PythonObject special -1.0
-// [          ] : Test Convert PythonObject to Float
-// [          ] : Test Convert PythonObject to Float special -1.0
+// [2026-04-10] : FF_001 : Test Convert Float to PythonObject
+// [2026-04-10] : FF_002 : Test Convert Float to PythonObject special -1.0
+// [2026-04-10] : FF_001 : Test Convert PythonObject to Float
+// [2026-04-10] : FF_002 : Test Convert PythonObject to Float special -1.0
 // [          ] : Test Convert PythonObject to Float error handling when it's not a numeric value
-// [          ] : Test Convert Float to SafePythonObject
-// [          ] : Test Convert Float to SafePythonObject special -1.0
-// [          ] : Test Convert SafePythonObject to Float
-// [          ] : Test Convert SafePythonObject to Float special -1.0
+// [2026-04-10] : FF_003 : Test Convert Float to SafePythonObject
+// [2026-04-10] : FF_004 : Test Convert Float to SafePythonObject special -1.0
+// [2026-04-10] : FF_003 : Test Convert SafePythonObject to Float
+// [2026-04-10] : FF_004 : Test Convert SafePythonObject to Float special -1.0
 // [          ] : Test Convert SafePythonObject to Float error handling when it's not a numeric value
 
-// [          ] : Test Convert Float16 to PythonObject
-// [          ] : Test Convert Float16 to PythonObject special -1.0
-// [          ] : Test Convert PythonObject to Float16
-// [          ] : Test Convert PythonObject to Float16 special -1.0
+// [2026-04-10] : F16_001 : Test Convert Float16 to PythonObject
+// [2026-04-10] : F16_002 : Test Convert Float16 to PythonObject special -1.0
+// [2026-04-10] : F16_001 : Test Convert PythonObject to Float16
+// [2026-04-10] : F16_002 : Test Convert PythonObject to Float16 special -1.0
 // [          ] : Test Convert PythonObject to Float16 error handling when it's not a numeric value
-// [          ] : Test Convert Float16 to SafePythonObject
-// [          ] : Test Convert Float16 to SafePythonObject special -1.0
-// [          ] : Test Convert SafePythonObject to Float16
-// [          ] : Test Convert SafePythonObject to Float16 special -1.0
+// [2026-04-10] : F16_003 : Test Convert Float16 to SafePythonObject
+// [2026-04-10] : F16_004 : Test Convert Float16 to SafePythonObject special -1.0
+// [2026-04-10] : F16_003 : Test Convert SafePythonObject to Float16
+// [2026-04-10] : F16_004 : Test Convert SafePythonObject to Float16 special -1.0
 // [          ] : Test Convert SafePythonObject to Float16 error handling when it's not a numeric value
 
 // Signed Integers
