@@ -175,6 +175,190 @@ struct ConversionsTests {
             #expect(roundTrip == value)
         }
     }
+    
+    // MARK: UI8_xxx UInt8 Conversion Tests
+    
+    @Test("UI8_001: UInt8 → PythonObject (async)")
+    func asyncUInt8Conversion() async throws {
+        
+        let value: UInt8 = 123
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await UInt8(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("UI8_002: UInt8 → PythonObject (async) for special value -1 equiv Self.max")
+    func asyncUInt8ConversionNegativeValue() async throws {
+        
+        let value: UInt8 = UInt8.max
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await UInt8(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("UI8_003: UInt8 → SafePythonObject (synchronous)")
+    func safeUInt8Conversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: UInt8 = 123
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try UInt8(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
+    @Test("UI8_004: UInt8 → SafePythonObject (synchronous) for special value -1 equiv Self.max")
+    func safeUInt8ConversionNegativeValue() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: UInt8 = UInt8.max
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try UInt8(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
+    // MARK: UI16_xxx UInt16 Conversion Tests
+    
+    @Test("UI16_001: UInt16 → PythonObject (async)")
+    func asyncUInt16Conversion() async throws {
+        
+        let value: UInt16 = 65530
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await UInt16(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("UI16_002: UInt16 → PythonObject (async) for special value -1 equiv Self.max")
+    func asyncUInt16ConversionNegativeValue() async throws {
+        
+        let value: UInt16 = UInt16.max
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await UInt16(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("UI16_003: UInt16 → SafePythonObject (synchronous)")
+    func safeUInt16Conversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: UInt16 = 65530
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try UInt16(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
+    @Test("UI16_004: UInt16 → SafePythonObject (synchronous) for special value -1 equiv Self.max")
+    func safeUInt16ConversionNegativeValue() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: UInt16 = UInt16.max
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try UInt16(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
+    // MARK: UI32_xxx UInt32 Conversion Tests
+    
+    @Test("UI32_001: UInt32 → PythonObject (async)")
+    func asyncUInt32Conversion() async throws {
+        
+        let value: UInt32 = 4_000_000_000
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await UInt32(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("UI32_002: UInt32 → PythonObject (async) for special value -1 equiv Self.max")
+    func asyncUInt32ConversionNegativeValue() async throws {
+        
+        let value: UInt32 = UInt32.max
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await UInt32(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("UI32_003: UInt32 → SafePythonObject (synchronous)")
+    func safeUInt32Conversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: UInt32 = 4_000_000_000
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try UInt32(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
+    @Test("UI32_004: UInt32 → SafePythonObject (synchronous) for special value -1 equiv Self.max")
+    func safeUInt32ConversionNegativeValue() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: UInt32 = UInt32.max
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try UInt32(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
+    // MARK: UI64_xxx UInt64 Conversion Tests
+    
+    @Test("UI64_001: UInt64 → PythonObject (async)")
+    func asyncUInt64Conversion() async throws {
+        
+        let value: UInt64 = 9_876_543_210_987_654_321
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await UInt64(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("UI64_002: UInt64 → PythonObject (async) for special value -1 equiv Self.max")
+    func asyncUInt64ConversionNegativeValue() async throws {
+        
+        let value: UInt64 = UInt64.max
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await UInt64(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("UI64_003: UInt64 → SafePythonObject (synchronous)")
+    func safeUInt64Conversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: UInt64 = 9_876_543_210_987_654_321
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try UInt64(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
+    @Test("UI64_004: UInt64 → SafePythonObject (synchronous) for special value -1 equiv Self.max")
+    func safeUInt64ConversionNegativeValue() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: UInt64 = UInt64.max
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try UInt64(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
 
 }
 
@@ -305,70 +489,70 @@ struct ConversionsTests {
 // [          ] : Test Convert SafePythonObject to UInt error handling when it's a huge number that won't fit in an UInt
 // [          ] : Test Convert SafePythonObject to UInt negative number error handling
 
-// [          ] : Test Convert UInt8 to PythonObject
-// [          ] : Test Convert UInt8 to PythonObject special value -1 equiv Self.max
+// [2026-04-10] : UI8_001 : Test Convert UInt8 to PythonObject
+// [2026-04-10] : UI8_002 : Convert UInt8 to PythonObject special value -1 equiv Self.max
 // [          ] : Test Convert UInt8 to PythonObject negative number error handling
-// [          ] : Test Convert PythonObject to UInt8
-// [          ] : Test Convert PythonObject to UInt8 special value -1 equiv Self.max
+// [2026-04-10] : UI8_001 : Convert PythonObject to UInt8
+// [2026-04-10] : UI8_002 : Convert PythonObject to UInt8 special value -1 equiv Self.max
 // [          ] : Test Convert PythonObject to UInt8 error handling when it's not a numeric value
 // [          ] : Test Convert PythonObject to UInt8 error handling when it's a huge number that won't fit in an UInt8
 // [          ] : Test Convert PythonObject to UInt8 negative number error handling
-// [          ] : Test Convert UInt8 to SafePythonObject
-// [          ] : Test Convert UInt8 to SafePythonObject special value -1 equiv Self.max
+// [2026-04-10] : UI8_003 : Convert UInt8 to SafePythonObject
+// [2026-04-10] : UI8_004 : Convert UInt8 to SafePythonObject special value -1 equiv Self.max
 // [          ] : Test Convert UInt8 to SafePythonObject negative number error handling
-// [          ] : Test Convert SafePythonObject to UInt8
-// [          ] : Test Convert SafePythonObject to UInt8 special value -1 equiv Self.max
+// [2026-04-10] : UI8_003 : Convert SafePythonObject to UInt8
+// [2026-04-10] : UI8_004 : Convert SafePythonObject to UInt8 special value -1 equiv Self.max
 // [          ] : Test Convert SafePythonObject to UInt8 error handling when it's not a numeric value
 // [          ] : Test Convert SafePythonObject to UInt8 error handling when it's a huge number that won't fit in an UInt8
 // [          ] : Test Convert SafePythonObject to UInt8 negative number error handling
 
-// [          ] : Test Convert UInt16 to PythonObject
-// [          ] : Test Convert UInt16 to PythonObject special value -1 equiv Self.max
+// [2026-04-10] : UI16_001 : Test Convert UInt16 to PythonObject
+// [2026-04-10] : UI16_002 : Test Convert UInt16 to PythonObject special value -1 equiv Self.max
 // [          ] : Test Convert UInt16 to PythonObject negative number error handling
-// [          ] : Test Convert PythonObject to UInt16
-// [          ] : Test Convert PythonObject to UInt16 special value -1 equiv Self.max
+// [2026-04-10] : UI16_001 : Test Convert PythonObject to UInt16
+// [2026-04-10] : UI16_002 : Test Convert PythonObject to UInt16 special value -1 equiv Self.max
 // [          ] : Test Convert PythonObject to UInt16 error handling when it's not a numeric value
 // [          ] : Test Convert PythonObject to UInt16 error handling when it's a huge number that won't fit in an UInt16
 // [          ] : Test Convert PythonObject to UInt16 negative number error handling
-// [          ] : Test Convert UInt16 to SafePythonObject
-// [          ] : Test Convert UInt16 to SafePythonObject special value -1 equiv Self.max
+// [2026-04-10] : UI16_003 : Test Convert UInt16 to SafePythonObject
+// [2026-04-10] : UI16_004 : Test Convert UInt16 to SafePythonObject special value -1 equiv Self.max
 // [          ] : Test Convert UInt16 to SafePythonObject negative number error handling
-// [          ] : Test Convert SafePythonObject to UInt16
-// [          ] : Test Convert SafePythonObject to UInt16 special value -1 equiv Self.max
+// [2026-04-10] : UI16_003 : Test Convert SafePythonObject to UInt16
+// [2026-04-10] : UI16_004 : Test Convert SafePythonObject to UInt16 special value -1 equiv Self.max
 // [          ] : Test Convert SafePythonObject to UInt16 error handling when it's not a numeric value
 // [          ] : Test Convert SafePythonObject to UInt16 error handling when it's a huge number that won't fit in an UInt16
 // [          ] : Test Convert SafePythonObject to UInt16 negative number error handling
 
-// [          ] : Test Convert UInt32 to PythonObject
-// [          ] : Test Convert UInt32 to PythonObject special value -1 equiv Self.max
+// [2026-04-10] : UI32_001 : Test Convert UInt32 to PythonObject
+// [2026-04-10] : UI32_002 : Test Convert UInt32 to PythonObject special value -1 equiv Self.max
 // [          ] : Test Convert UInt32 to PythonObject negative number error handling
-// [          ] : Test Convert PythonObject to UInt32
-// [          ] : Test Convert PythonObject to UInt32 special value -1 equiv Self.max
+// [2026-04-10] : UI32_001 : Test Convert PythonObject to UInt32
+// [2026-04-10] : UI32_002 : Test Convert PythonObject to UInt32 special value -1 equiv Self.max
 // [          ] : Test Convert PythonObject to UInt32 error handling when it's not a numeric value
 // [          ] : Test Convert PythonObject to UInt32 error handling when it's a huge number that won't fit in an UInt32
 // [          ] : Test Convert PythonObject to UInt32negative number error handling
-// [          ] : Test Convert UInt32 to SafePythonObject
-// [          ] : Test Convert UInt32 to SafePythonObject special value -1 equiv Self.max
+// [2026-04-10] : UI32_003 : Test Convert UInt32 to SafePythonObject
+// [2026-04-10] : UI32_004 : Test Convert UInt32 to SafePythonObject special value -1 equiv Self.max
 // [          ] : Test Convert UInt32 to SafePythonObject negative number error handling
-// [          ] : Test Convert SafePythonObject to UInt32
-// [          ] : Test Convert SafePythonObject to UInt32 special value -1 equiv Self.max
+// [2026-04-10] : UI32_003 : Test Convert SafePythonObject to UInt32
+// [2026-04-10] : UI32_004 : Test Convert SafePythonObject to UInt32 special value -1 equiv Self.max
 // [          ] : Test Convert SafePythonObject to UInt32 error handling when it's not a numeric value
 // [          ] : Test Convert SafePythonObject to UInt32 error handling when it's a huge number that won't fit in an UInt32
 // [          ] : Test Convert SafePythonObject to UInt32 negative number error handling
 
-// [          ] : Test Convert UInt64 to PythonObject
-// [          ] : Test Convert UInt64 to PythonObject special value -1 equiv Self.max
+// [2026-04-10] : UI64_001 : Test Convert UInt64 to PythonObject
+// [2026-04-10] : UI64_002 : Test Convert UInt64 to PythonObject special value -1 equiv Self.max
 // [          ] : Test Convert UInt64 to PythonObject negative number error handling
-// [          ] : Test Convert PythonObject to UInt64
-// [          ] : Test Convert PythonObject to UInt64 special value -1 equiv Self.max
+// [2026-04-10] : UI64_001 : Test Convert PythonObject to UInt64
+// [2026-04-10] : UI64_002 : Test Convert PythonObject to UInt64 special value -1 equiv Self.max
 // [          ] : Test Convert PythonObject to UInt64 error handling when it's not a numeric value
 // [          ] : Test Convert PythonObject to UInt64 error handling when it's a huge number that won't fit in an UInt64
 // [          ] : Test Convert PythonObject to UInt64 negative number error handling
-// [          ] : Test Convert UInt64 to SafePythonObject
-// [          ] : Test Convert UInt64 to SafePythonObject special value -1 equiv Self.max
+// [2026-04-10] : UI64_003 : Test Convert UInt64 to SafePythonObject
+// [2026-04-10] : UI64_004 : Test Convert UInt64 to SafePythonObject special value -1 equiv Self.max
 // [          ] : Test Convert UInt64 to SafePythonObject negative number error handling
-// [          ] : Test Convert SafePythonObject to UInt64
-// [          ] : Test Convert SafePythonObject to UInt64 special value -1 equiv Self.max
+// [2026-04-10] : UI64_003 : Test Convert SafePythonObject to UInt64
+// [2026-04-10] : UI64_004 : Test Convert SafePythonObject to UInt64 special value -1 equiv Self.max
 // [          ] : Test Convert SafePythonObject to UInt64 error handling when it's not a numeric value
 // [          ] : Test Convert SafePythonObject to UInt64 error handling when it's a huge number that won't fit in an UInt64
 // [          ] : Test Convert SafePythonObject to UInt64 negative number error handling
