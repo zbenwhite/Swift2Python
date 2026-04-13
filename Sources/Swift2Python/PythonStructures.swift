@@ -36,3 +36,5 @@ public struct Py_buffer {
 public typealias PyGILState_STATE = Int32
 
 public typealias PyThreadState = OpaquePointer
+
+public typealias Py_ssize_t = Int64
