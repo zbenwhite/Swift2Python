@@ -33,6 +33,7 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
     /// Thrown when a Swift value cannot be safely converted to/from a Python object
     /// because it is out of range for the target type (e.g. 2000 → UInt8).
     case conversionOverflow(value: String, sourceType: String, targetType: String )
+    indirect case conversionType( value: String, sourceType: String, targetType: String, underlying: PythonError? = nil)
     
     
     // MARK: - CustomStringConvertible
@@ -67,6 +68,8 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
             return "Python exception (synchronous)."  // FIXME: do better
         case .conversionOverflow(let value, let source, let target):
             return "Overflow error: value \(value) of type \(source) cannot be converted to \(target) (out of range)"
+        case .conversionType(let value, let sourceType, let targetType, _ ):
+            return "Conversion type error: value \(value) of type \(sourceType) cannot be converted to \(targetType)"
         }
     }
         
