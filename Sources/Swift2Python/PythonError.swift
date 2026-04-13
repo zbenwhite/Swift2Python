@@ -8,7 +8,7 @@
 import Foundation
 
 /// Errors thrown by the Swift2Python package when interacting with the Python runtime.
-public enum PythonError: Error, CustomStringConvertible, LocalizedError, Equatable {
+public enum PythonError: Error, CustomStringConvertible, LocalizedError {
     
     case notInitialized
     case alreadyInitialized
@@ -25,6 +25,15 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError, Equatab
     ///   - `> 0`   = unclean shutdown (e.g. unhandled exceptions during atexit)
     ///   - `< 0`   = serious error (rare)
     case finalizationFailed(status: CInt)
+    case unknownPythonException
+    indirect case pythonException(PythonObject)
+    indirect case safePythonException(PythonInterpreter.SafePythonObject)
+    
+    
+    /// Thrown when a Swift value cannot be safely converted to/from a Python object
+    /// because it is out of range for the target type (e.g. 2000 → UInt8).
+    case conversionOverflow(value: String, sourceType: String, targetType: String )
+    
     
     // MARK: - CustomStringConvertible
         
@@ -50,6 +59,14 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError, Equatab
             } else {
                 return "Py_FinalizeEx returned warning status \(status) (unclean shutdown – check for unhandled exceptions or resource leaks)"
             }
+        case .unknownPythonException:
+            return "Python exception with no details."
+        case .pythonException:
+            return "Python exception (async)."  // FIXME: do better
+        case .safePythonException:
+            return "Python exception (synchronous)."  // FIXME: do better
+        case .conversionOverflow(let value, let source, let target):
+            return "Overflow error: value \(value) of type \(source) cannot be converted to \(target) (out of range)"
         }
     }
         

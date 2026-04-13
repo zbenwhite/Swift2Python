@@ -101,6 +101,8 @@ public actor PythonInterpreter {
         let PyDict_New: (@convention(c) () -> UnsafeMutableRawPointer?)
         let PyDict_SetItem: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32)
         let PyErr_Clear:  (@convention(c) () -> Void)
+        let PyErr_Fetch: (@convention(c) (UnsafeMutablePointer<UnsafeMutableRawPointer?>?, UnsafeMutablePointer<UnsafeMutableRawPointer?>?, UnsafeMutablePointer<UnsafeMutableRawPointer?>?) -> Void)
+        let PyErr_NormalizeException: (@convention(c) (UnsafeMutablePointer<UnsafeMutableRawPointer?>?, UnsafeMutablePointer<UnsafeMutableRawPointer?>?, UnsafeMutablePointer<UnsafeMutableRawPointer?>?) -> Void)
         let PyErr_Occurred: (@convention(c) () -> UnsafeMutableRawPointer?)
         let PyFloat_AsDouble: (@convention(c) (UnsafeMutableRawPointer) -> Double)
         let PyFloat_FromDouble: (@convention(c) (Double) -> UnsafeMutableRawPointer?)
@@ -140,19 +142,24 @@ public actor PythonInterpreter {
         let PyObject_RichCompareBool: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, Int32) -> Int32)
         let PyObject_SetAttrString: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Int32)
         let PyObject_SetItem: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32)
+        let PyObject_Str: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyRun_SimpleString: (@convention(c) (UnsafePointer<CChar>) -> Int32)
         let PyTuple_New: (@convention(c) (Int) -> UnsafeMutableRawPointer?)
         let PyTuple_SetItem: (@convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Int32)
+        let PyUnicode_AsUTF8AndSize: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutablePointer<Py_ssize_t>?) -> UnsafePointer<CChar>?)
         let PyUnicode_FromStringAndSize: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?)
 
         // Optional (only present on Python >= 3.9)
         let PyObject_CallNoArgs: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
+        
+        // Optional (only present on Python >= 3.12)
+        let PyErr_GetRaisedException: (@convention(c) () -> UnsafeMutableRawPointer?)?
     }
 
     private var api: PreloadedPythonSymbols!  // Loaded in init
     
     private static func loadAllSymbols(using runtime: PythonRuntime) async throws -> PreloadedPythonSymbols {
-        return await PreloadedPythonSymbols(
+        return PreloadedPythonSymbols(
             Py_DecRef: try await runtime.loadSendableSymbol(
                 "Py_DecRef", as: (@convention(c) (UnsafeMutableRawPointer) -> Void).self).function,
             PyBool_FromLong: try await runtime.loadSendableSymbol(
@@ -169,6 +176,10 @@ public actor PythonInterpreter {
                 "PyDict_SetItem", as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32).self).function,
             PyErr_Clear: try await runtime.loadSendableSymbol(
                 "PyErr_Clear", as: (@convention(c) () -> Void).self).function,
+            PyErr_Fetch: try await runtime.loadSendableSymbol(
+                "PyErr_Fetch", as: (@convention(c) (UnsafeMutablePointer<UnsafeMutableRawPointer?>?, UnsafeMutablePointer<UnsafeMutableRawPointer?>?, UnsafeMutablePointer<UnsafeMutableRawPointer?>?) -> Void).self).function,
+            PyErr_NormalizeException: try await runtime.loadSendableSymbol(
+                "PyErr_NormalizeException", as: (@convention(c) (UnsafeMutablePointer<UnsafeMutableRawPointer?>?, UnsafeMutablePointer<UnsafeMutableRawPointer?>?, UnsafeMutablePointer<UnsafeMutableRawPointer?>?) -> Void).self).function,
             PyErr_Occurred: try await runtime.loadSendableSymbol(
                 "PyErr_Occurred", as: (@convention(c) () -> UnsafeMutableRawPointer?).self).function,
             PyFloat_AsDouble: try await runtime.loadSendableSymbol(
@@ -247,18 +258,24 @@ public actor PythonInterpreter {
                 "PyObject_SetAttrString", as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Int32).self).function,
             PyObject_SetItem: try await runtime.loadSendableSymbol(
                 "PyObject_SetItem", as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32).self).function,
+            PyObject_Str: try await runtime.loadSendableSymbol(
+                "PyObject_Str", as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             PyRun_SimpleString: try await runtime.loadSendableSymbol(
                 "PyRun_SimpleString", as: (@convention(c) (UnsafePointer<CChar>) -> Int32).self).function,
             PyTuple_New: try await runtime.loadSendableSymbol(
                 "PyTuple_New", as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function,
             PyTuple_SetItem: try await runtime.loadSendableSymbol(
                 "PyTuple_SetItem", as: (@convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Int32).self).function,
+            PyUnicode_AsUTF8AndSize: try await runtime.loadSendableSymbol(
+                "PyUnicode_AsUTF8AndSize", as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutablePointer<Py_ssize_t>?) -> UnsafePointer<CChar>?).self).function,
             PyUnicode_FromStringAndSize: try await runtime.loadSendableSymbol(
                 "PyUnicode_FromStringAndSize", as: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?).self).function,
 
-            // Only this one is allowed to be missing
+            // The ones below may be missing
             PyObject_CallNoArgs: (try? await runtime.loadSendableSymbol(
-                "PyObject_CallNoArgs", as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function)
+                "PyObject_CallNoArgs", as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function),
+            PyErr_GetRaisedException: (try? await runtime.loadSendableSymbol(
+                "PyErr_GetRaisedException", as: (@convention(c) () -> UnsafeMutableRawPointer?).self).function)
         )
     }
     
@@ -408,6 +425,11 @@ public actor PythonInterpreter {
         return api.PyObject_SetItem(obPtr, keyPtr, rvalPtr)
     }
     
+    private func pyObject_Str(_ obPtr: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer? {
+        logger.trace("CPyton API Call: PyObject_Str")
+        return api.PyObject_Str(obPtr)
+    }
+    
     public func pyRun_SimpleString(_ command: String) throws -> Int32 {
         logger.trace("CPyton API Call: PyRun_SimpleString")
         return command.withCString { api.PyRun_SimpleString($0) }
@@ -430,6 +452,110 @@ public actor PythonInterpreter {
             api.PyUnicode_FromStringAndSize(bufferPtr.baseAddress, cString.count - 1)
         }
     }
+    
+    private func pyUnicode_AsUTF8AndSize(_ objPtr: UnsafeMutableRawPointer) throws -> (String)? {
+        logger.trace("CPyton API Call: PyUnicode_AsUTF8AndSize")
+        var size: Py_ssize_t = 0
+        let utf8 = api.PyUnicode_AsUTF8AndSize(objPtr, &size)
+        
+        guard let utf8 else {
+            return nil
+        }
+        return String(cString: utf8)
+    }
+    
+    // MARK: Python Errors
+    
+    // This function assumes you already have the GIL.
+    private func throwPythonErrorIfPresent() async throws {
+        guard try pyErr_Occurred() != nil else { return }
+        try await throwPythonError()
+    }
+    
+    // This function assumes you already have the GIL.
+    private func throwPythonError() async throws {
+        if let pyGetRaisedException = api.PyErr_GetRaisedException {
+            // Do it the new Python 3.12 way
+            logger.trace("CPyton API Call: PyErr_GetRaisedException")
+            if let exceptionPtr = pyGetRaisedException() {
+                //defer { Py_DECREF(exc) }
+                let id = registerPythonObjectPointer(exceptionPtr)
+                let exception = SafePythonObject(interpreter: self, id: id)
+                throw PythonError.safePythonException(exception)            }
+        } else {
+            // Do it the old Python 3.11 or earlier way
+            var excType: UnsafeMutableRawPointer? = nil
+            var excValue: UnsafeMutableRawPointer? = nil
+            var excTraceback: UnsafeMutableRawPointer? = nil
+            
+            logger.trace("CPyton API Call: PyErr_Fetch")
+            api.PyErr_Fetch(&excType, &excValue, &excTraceback)
+            if excType != nil || excValue != nil {
+                
+                logger.trace("CPyton API Call: PyErr_NormalizeException")
+                api.PyErr_NormalizeException(&excType, &excValue, &excTraceback)
+                if let valuePtr = excValue {
+                    let id = registerPythonObjectPointer(valuePtr)
+                    let exception = PythonObject(id: id, interpreter: self)
+                    throw PythonError.pythonException(exception)
+                } else if let typePtr = excType {
+                    let id = registerPythonObjectPointer(typePtr)
+                    let exception = PythonObject(id: id, interpreter: self)
+                    throw PythonError.pythonException(exception)
+                } else {
+                    throw PythonError.unknownPythonException
+                }
+            }
+        }
+    }
+    
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    private func throwPythonErrorIfPresent() throws {
+        guard try pyErr_Occurred() != nil else { return }
+        try throwPythonError()
+    }
+    
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    private func throwPythonError() throws -> Never {
+        if let pyGetRaisedException = api.PyErr_GetRaisedException {
+            // Do it the new Python 3.12 way
+            logger.trace("CPyton API Call: PyErr_GetRaisedException")
+            if let exceptionPtr = pyGetRaisedException() {
+                //defer { Py_DECREF(exc) }
+                
+                let id = registerPythonObjectPointer(exceptionPtr)
+                let exception = SafePythonObject(interpreter: self, id: id)
+                throw PythonError.safePythonException(exception)
+            }
+        } else {
+            // Do it the old Python 3.11 or earlier way
+            var excType: UnsafeMutableRawPointer? = nil
+            var excValue: UnsafeMutableRawPointer? = nil
+            var excTraceback: UnsafeMutableRawPointer? = nil
+            
+            logger.trace("CPyton API Call: PyErr_Fetch")
+            api.PyErr_Fetch(&excType, &excValue, &excTraceback)
+            if excType != nil || excValue != nil {
+                
+                logger.trace("CPyton API Call: PyErr_NormalizeException")
+                api.PyErr_NormalizeException(&excType, &excValue, &excTraceback)
+                if let valuePtr = excValue {
+                    let id = registerPythonObjectPointer(valuePtr)
+                    let exception = SafePythonObject(interpreter: self, id: id)
+                    throw PythonError.safePythonException(exception)
+                } else if let typePtr = excType {
+                    let id = registerPythonObjectPointer(typePtr)
+                    let exception = SafePythonObject(interpreter: self, id: id)
+                    throw PythonError.safePythonException(exception)
+                } else {
+                    throw PythonError.unknownPythonException
+                }
+            }
+        }
+        throw PythonError.unknownPythonException
+    }
+    
+    // MARK: GIL handling (async mode)
     
     // A GIL handler for async mode
     public func withGIL<Result>(_ body: () async throws -> Result) async throws -> Result {
@@ -542,11 +668,11 @@ public actor PythonInterpreter {
     
     public func convertToDouble(_ obj: PythonObject) async throws -> Double {
         let objPtr = pythonObjectRegistry[obj.id]!
-        return try withGIL {
+        return try await withGIL {
             let value = pyFloat_AsDouble(objPtr)
             if value == -1.0 {
-                if let pyErr = try pyErr_Occurred() {
-                    fatalError("placeholder")
+                if let _ = try pyErr_Occurred() {
+                    try await throwPythonError()
                 }
             }
             return Double(exactly: value)!
@@ -558,14 +684,15 @@ public actor PythonInterpreter {
         let objPtr = pythonObjectRegistry[obj.id]!
         let value = pyFloat_AsDouble(objPtr)
         if value == -1.0 {
-            if let pyErr = try pyErr_Occurred() {
-                fatalError("placeholder")
+            if let _ = try pyErr_Occurred() {
+                try throwPythonError()
             }
         }
         return Double(exactly: value)!
     }
     
     public func convertToPython(int val: Int64) async throws -> PythonObject {
+        logger.trace("convertToPython: Convert Int64 to PythonObject.")
         return try withGIL {
             guard let ptr = pyLong_FromLongLong(val) else {
                 throw PythonError.nullPointer("Failed to convert int: \(val)")
@@ -577,6 +704,7 @@ public actor PythonInterpreter {
     }
     
     public func convertToInt(_ obj: PythonObject) async throws -> Int {
+        logger.trace("convertToInt: Convert PythonObject to Int.")
         if let value = try await Int(exactly: convertToInt64(obj)) {
             return value
         } else {
@@ -586,6 +714,7 @@ public actor PythonInterpreter {
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public func convertToInt(_ obj: SafePythonObject) throws -> Int {
+        logger.trace("convertToInt: Convert SafePythonObject to Int.")
         if let value = try Int(exactly: convertToInt64(obj)) {
             return value
         } else {
@@ -594,6 +723,7 @@ public actor PythonInterpreter {
     }
     
     public func convertToInt8(_ obj: PythonObject) async throws -> Int8 {
+        logger.trace("convertToInt8: Convert PythonObject to Int8.")
         if let value = try await Int8(exactly: convertToInt64(obj)) {
             return value
         } else {
@@ -603,6 +733,7 @@ public actor PythonInterpreter {
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public func convertToInt8(_ obj: SafePythonObject) throws -> Int8 {
+        logger.trace("convertToInt: Convert SafePythonObject to Int8.")
         if let value = try Int8(exactly: convertToInt64(obj)) {
             return value
         } else {
@@ -611,6 +742,7 @@ public actor PythonInterpreter {
     }
     
     public func convertToInt16(_ obj: PythonObject) async throws -> Int16 {
+        logger.trace("convertToInt16: Convert PythonObject to Int16.")
         if let value = try await Int16(exactly: convertToInt64(obj)) {
             return value
         } else {
@@ -620,6 +752,7 @@ public actor PythonInterpreter {
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public func convertToInt16(_ obj: SafePythonObject) throws -> Int16 {
+        logger.trace("convertToInt16: Convert SafePythonObject to Int16.")
         if let value = try Int16(exactly: convertToInt64(obj)) {
             return value
         } else {
@@ -628,6 +761,7 @@ public actor PythonInterpreter {
     }
     
     public func convertToInt32(_ obj: PythonObject) async throws -> Int32 {
+        logger.trace("convertToInt32: Convert PythonObject to Int32.")
         if let value = try await Int32(exactly: convertToInt64(obj)) {
             return value
         } else {
@@ -638,6 +772,7 @@ public actor PythonInterpreter {
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public func convertToInt32(_ obj: SafePythonObject) throws -> Int32 {
         if let value = try Int32(exactly: convertToInt64(obj)) {
+            logger.trace("convertToInt32: Convert SafePythonObject to Int32.")
             return value
         } else {
             fatalError("placeholder")
@@ -645,12 +780,13 @@ public actor PythonInterpreter {
     }
     
     public func convertToInt64(_ obj: PythonObject) async throws -> Int64 {
+        logger.trace("convertToInt64: Convert PythonObject to Int64.")
         let objPtr = pythonObjectRegistry[obj.id]!
-        return try withGIL {
+        return try await withGIL {
             let value = try pyLong_AsLongLong(objPtr)
             if value == -1 {
-                if let pyErr = try pyErr_Occurred() {
-                    fatalError("placeholder")
+                if let _ = try pyErr_Occurred() {
+                    try await throwPythonError()
                 }
             }
             return value
@@ -659,11 +795,12 @@ public actor PythonInterpreter {
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public func convertToInt64(_ obj: SafePythonObject) throws -> Int64 {
+        logger.trace("convertToInt64: Convert SafePythonObject to Int64.")
         let objPtr = pythonObjectRegistry[obj.id]!
         let value = try pyLong_AsLongLong(objPtr)
         if value == -1 {
-            if let pyErr = try pyErr_Occurred() {
-                fatalError("placeholder")
+            if let _ = try pyErr_Occurred() {
+                try throwPythonError()
             }
         }
         return value
@@ -681,6 +818,7 @@ public actor PythonInterpreter {
     }
     
     public func convertToUInt(_ obj: PythonObject) async throws -> UInt {
+        logger.trace("convertToUInt: Convert PythonObject to UInt.")
         if let value = try await UInt(exactly: convertToUInt64(obj)) {
             return value
         } else {
@@ -689,6 +827,7 @@ public actor PythonInterpreter {
     }
     
     public func convertToUInt(_ obj: SafePythonObject) throws -> UInt {
+        logger.trace("convertToUInt: Convert SafePythonObject to UInt.")
         if let value = try UInt(exactly: convertToUInt64(obj)) {
             return value
         } else {
@@ -697,22 +836,27 @@ public actor PythonInterpreter {
     }
     
     public func convertToUInt8(_ obj: PythonObject) async throws -> UInt8 {
-        if let value = try await UInt8(exactly: convertToUInt64(obj)) {
-            return value
+        logger.trace("convertToUInt8: Convert PythonObject to UInt8.")
+        let uint64Value = try await convertToUInt64(obj)
+        if let uint8Value = UInt8(exactly: uint64Value) {
+            return uint8Value
         } else {
-            fatalError("placeholder")
+            throw PythonError.conversionOverflow(value: String(uint64Value), sourceType: "PythonObject", targetType: "UInt8")
         }
     }
     
     public func convertToUInt8(_ obj: SafePythonObject) throws -> UInt8 {
-        if let value = try UInt8(exactly: convertToUInt64(obj)) {
-            return value
+        logger.trace("convertToUInt8: Convert SafePythonObject to UInt8.")
+        let uint64Value = try convertToUInt64(obj)
+        if let uint8Value = UInt8(exactly: uint64Value) {
+            return uint8Value
         } else {
-            fatalError("placeholder")
+            throw PythonError.conversionOverflow(value: String(uint64Value), sourceType: "SafePythonObject", targetType: "UInt8")
         }
     }
     
     public func convertToUInt16(_ obj: PythonObject) async throws -> UInt16 {
+        logger.trace("convertToUInt16: Convert PythonObject to UInt16.")
         if let value = try await UInt16(exactly: convertToUInt64(obj)) {
             return value
         } else {
@@ -721,6 +865,7 @@ public actor PythonInterpreter {
     }
     
     public func convertToUInt16(_ obj: SafePythonObject) throws -> UInt16 {
+        logger.trace("convertToUInt16: Convert SafePythonObject to UInt16.")
         if let value = try UInt16(exactly: convertToUInt64(obj)) {
             return value
         } else {
@@ -729,6 +874,7 @@ public actor PythonInterpreter {
     }
     
     public func convertToUInt32(_ obj: PythonObject) async throws -> UInt32 {
+        logger.trace("convertToUInt32: Convert PythonObject to UInt32.")
         if let value = try await UInt32(exactly:convertToUInt64(obj)) {
             return value
         } else {
@@ -737,6 +883,7 @@ public actor PythonInterpreter {
     }
     
     public func convertToUInt32(_ obj: SafePythonObject) throws -> UInt32 {
+        logger.trace("convertToUInt32: Convert SafePythonObject to UInt32.")
         if let value = try UInt32(exactly:convertToUInt64(obj)) {
             return value
         } else {
@@ -745,12 +892,19 @@ public actor PythonInterpreter {
     }
     
     public func convertToUInt64(_ obj: PythonObject) async throws -> UInt64 {
+        logger.trace("convertToUInt64: Convert PythonObject to UInt64.")
+        if try await obj.lessThan(0) {
+            logger.error("convertToUInt64: Called for NEGATIVE number PythonObject.")
+            let objStr = try await String(obj)
+            throw PythonError.conversionOverflow(value: objStr, sourceType: "PythonObject", targetType: "UInt8")
+        }
+        // FIXME: Add explict check for negative number
         let objPtr = pythonObjectRegistry[obj.id]!
-        return try withGIL {
+        return try await withGIL {
             let value = try pyLong_AsUnsignedLongLong(objPtr)
             if value == UInt64.max {              // (unsigned long long)-1 on error
-                if let pyErr = try pyErr_Occurred() {
-                    fatalError("placeholder")
+                if let _ = try pyErr_Occurred() {
+                    try await throwPythonError()
                 }
             }
             return value
@@ -759,11 +913,17 @@ public actor PythonInterpreter {
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public func convertToUInt64(_ obj: SafePythonObject) throws -> UInt64 {
+        logger.trace("convertToUInt64: Convert SafePythonObject to UInt64.")
+        if obj < 0 {
+            logger.error("convertToUInt64: Called for NEGATIVE number SafePythonObject.")
+            let objStr = try String(obj)
+            throw PythonError.conversionOverflow(value: objStr, sourceType: "SafePythonObject", targetType: "UInt8")
+        }
         let objPtr = pythonObjectRegistry[obj.id]!
         let value = try pyLong_AsUnsignedLongLong(objPtr)
         if value == UInt64.max {              // (unsigned long long)-1 on error
-            if let pyErr = try pyErr_Occurred() {
-                fatalError("placeholder")
+            if let _ = try pyErr_Occurred() {
+                try throwPythonError()
             }
         }
         return value
@@ -784,7 +944,37 @@ public actor PythonInterpreter {
     
     public func convertToString(_ obj: PythonObject) async throws -> String {
         let objPtr = pythonObjectRegistry[obj.id]!
-        fatalError("placeholder")
+        
+        return try withGIL {
+            if let pyStr = pyObject_Str(objPtr) {
+                // FIXME: New object is created.  It needs to disappear.
+                // defer { Py_DECREF(pyStr) }
+                if let s = try pyUnicode_AsUTF8AndSize(pyStr) {
+                    return s
+                } else {
+                    try throwPythonError()
+                }
+            }
+            else {
+                try throwPythonError()
+            }
+        }
+    }
+    
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public func convertToString(_ obj: SafePythonObject) throws -> String {
+        let objPtr = pythonObjectRegistry[obj.id]!
+        
+        guard let pyStr = pyObject_Str(objPtr) else {
+            try throwPythonError()
+        }
+        // FIXME: New object is created.  It needs to disappear.
+        // defer { Py_DECREF(pyStr) }
+        if let s = try pyUnicode_AsUTF8AndSize(pyStr) {
+            return s
+        } else {
+            try throwPythonError()
+        }
     }
     
     public func convertToPython(array: [PendingPythonConvertible]) async throws -> PythonObject {
@@ -843,6 +1033,22 @@ public actor PythonInterpreter {
         
         try withGIL {
             _ = try pyObject_SetAttrString(objPtr, attribute, valuePtr)
+        }
+    }
+    
+    // MARK: Comparion Support (async mode)
+    
+    public func lessThan(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
+        let lhsPtr = pythonObjectRegistry[lhs.id]!
+        let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
+        let rhsPtr = pythonObjectRegistry[rhsPyObj.id]!
+        
+        return try withGIL {
+            switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.lessThan.rawValue) {
+            case 0: return false
+            case 1: return true
+            default: fatalError("Placeholder")
+            }
         }
     }
     
@@ -1031,8 +1237,25 @@ public actor PythonInterpreter {
     public func withIsolatedContext<T>(
         _ body: @Sendable (isolated PythonInterpreter) throws -> T
     ) async throws -> T {
-        return try withGIL {
-            try body(self)
+        do {
+            return try withGIL {
+                try body(self)
+            }
+        } catch let error as PythonError {
+            // Transform safePythonException → pythonException so the caller gets
+            // a normal async-friendly PythonError.
+            if case .safePythonException(let safeObj) = error {
+                
+                // FIXME: make sure SafePythonObject destruction doesn't mess up reference counts or something.
+                let id = safeObj.id
+                let pythonObj = PythonObject(id : id, interpreter: self)
+                throw PythonError.pythonException(pythonObj)
+            }
+            
+            // Re-throw any other PythonError unchanged
+            throw error
+        } catch {
+            throw error
         }
     }
     
@@ -1384,12 +1607,8 @@ public actor PythonInterpreter {
             switch state {
             case .bound:
                 let localInterpreter = interpreter
-                return localInterpreter.assumeIsolated {
-                    do {
-                        return try $0.convertToUInt(self)
-                    } catch {
-                        fatalError("Failed to get attribute: \(error)")
-                    }
+                return try localInterpreter.assumeIsolated {
+                    try $0.convertToUInt(self)
                 }
             case .deferredDouble(let val):
                 if let i = UInt(exactly:val) {
@@ -1432,12 +1651,8 @@ public actor PythonInterpreter {
             switch state {
             case .bound:
                 let localInterpreter = interpreter
-                return localInterpreter.assumeIsolated {
-                    do {
-                        return try $0.convertToUInt8(self)
-                    } catch {
-                        fatalError("Failed to get attribute: \(error)")
-                    }
+                return try localInterpreter.assumeIsolated {
+                    try $0.convertToUInt8(self)
                 }
             case .deferredDouble(let val):
                 if let i = UInt8(exactly:val) {
@@ -1480,12 +1695,8 @@ public actor PythonInterpreter {
             switch state {
             case .bound:
                 let localInterpreter = interpreter
-                return localInterpreter.assumeIsolated {
-                    do {
-                        return try $0.convertToUInt16(self)
-                    } catch {
-                        fatalError("Failed to get attribute: \(error)")
-                    }
+                return try localInterpreter.assumeIsolated {
+                    try $0.convertToUInt16(self)
                 }
             case .deferredDouble(let val):
                 if let i = UInt16(exactly:val) {
@@ -1528,12 +1739,8 @@ public actor PythonInterpreter {
             switch state {
             case .bound:
                 let localInterpreter = interpreter
-                return localInterpreter.assumeIsolated {
-                    do {
-                        return try $0.convertToUInt32(self)
-                    } catch {
-                        fatalError("Failed to get attribute: \(error)")
-                    }
+                return try localInterpreter.assumeIsolated {
+                    try $0.convertToUInt32(self)
                 }
             case .deferredDouble(let val):
                 if let i = UInt32(exactly:val) {
@@ -1576,12 +1783,8 @@ public actor PythonInterpreter {
             switch state {
             case .bound:
                 let localInterpreter = interpreter
-                return localInterpreter.assumeIsolated {
-                    do {
-                        return try $0.convertToUInt64(self)
-                    } catch {
-                        fatalError("Failed to get attribute: \(error)")
-                    }
+                return try localInterpreter.assumeIsolated {
+                    try $0.convertToUInt64(self)
                 }
             case .deferredDouble(let val):
                 if let i = UInt64(exactly:val) {
@@ -1620,6 +1823,24 @@ public actor PythonInterpreter {
             }
         }
         
+        public func convertToString() throws -> String {
+            switch state {
+            case .bound:
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.convertToString(self)
+                }
+            case .deferredDouble(let val):
+                return String(val)
+            case .deferredInt(let val):
+                return String(val)
+            case .deferredString(let val):
+                return val
+            case .deferredBool(let val):
+                return val ? "True" : "False"
+            }
+        }
+            
         public func toSafePythonObject(interpreter: PythonInterpreter) throws -> SafePythonObject {
             return try self.materialize(using: interpreter)
         }

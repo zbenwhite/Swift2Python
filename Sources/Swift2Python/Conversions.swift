@@ -9,10 +9,10 @@
 //
 // TODO: numpy conversions?
 // DONE: UInt
-// TODO: Int8
-// TODO: Int16
-// TODO: Int32
-// TODO: Int64
+// DONE: Int8
+// DONE: Int16
+// DONE: Int32
+// DONE: Int64
 // DONE: UInt8
 // DONE: UInt16
 // DONE: UInt32
@@ -249,6 +249,12 @@ extension UInt64 {
 extension String: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
         try await interpreter.convertToPython(string: self)
+    }
+}
+
+extension String {
+    public init(_ pythonObject: PythonObject) async throws {
+        self = try await pythonObject.convertToString()
     }
 }
 
@@ -516,5 +522,12 @@ extension String: SafePythonConvertible {
         try interpreter.assumeIsolated {
             try $0.convertToSafePython(string:self)
         }
+    }
+}
+
+extension String {
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
+        self = try safePythonObject.convertToString()
     }
 }

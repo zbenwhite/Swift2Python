@@ -177,5 +177,13 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     public func convertToUInt64() async throws -> UInt64 {
         return try await interpreter.convertToUInt64(self)
     }
+    
+    public func convertToString() async throws -> String {
+        return try await interpreter.convertToString(self)
+    }
+    
+    public func lessThan(_ other: PendingPythonConvertible) async throws -> Bool {
+        return try await interpreter.lessThan(lhs: self, rhs: other)
+    }
 }
 
