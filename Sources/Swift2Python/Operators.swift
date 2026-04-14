@@ -199,43 +199,19 @@ extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
     }
 
     public static func < (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
-        if lhs.isBoundToPythonInterpreter {
-            return lhs.lessThanComparableOperator(lhs, rhs)
-        } else if rhs.isBoundToPythonInterpreter {
-            return rhs.lessThanComparableOperator(lhs, rhs)
-        } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonLessThanComparable(lhs:lhs, rhs:rhs)
-        }
+        return PythonInterpreter.SafePythonObject.lessThanComparable(lhs:lhs, rhs:rhs)
     }
 
     public static func <= (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
-        if lhs.isBoundToPythonInterpreter {
-            return lhs.lessThanOrEqualComparableOperator(lhs, rhs)
-        } else if rhs.isBoundToPythonInterpreter {
-            return rhs.lessThanOrEqualComparableOperator(lhs, rhs)
-        } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonLessThanOrEqualsComparable(lhs:lhs, rhs:rhs)
-        }
+        return PythonInterpreter.SafePythonObject.lessThanOrEqualsComparable(lhs:lhs, rhs:rhs)
     }
 
     public static func > (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
-        if lhs.isBoundToPythonInterpreter {
-            return lhs.greaterThanComparableOperator(lhs, rhs)
-        } else if rhs.isBoundToPythonInterpreter {
-            return rhs.greaterThanComparableOperator(lhs, rhs)
-        } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonGreaterThanComparable(lhs:lhs, rhs:rhs)
-        }
+        return PythonInterpreter.SafePythonObject.greaterThanComparable(lhs:lhs, rhs:rhs)
     }
 
     public static func >= (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
-        if lhs.isBoundToPythonInterpreter {
-            return lhs.greaterThanOrEqualComparableOperator(lhs, rhs)
-        } else if rhs.isBoundToPythonInterpreter {
-            return rhs.greaterThanOrEqualComparableOperator(lhs, rhs)
-        } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonGreaterThanOrEqualsComparable(lhs:lhs, rhs:rhs)
-        }
+        return PythonInterpreter.SafePythonObject.greaterThanOrEqualsComparable(lhs:lhs, rhs:rhs)
     }
 }
 
