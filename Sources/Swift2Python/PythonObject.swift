@@ -182,8 +182,28 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         return try await interpreter.convertToString(self)
     }
     
+    public func equals(_ other: PendingPythonConvertible) async throws -> Bool {
+        return try await interpreter.equals(lhs: self, rhs: other)
+    }
+    
+    public func notEquals(_ other: PendingPythonConvertible) async throws -> Bool {
+        return try await interpreter.notEquals(lhs: self, rhs: other)
+    }
+    
     public func lessThan(_ other: PendingPythonConvertible) async throws -> Bool {
         return try await interpreter.lessThan(lhs: self, rhs: other)
+    }
+    
+    public func lessThanOrEqual(_ other: PendingPythonConvertible) async throws -> Bool {
+        return try await interpreter.lessThanOrEqual(lhs: self, rhs: other)
+    }
+    
+    public func greaterThan(_ other: PendingPythonConvertible) async throws -> Bool {
+        return try await interpreter.greaterThan(lhs: self, rhs: other)
+    }
+    
+    public func greaterThanOrEqual(_ other: PendingPythonConvertible) async throws -> Bool {
+        return try await interpreter.greaterThanOrEqual(lhs: self, rhs: other)
     }
 }
 
