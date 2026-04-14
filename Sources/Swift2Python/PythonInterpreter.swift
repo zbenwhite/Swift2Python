@@ -28,6 +28,9 @@
 // TODO: unbind or something to let SafePythonObject become a PythonObject at the end of the isolated closure?
 // TODO: api for arithmetic on PythonObject since operators can't be async
 // TODO: understand free threaded python
+// TODO: SafePythonObject comparisons that throw -- they should also handle unbound
+// TODO: Combine Unbound and bound comparisons and operators
+// TODO: choose "Equal" or "Equals" for comparison function naming and only use one
 
 
 import Logging
@@ -473,15 +476,15 @@ public actor PythonInterpreter {
     }
     
     // This function assumes you already have the GIL.
-    private func throwPythonError() async throws {
+    private func throwPythonError() async throws -> Never {
         if let pyGetRaisedException = api.PyErr_GetRaisedException {
             // Do it the new Python 3.12 way
             logger.trace("CPyton API Call: PyErr_GetRaisedException")
             if let exceptionPtr = pyGetRaisedException() {
                 //defer { Py_DECREF(exc) }
                 let id = registerPythonObjectPointer(exceptionPtr)
-                let exception = SafePythonObject(interpreter: self, id: id)
-                throw PythonError.safePythonException(exception)            }
+                let exception = PythonObject(id: id, interpreter: self)
+                throw PythonError.pythonException(exception)            }
         } else {
             // Do it the old Python 3.11 or earlier way
             var excType: UnsafeMutableRawPointer? = nil
@@ -507,6 +510,7 @@ public actor PythonInterpreter {
                 }
             }
         }
+        throw PythonError.unknownPythonException
     }
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
@@ -517,6 +521,7 @@ public actor PythonInterpreter {
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     private func throwPythonError() throws -> Never {
+        logger.trace("throwPythonError (synchronous)")
         if let pyGetRaisedException = api.PyErr_GetRaisedException {
             // Do it the new Python 3.12 way
             logger.trace("CPyton API Call: PyErr_GetRaisedException")
@@ -525,6 +530,7 @@ public actor PythonInterpreter {
                 
                 let id = registerPythonObjectPointer(exceptionPtr)
                 let exception = SafePythonObject(interpreter: self, id: id)
+                logger.warning("Python error: \(exception)")
                 throw PythonError.safePythonException(exception)
             }
         } else {
@@ -542,10 +548,12 @@ public actor PythonInterpreter {
                 if let valuePtr = excValue {
                     let id = registerPythonObjectPointer(valuePtr)
                     let exception = SafePythonObject(interpreter: self, id: id)
+                    logger.warning("Python error: \(exception)")
                     throw PythonError.safePythonException(exception)
                 } else if let typePtr = excType {
                     let id = registerPythonObjectPointer(typePtr)
                     let exception = SafePythonObject(interpreter: self, id: id)
+                    logger.warning("Python error: \(exception)")
                     throw PythonError.safePythonException(exception)
                 } else {
                     throw PythonError.unknownPythonException
@@ -837,7 +845,16 @@ public actor PythonInterpreter {
     
     public func convertToUInt8(_ obj: PythonObject) async throws -> UInt8 {
         logger.trace("convertToUInt8: Convert PythonObject to UInt8.")
-        let uint64Value = try await convertToUInt64(obj)
+        let uint64Value: UInt64
+        do {
+            uint64Value = try await convertToUInt64(obj)
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, _, let underlying):
+                throw PythonError.conversionType(value: value, sourceType: sourceType, targetType: "UInt8", underlying: underlying)
+            default: throw error
+            }
+        }
         if let uint8Value = UInt8(exactly: uint64Value) {
             return uint8Value
         } else {
@@ -847,7 +864,16 @@ public actor PythonInterpreter {
     
     public func convertToUInt8(_ obj: SafePythonObject) throws -> UInt8 {
         logger.trace("convertToUInt8: Convert SafePythonObject to UInt8.")
-        let uint64Value = try convertToUInt64(obj)
+        let uint64Value: UInt64
+        do {
+            uint64Value = try convertToUInt64(obj)
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, _, let underlying):
+                throw PythonError.conversionType(value: value, sourceType: sourceType, targetType: "UInt8", underlying: underlying)
+            default: throw error
+            }
+        }
         if let uint8Value = UInt8(exactly: uint64Value) {
             return uint8Value
         } else {
@@ -893,37 +919,94 @@ public actor PythonInterpreter {
     
     public func convertToUInt64(_ obj: PythonObject) async throws -> UInt64 {
         logger.trace("convertToUInt64: Convert PythonObject to UInt64.")
-        if try await obj.lessThan(0) {
+        let isNegative: Bool
+        do {
+            isNegative = try await obj.lessThan(0)
+        } catch let error as PythonError {
+            switch error {
+            case .pythonException:
+                let objStr = (try? await String(obj)) ?? "<unrepresentable>"
+                
+                throw PythonError.conversionType( value: objStr, sourceType: "PythonObject", targetType: "UInt64", underlying: error )
+            default:
+                throw error
+            }
+        } catch {
+            throw error
+        }
+        if isNegative {
             logger.error("convertToUInt64: Called for NEGATIVE number PythonObject.")
             let objStr = try await String(obj)
-            throw PythonError.conversionOverflow(value: objStr, sourceType: "PythonObject", targetType: "UInt8")
+            throw PythonError.conversionOverflow(value: objStr, sourceType: "PythonObject", targetType: "UInt64")
         }
-        // FIXME: Add explict check for negative number
         let objPtr = pythonObjectRegistry[obj.id]!
-        return try await withGIL {
-            let value = try pyLong_AsUnsignedLongLong(objPtr)
-            if value == UInt64.max {              // (unsigned long long)-1 on error
-                if let _ = try pyErr_Occurred() {
-                    try await throwPythonError()
+        
+        
+        do {
+            return try await withGIL {
+                let value = try pyLong_AsUnsignedLongLong(objPtr)
+                if value == UInt64.max {              // (unsigned long long)-1 on error
+                    if let _ = try pyErr_Occurred() {
+                        try await throwPythonError()
+                    }
                 }
+                return value
             }
-            return value
+        } catch let error as PythonError {
+            switch error {
+            case .pythonException:
+                let objStr = (try? await String(obj)) ?? "<unrepresentable>"
+                
+                throw PythonError.conversionType( value: objStr, sourceType: "PythonObject", targetType: "UInt64", underlying: error )
+            default:
+                throw error
+            }
+        } catch {
+            throw error
         }
     }
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public func convertToUInt64(_ obj: SafePythonObject) throws -> UInt64 {
         logger.trace("convertToUInt64: Convert SafePythonObject to UInt64.")
-        if obj < 0 {
+        let isNegative: Bool
+        do {
+            isNegative = try obj.lessThan(0)
+        } catch let error as PythonError {
+            switch error {
+            case .safePythonException:
+                let objStr = (try? String(obj)) ?? "<unrepresentable>"
+                
+                throw PythonError.conversionType( value: objStr, sourceType: "SafePythonObject", targetType: "UInt64", underlying: error )
+            default:
+                throw error
+            }
+        } catch {
+            throw error
+        }
+        if isNegative {
             logger.error("convertToUInt64: Called for NEGATIVE number SafePythonObject.")
             let objStr = try String(obj)
-            throw PythonError.conversionOverflow(value: objStr, sourceType: "SafePythonObject", targetType: "UInt8")
+            throw PythonError.conversionOverflow(value: objStr, sourceType: "SafePythonObject", targetType: "UInt64")
         }
         let objPtr = pythonObjectRegistry[obj.id]!
         let value = try pyLong_AsUnsignedLongLong(objPtr)
         if value == UInt64.max {              // (unsigned long long)-1 on error
             if let _ = try pyErr_Occurred() {
-                try throwPythonError()
+                do {
+                    try throwPythonError()
+                } catch let error as PythonError {
+                    switch error {
+                    case .safePythonException:
+                        let objStr = (try? String(obj)) ?? "<unrepresentable>"
+                        
+                        throw PythonError.conversionType( value: objStr, sourceType: "SafePythonObject", targetType: "UInt64", underlying: error )
+                    default:
+                        throw error
+                    }
+                } catch {
+                    throw error
+                }
             }
         }
         return value
@@ -1038,16 +1121,92 @@ public actor PythonInterpreter {
     
     // MARK: Comparion Support (async mode)
     
-    public func lessThan(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
+    
+    public func equals(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
+        logger.trace("Equals comparison for PythonObject (async)")
         let lhsPtr = pythonObjectRegistry[lhs.id]!
         let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
         let rhsPtr = pythonObjectRegistry[rhsPyObj.id]!
         
-        return try withGIL {
+        return try await withGIL {
+            switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.equal.rawValue) {
+            case 0: return false
+            case 1: return true
+            default: try await throwPythonError()
+            }
+        }
+    }
+    
+    public func notEquals(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
+        logger.trace("Not equals comparison for PythonObject (async)")
+        let lhsPtr = pythonObjectRegistry[lhs.id]!
+        let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
+        let rhsPtr = pythonObjectRegistry[rhsPyObj.id]!
+        
+        return try await withGIL {
+            switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.notEqual.rawValue) {
+            case 0: return false
+            case 1: return true
+            default: try await throwPythonError()
+            }
+        }
+    }
+    
+    public func lessThan(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
+        logger.trace("Less than comparison for PythonObject (async)")
+        let lhsPtr = pythonObjectRegistry[lhs.id]!
+        let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
+        let rhsPtr = pythonObjectRegistry[rhsPyObj.id]!
+        
+        return try await withGIL {
             switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.lessThan.rawValue) {
             case 0: return false
             case 1: return true
-            default: fatalError("Placeholder")
+            default: try await throwPythonError()
+            }
+        }
+    }
+    
+    public func lessThanOrEqual(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
+        logger.trace("Less than or equal comparison for PythonObject (async)")
+        let lhsPtr = pythonObjectRegistry[lhs.id]!
+        let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
+        let rhsPtr = pythonObjectRegistry[rhsPyObj.id]!
+        
+        return try await withGIL {
+            switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.lessThanOrEqual.rawValue) {
+            case 0: return false
+            case 1: return true
+            default: try await throwPythonError()
+            }
+        }
+    }
+    public func greaterThan(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
+        logger.trace("Greater than comparison for PythonObject (async)")
+        let lhsPtr = pythonObjectRegistry[lhs.id]!
+        let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
+        let rhsPtr = pythonObjectRegistry[rhsPyObj.id]!
+        
+        return try await withGIL {
+            switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.greaterThan.rawValue) {
+            case 0: return false
+            case 1: return true
+            default: try await throwPythonError()
+            }
+        }
+    }
+    
+    public func greaterThanOrEqual(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
+        logger.trace("Greater than or equal comparison for PythonObject (async)")
+        let lhsPtr = pythonObjectRegistry[lhs.id]!
+        let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
+        let rhsPtr = pythonObjectRegistry[rhsPyObj.id]!
+        
+        return try await withGIL {
+            switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.greaterThanOrEqual.rawValue) {
+            case 0: return false
+            case 1: return true
+            default: try await throwPythonError()
             }
         }
     }
@@ -2822,18 +2981,6 @@ public actor PythonInterpreter {
         }
         
         @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func lessThanComparableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncLessThanComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func lessThanOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
                 let localInterpreter = interpreter
@@ -2845,19 +2992,43 @@ public actor PythonInterpreter {
             }
         }
         
-        static internal func unboundPythonLessThan(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            SafePythonObject(booleanLiteral: unboundPythonLessThanComparable(lhs: lhs, rhs: rhs))
+        // A less than that throws.  Operators cause fatalError()
+        // so use this whenever anything might go wrong.
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        public func lessThan(_ other: SafePythonConvertible) throws -> Bool {
+            let localInterpreter = interpreter
+            let lhs = self
+            return try localInterpreter.assumeIsolated {
+                try $0.syncLessThanComparable(lhs:lhs, rhs:other.toSafePythonObject(interpreter: $0))
+            }
         }
         
-        static internal func unboundPythonLessThanComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+        static internal func unboundPythonLessThan(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+            SafePythonObject(booleanLiteral: lessThanComparable(lhs: lhs, rhs: rhs))
+        }
+        
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        static internal func boundPythonLessThanComparable(interpreter: PythonInterpreter, lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncLessThanComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Comparison failed: \(error).  Use `SafePythonObject.lessThan()` for comparisons that might throw.")
+            }
+        }
+        
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        static internal func lessThanComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
             switch lhs.state {
             case .bound:
-                fatalError("This can never happen.")
+                return boundPythonLessThanComparable(interpreter: lhs.interpreter, lhs: lhs, rhs: rhs)
                 
             case .deferredDouble(let lhsVal):
                 switch rhs.state {
                 case .bound:
-                    fatalError("This can never happen.")
+                    return boundPythonLessThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
                 case .deferredDouble(let rhsVal):
                     return lhsVal < rhsVal
                 case .deferredInt(let rhsVal):
@@ -2871,7 +3042,7 @@ public actor PythonInterpreter {
             case .deferredInt(let lhsVal):
                 switch rhs.state {
                 case .bound:
-                    fatalError("This can never happen.")
+                    return boundPythonLessThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
                 case .deferredDouble(let rhsVal):
                     return Double(lhsVal) < rhsVal
                 case .deferredInt(let rhsVal):
@@ -2885,7 +3056,7 @@ public actor PythonInterpreter {
             case .deferredString(let lhsVal):
                 switch rhs.state {
                 case .bound:
-                    fatalError("This can never happen.")
+                    return boundPythonLessThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
                 case .deferredDouble:
                     fatalError("Python TypeError")
                 case .deferredInt:
@@ -2899,7 +3070,7 @@ public actor PythonInterpreter {
             case .deferredBool(let lhsVal):
                 switch rhs.state {
                 case .bound:
-                    fatalError("This can never happen.")
+                    return boundPythonLessThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
                 case .deferredDouble(let rhsVal):
                     return (lhsVal ? 1.0 : 0.0) < rhsVal
                 case .deferredInt(let rhsVal):
@@ -2909,18 +3080,6 @@ public actor PythonInterpreter {
                 case .deferredBool(let rhsVal):
                     return (lhsVal ? 1 : 0) < (rhsVal ? 1 : 0)
                 }
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func lessThanOrEqualComparableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncLessThanOrEqualComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
             }
         }
         
@@ -2936,19 +3095,45 @@ public actor PythonInterpreter {
             }
         }
         
-        static internal func unboundPythonLessThanOrEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            SafePythonObject(booleanLiteral: unboundPythonLessThanOrEqualsComparable(lhs: lhs, rhs: rhs))
+        // A less than that throws.  Operators cause fatalError()
+        // so use this whenever anything might go wrong.
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        public func lessThanOrEquals(_ other: SafePythonConvertible) throws -> Bool {
+            let localInterpreter = interpreter
+            let lhs = self
+            return try localInterpreter.assumeIsolated {
+                try $0.syncLessThanOrEqualComparable(lhs:lhs, rhs:other.toSafePythonObject(interpreter: $0))
+            }
         }
         
-        static internal func unboundPythonLessThanOrEqualsComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+        static internal func unboundPythonLessThanOrEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+            SafePythonObject(booleanLiteral: lessThanOrEqualsComparable(lhs: lhs, rhs: rhs))
+        }
+        
+        
+        
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        static internal func boundPythonLessThanOrEqualsComparable(interpreter: PythonInterpreter, lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncLessThanOrEqualComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Comparison failed: \(error).  Use `SafePythonObject.lessThanOrEqual()` for comparisons that might throw.")
+            }
+        }
+        
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        static internal func lessThanOrEqualsComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
             switch lhs.state {
             case .bound:
-                fatalError("This can never happen.")
+                return boundPythonLessThanOrEqualsComparable(interpreter: lhs.interpreter, lhs: lhs, rhs: rhs)
                 
             case .deferredDouble(let lhsVal):
                 switch rhs.state {
                 case .bound:
-                    fatalError("This can never happen.")
+                    return boundPythonLessThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
                 case .deferredDouble(let rhsVal):
                     return lhsVal <= rhsVal
                 case .deferredInt(let rhsVal):
@@ -2962,7 +3147,7 @@ public actor PythonInterpreter {
             case .deferredInt(let lhsVal):
                 switch rhs.state {
                 case .bound:
-                    fatalError("This can never happen.")
+                    return boundPythonLessThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
                 case .deferredDouble(let rhsVal):
                     return Double(lhsVal) <= rhsVal
                 case .deferredInt(let rhsVal):
@@ -2976,7 +3161,7 @@ public actor PythonInterpreter {
             case .deferredString(let lhsVal):
                 switch rhs.state {
                 case .bound:
-                    fatalError("This can never happen.")
+                    return boundPythonLessThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
                 case .deferredDouble:
                     fatalError("Python TypeError")
                 case .deferredInt:
@@ -2990,7 +3175,7 @@ public actor PythonInterpreter {
             case .deferredBool(let lhsVal):
                 switch rhs.state {
                 case .bound:
-                    fatalError("This can never happen.")
+                    return boundPythonLessThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
                 case .deferredDouble(let rhsVal):
                     return (lhsVal ? 1.0 : 0.0) <= rhsVal
                 case .deferredInt(let rhsVal):
@@ -3000,18 +3185,6 @@ public actor PythonInterpreter {
                 case .deferredBool(let rhsVal):
                     return (lhsVal ? 1 : 0) <= (rhsVal ? 1 : 0)
                 }
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func greaterThanComparableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncGreaterThanComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
             }
         }
         
@@ -3028,18 +3201,31 @@ public actor PythonInterpreter {
         }
         
         static internal func unboundPythonGreaterThan(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            SafePythonObject(booleanLiteral: unboundPythonGreaterThanComparable(lhs: lhs, rhs: rhs))
+            SafePythonObject(booleanLiteral: greaterThanComparable(lhs: lhs, rhs: rhs))
         }
         
-        static internal func unboundPythonGreaterThanComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        static internal func boundPythonGreaterThanComparable(interpreter: PythonInterpreter, lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncGreaterThanComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Comparison failed: \(error).  Use `SafePythonObject.greaterThan()` for comparisons that might throw.")
+            }
+        }
+        
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        static internal func greaterThanComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
             switch lhs.state {
             case .bound:
-                fatalError("This can never happen.")
+                return boundPythonGreaterThanComparable(interpreter: lhs.interpreter, lhs: lhs, rhs: rhs)
                 
             case .deferredDouble(let lhsVal):
                 switch rhs.state {
                 case .bound:
-                    fatalError("This can never happen.")
+                    return boundPythonGreaterThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
                 case .deferredDouble(let rhsVal):
                     return lhsVal > rhsVal
                 case .deferredInt(let rhsVal):
@@ -3053,7 +3239,7 @@ public actor PythonInterpreter {
             case .deferredInt(let lhsVal):
                 switch rhs.state {
                 case .bound:
-                    fatalError("This can never happen.")
+                    return boundPythonGreaterThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
                 case .deferredDouble(let rhsVal):
                     return Double(lhsVal) > rhsVal
                 case .deferredInt(let rhsVal):
@@ -3067,7 +3253,7 @@ public actor PythonInterpreter {
             case .deferredString(let lhsVal):
                 switch rhs.state {
                 case .bound:
-                    fatalError("This can never happen.")
+                    return boundPythonGreaterThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
                 case .deferredDouble:
                     fatalError("Python TypeError")
                 case .deferredInt:
@@ -3081,7 +3267,7 @@ public actor PythonInterpreter {
             case .deferredBool(let lhsVal):
                 switch rhs.state {
                 case .bound:
-                    fatalError("This can never happen.")
+                    return boundPythonGreaterThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
                 case .deferredDouble(let rhsVal):
                     return (lhsVal ? 1.0 : 0.0) > rhsVal
                 case .deferredInt(let rhsVal):
@@ -3093,19 +3279,7 @@ public actor PythonInterpreter {
                 }
             }
         }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func greaterThanOrEqualComparableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncGreaterThanOrEqualComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
+               
         @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         internal func greaterThanOrEqualOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
             do {
@@ -3119,18 +3293,31 @@ public actor PythonInterpreter {
         }
         
         static internal func unboundPythonGreaterThanOrEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            SafePythonObject(booleanLiteral: unboundPythonGreaterThanOrEqualsComparable(lhs: lhs, rhs: rhs))
+            SafePythonObject(booleanLiteral: greaterThanOrEqualsComparable(lhs: lhs, rhs: rhs))
         }
         
-        static internal func unboundPythonGreaterThanOrEqualsComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        static internal func boundPythonGreaterThanOrEqualsComparable(interpreter: PythonInterpreter, lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+            do {
+                let localInterpreter = interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncGreaterThanOrEqualComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+                }
+            } catch {
+                fatalError("Comparison failed: \(error).  Use `SafePythonObject.greaterThanOrEqual()` for comparisons that might throw.")
+            }
+        }
+        
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        static internal func greaterThanOrEqualsComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
             switch lhs.state {
             case .bound:
-                fatalError("This can never happen.")
+                return boundPythonGreaterThanOrEqualsComparable(interpreter: lhs.interpreter, lhs: lhs, rhs: rhs)
                 
             case .deferredDouble(let lhsVal):
                 switch rhs.state {
                 case .bound:
-                    fatalError("This can never happen.")
+                    return boundPythonGreaterThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
                 case .deferredDouble(let rhsVal):
                     return lhsVal >= rhsVal
                 case .deferredInt(let rhsVal):
@@ -3144,7 +3331,7 @@ public actor PythonInterpreter {
             case .deferredInt(let lhsVal):
                 switch rhs.state {
                 case .bound:
-                    fatalError("This can never happen.")
+                    return boundPythonGreaterThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
                 case .deferredDouble(let rhsVal):
                     return Double(lhsVal) >= rhsVal
                 case .deferredInt(let rhsVal):
@@ -3158,7 +3345,7 @@ public actor PythonInterpreter {
             case .deferredString(let lhsVal):
                 switch rhs.state {
                 case .bound:
-                    fatalError("This can never happen.")
+                    return boundPythonGreaterThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
                 case .deferredDouble:
                     fatalError("Python TypeError")
                 case .deferredInt:
@@ -3172,7 +3359,7 @@ public actor PythonInterpreter {
             case .deferredBool(let lhsVal):
                 switch rhs.state {
                 case .bound:
-                    fatalError("This can never happen.")
+                    return boundPythonGreaterThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
                 case .deferredDouble(let rhsVal):
                     return (lhsVal ? 1.0 : 0.0) >= rhsVal
                 case .deferredInt(let rhsVal):
@@ -3636,7 +3823,7 @@ public actor PythonInterpreter {
         switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.equal.rawValue) {
         case 0: return false
         case 1: return true
-        default: fatalError("Placeholder")
+        default: try throwPythonError()
         }
     }
     
@@ -3662,7 +3849,7 @@ public actor PythonInterpreter {
         switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.greaterThan.rawValue) {
         case 0: return false
         case 1: return true
-        default: fatalError("Placeholder")
+        default: try throwPythonError()
         }
     }
     
@@ -3688,7 +3875,7 @@ public actor PythonInterpreter {
         switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.greaterThanOrEqual.rawValue) {
         case 0: return false
         case 1: return true
-        default: fatalError("Placeholder")
+        default: try throwPythonError()
         }
     }
     
@@ -3805,7 +3992,7 @@ public actor PythonInterpreter {
         switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.lessThan.rawValue) {
         case 0: return false
         case 1: return true
-        default: fatalError("Placeholder")
+        default: try throwPythonError()
         }
     }
     
@@ -3831,7 +4018,7 @@ public actor PythonInterpreter {
         switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.lessThanOrEqual.rawValue) {
         case 0: return false
         case 1: return true
-        default: fatalError("Placeholder")
+        default: try throwPythonError()
         }
     }
     
@@ -3870,7 +4057,7 @@ public actor PythonInterpreter {
         switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.notEqual.rawValue) {
         case 0: return false
         case 1: return true
-        default: fatalError("Placeholder")
+        default: try throwPythonError()
         }
     }
     
