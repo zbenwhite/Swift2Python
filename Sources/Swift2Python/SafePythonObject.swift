@@ -25,7 +25,7 @@ extension PythonInterpreter {
                                     ExpressibleByStringLiteral, ExpressibleByBooleanLiteral {
         
         
-        // MARK: ExpressibleBy stuff, so operators can work
+        // MARK: ExpressibleBy
         
         // The state of SafePythonObject.  Is it real or is it just a value to be made real later?
         internal enum State: Sendable {
@@ -612,7 +612,7 @@ extension PythonInterpreter {
             }
         }
         
-        // MARK: SafePythonObject @dynamicMemberLookup support
+        // MARK: @dynamicMemberLookup
         
         //
         // a.name
@@ -670,7 +670,7 @@ extension PythonInterpreter {
             }
         }
         
-        // MARK: SafePythonObject Callable support
+        // MARK: Callable support
         
         public func callAsFunction() throws -> SafePythonObject {
             let localInterpreter = interpreter
@@ -694,7 +694,7 @@ extension PythonInterpreter {
             }
         }
         
-        // MARK: SafePythonObject Sequence support
+        // MARK: Sequence support
         
         public typealias Element = SafePythonObject
         
@@ -724,7 +724,7 @@ extension PythonInterpreter {
             }
         }
         
-        // MARK: SafePythonObject items() Sequence support
+        // MARK: items() Sequence support
         
         public struct ItemsSequence: Sequence {
             public typealias Element = (key: SafePythonObject, value: SafePythonObject)
@@ -774,7 +774,7 @@ extension PythonInterpreter {
             ItemsSequence(dictView: self)
         }
         
-        // MARK: SafePythonObject Bytes support
+        // MARK: Bytes support
         
 //        public var isBytes: Bool {
 //            do {
