@@ -28,14 +28,14 @@ extension PythonInterpreter {
         // MARK: ExpressibleBy stuff, so operators can work
         
         // The state of SafePythonObject.  Is it real or is it just a value to be made real later?
-        private enum State: Sendable {
+        internal enum State: Sendable {
             case bound(interpreter: PythonInterpreter, id: PythonObjectUniqueID)
             case deferredDouble(Double)
             case deferredInt(Int)
             case deferredString(String)
             case deferredBool(Bool)
         }
-        private let state: State
+        internal let state: State
         
         // Constructors to make arithmetic work
         public init(floatLiteral value: Double) {
@@ -836,739 +836,739 @@ extension PythonInterpreter {
         
         // MARK: SafePythonObject Operator support
         
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func addOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncAdd(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        internal func addOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.syncAdd(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
+//                }
+//            } catch {
+//                fatalError("Failed: \(error)")
+//            }
+//        }
+//        
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        internal func addInPlaceOperator(sumend: SafePythonConvertible, addend: SafePythonConvertible) -> SafePythonObject {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.syncInPlaceAdd(sumend: sumend.toSafePythonObject(interpreter: $0), addend: addend.toSafePythonObject(interpreter: $0))
+//                }
+//            } catch {
+//                fatalError("Failed: \(error)")
+//            }
+//        }
+//        
+//        // This is implemented because writing it is better than erroring out.
+//        // But seriously, what are you doing here?  Why does your code use this?
+//        // Python addition results:
+//        static internal func unboundPythonAdd(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+//            switch lhs.state {
+//            case .bound:
+//                fatalError("This can never happen.")
+//            case .deferredDouble(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    fatalError("This can never happen.")
+//                case .deferredDouble(let rhsVal):
+//                    return SafePythonObject(floatLiteral: lhsVal + rhsVal)
+//                case .deferredInt(let rhsVal):
+//                    return SafePythonObject(floatLiteral: lhsVal + Double(rhsVal))
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return SafePythonObject(floatLiteral: lhsVal + (rhsVal ? 1.0 : 0.0))
+//                }
+//            case .deferredInt(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    fatalError("This can never happen.")
+//                case .deferredDouble(let rhsVal):
+//                    return SafePythonObject(floatLiteral: Double(lhsVal) + rhsVal)
+//                case .deferredInt(let rhsVal):
+//                    return SafePythonObject(integerLiteral: lhsVal + rhsVal)
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return SafePythonObject(integerLiteral: lhsVal + (rhsVal ? 1 : 0))
+//                }
+//            case .deferredString(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    fatalError("This can never happen.")
+//                case .deferredDouble:
+//                    fatalError("Python TypeError")
+//                case .deferredInt:
+//                    fatalError("Python TypeError")
+//                case .deferredString(let rhsVal):
+//                    return SafePythonObject(stringLiteral: lhsVal + rhsVal)
+//                case .deferredBool:
+//                    fatalError("Python TypeError")
+//                }
+//            case .deferredBool(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    fatalError("This can never happen.")
+//                case .deferredDouble(let rhsVal):
+//                    return SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) + rhsVal)
+//                case .deferredInt(let rhsVal):
+//                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) + rhsVal)
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) + (rhsVal ? 1 : 0))
+//                }
+//            }
+//        }
+//        
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        internal func multiplyOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.syncMultiply(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
+//                }
+//            } catch {
+//                fatalError("Failed: \(error)")
+//            }
+//        }
+//        
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        internal func multiplyInPlaceOperator(productand: SafePythonConvertible, multiplicand: SafePythonConvertible) -> SafePythonObject {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.syncInPlaceMultiply(productand: productand.toSafePythonObject(interpreter: $0), multiplicand: multiplicand.toSafePythonObject(interpreter: $0))
+//                }
+//            } catch {
+//                fatalError("Failed: \(error)")
+//            }
+//        }
+//        
+//        // Python multiplication results:
+//        static internal func unboundPythonMultiply(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+//            switch lhs.state {
+//            case .bound:
+//                fatalError("This can never happen.")
+//            case .deferredDouble(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    fatalError("This can never happen.")
+//                case .deferredDouble(let rhsVal):
+//                    return SafePythonObject(floatLiteral: lhsVal * rhsVal)
+//                case .deferredInt(let rhsVal):
+//                    return SafePythonObject(floatLiteral: lhsVal * Double(rhsVal))
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return SafePythonObject(floatLiteral: lhsVal * (rhsVal ? 1.0 : 0.0))
+//                }
+//            case .deferredInt(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    fatalError("This can never happen.")
+//                case .deferredDouble(let rhsVal):
+//                    return SafePythonObject(floatLiteral: Double(lhsVal) * rhsVal)
+//                case .deferredInt(let rhsVal):
+//                    return SafePythonObject(integerLiteral: lhsVal * rhsVal)
+//                case .deferredString(let rhsVal):
+//                    return (lhsVal < 1) ? SafePythonObject(stringLiteral: "") : SafePythonObject(stringLiteral: String(repeating: rhsVal, count: lhsVal))
+//                case .deferredBool(let rhsVal):
+//                    return SafePythonObject(integerLiteral: lhsVal * (rhsVal ? 1 : 0))
+//                }
+//            case .deferredString(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    fatalError("This can never happen.")
+//                case .deferredDouble:
+//                    fatalError("Python TypeError")
+//                case .deferredInt(let rhsVal):
+//                    return (rhsVal < 1) ? SafePythonObject(stringLiteral: "") : SafePythonObject(stringLiteral: String(repeating: lhsVal, count: rhsVal))
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return rhsVal ? SafePythonObject(stringLiteral: lhsVal) : SafePythonObject(stringLiteral: "")
+//                }
+//            case .deferredBool(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    fatalError("This can never happen.")
+//                case .deferredDouble(let rhsVal):
+//                    return SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) * rhsVal)
+//                case .deferredInt(let rhsVal):
+//                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) * rhsVal)
+//                case .deferredString(let rhsVal):
+//                    return lhsVal ? SafePythonObject(stringLiteral: rhsVal) : SafePythonObject(stringLiteral: "")
+//                case .deferredBool(let rhsVal):
+//                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) * (rhsVal ? 1 : 0))
+//                }
+//            }
+//        }
+//        
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        internal func subtractOperator(minuend: SafePythonConvertible, subtrahend: SafePythonConvertible) -> SafePythonObject {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.syncSubtract(minuend: minuend.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
+//                }
+//            } catch {
+//                fatalError("Failed: \(error)")
+//            }
+//        }
+//        
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        internal func subtractInPlaceOperator(diffend: SafePythonConvertible, subtrahend: SafePythonConvertible) -> SafePythonObject {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.syncInPlaceSubtract(diffend: diffend.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
+//                }
+//            } catch {
+//                fatalError("Failed: \(error)")
+//            }
+//        }
+//        
+//        // Python subtraction results:
+//        static internal func unboundPythonSubtract(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+//            switch lhs.state {
+//            case .bound:
+//                fatalError("This can never happen.")
+//            case .deferredDouble(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    fatalError("This can never happen.")
+//                case .deferredDouble(let rhsVal):
+//                    return SafePythonObject(floatLiteral: lhsVal - rhsVal)
+//                case .deferredInt(let rhsVal):
+//                    return SafePythonObject(floatLiteral: lhsVal - Double(rhsVal))
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return SafePythonObject(floatLiteral: lhsVal - (rhsVal ? 1.0 : 0.0))
+//                }
+//            case .deferredInt(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    fatalError("This can never happen.")
+//                case .deferredDouble(let rhsVal):
+//                    return SafePythonObject(floatLiteral: Double(lhsVal) - rhsVal)
+//                case .deferredInt(let rhsVal):
+//                    return SafePythonObject(integerLiteral: lhsVal - rhsVal)
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return SafePythonObject(integerLiteral: lhsVal - (rhsVal ? 1 : 0))
+//                }
+//            case .deferredString:
+//                fatalError("Python TypeError")
+//            case .deferredBool(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    fatalError("This can never happen.")
+//                case .deferredDouble(let rhsVal):
+//                    return SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) - rhsVal)
+//                case .deferredInt(let rhsVal):
+//                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) - rhsVal)
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) - (rhsVal ? 1 : 0))
+//                }
+//            }
+//        }
+//        
+////        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+////        internal func divideOperator(dividend: SafePythonConvertible, divisor: SafePythonConvertible) -> SafePythonObject {
+////            do {
+////                let localInterpreter = interpreter
+////                return try localInterpreter.assumeIsolated {
+////                    try $0.syncDivide(dividend: dividend.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+////                }
+////            } catch {
+////                fatalError("Failed: \(error)")
+////            }
+////        }
+////        
+////        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+////        internal func divideInPlaceOperator(quotientand: SafePythonConvertible, divisor: SafePythonConvertible) -> SafePythonObject {
+////            do {
+////                let localInterpreter = interpreter
+////                return try localInterpreter.assumeIsolated {
+////                    try $0.syncInPlaceDivide(quotientand: quotientand.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+////                }
+////            } catch {
+////                fatalError("Failed: \(error)")
+////            }
+////        }
+////        
+////        // Python division results:
+////        static internal func unboundPythonDivide(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+////            switch lhs.state {
+////            case .bound:
+////                fatalError("This can never happen.")
+////            case .deferredDouble(let lhsVal):
+////                switch rhs.state {
+////                case .bound:
+////                    fatalError("This can never happen.")
+////                case .deferredDouble(let rhsVal):
+////                    guard rhsVal != 0.0 else { fatalError("Python Divide By Zero") }
+////                    return SafePythonObject(floatLiteral: lhsVal / rhsVal)
+////                case .deferredInt(let rhsVal):
+////                    guard rhsVal != 0 else { fatalError("Python Divide By Zero") }
+////                    return SafePythonObject(floatLiteral: lhsVal / Double(rhsVal))
+////                case .deferredString:
+////                    fatalError("Python TypeError")
+////                case .deferredBool(let rhsVal):
+////                    guard rhsVal else { fatalError("Python Divide By Zero") }
+////                    return SafePythonObject(floatLiteral: lhsVal) // n / 1 == n
+////                }
+////            case .deferredInt(let lhsVal):
+////                switch rhs.state {
+////                case .bound:
+////                    fatalError("This can never happen.")
+////                case .deferredDouble(let rhsVal):
+////                    guard rhsVal != 0.0 else { fatalError("Python Divide By Zero") }
+////                    return SafePythonObject(floatLiteral: Double(lhsVal) / rhsVal)
+////                case .deferredInt(let rhsVal):
+////                    guard rhsVal != 0 else { fatalError("Python Divide By Zero") }
+////                    return SafePythonObject(floatLiteral: Double(lhsVal) / Double(rhsVal))   // Python division always return floating point
+////                case .deferredString:
+////                    fatalError("Python TypeError")
+////                case .deferredBool(let rhsVal):
+////                    guard rhsVal else { fatalError("Python Divide By Zero") }
+////                    return SafePythonObject(floatLiteral: Double(lhsVal)) // n / 1 == n
+////                }
+////            case .deferredString:
+////                fatalError("Python TypeError")
+////            case .deferredBool(let lhsVal):
+////                switch rhs.state {
+////                case .bound:
+////                    fatalError("This can never happen.")
+////                case .deferredDouble(let rhsVal):
+////                    guard rhsVal != 0.0 else { fatalError("Python Divide By Zero") }
+////                    return SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) / rhsVal)
+////                case .deferredInt(let rhsVal):
+////                    guard rhsVal != 0 else { fatalError("Python Divide By Zero") }
+////                    return SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) / Double(rhsVal))    // Python division always return floating point
+////                case .deferredString:
+////                    fatalError("Python TypeError")
+////                case .deferredBool(let rhsVal):
+////                    guard rhsVal else { fatalError("Python Divide By Zero") }
+////                    return SafePythonObject(floatLiteral: lhsVal ? 1.0 : 0.0) // n / 1 == n
+////                }
+////            }
+////        }
+////        
+////        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+////        internal func bitwiseAndOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+////            do {
+////                let localInterpreter = interpreter
+////                return try localInterpreter.assumeIsolated {
+////                    try $0.syncBitwiseAnd(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
+////                }
+////            } catch {
+////                fatalError("Failed: \(error)")
+////            }
+////        }
+////        
+////        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+////        internal func bitwiseAndInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+////            do {
+////                let localInterpreter = interpreter
+////                return try localInterpreter.assumeIsolated {
+////                    try $0.syncInPlaceBitwiseAnd(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
+////                }
+////            } catch {
+////                fatalError("Failed: \(error)")
+////            }
+////        }
+////        
+////        // Python bitwise AND results:
+////        static internal func unboundPythonBitwiseAnd(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+////            switch lhs.state {
+////            case .bound:
+////                fatalError("This can never happen.")
+////            case .deferredDouble:
+////                fatalError("Python TypeError")
+////            case .deferredInt(let lhsVal):
+////                switch rhs.state {
+////                case .bound:
+////                    fatalError("This can never happen.")
+////                case .deferredDouble:
+////                    fatalError("Python TypeError")
+////                case .deferredInt(let rhsVal):
+////                    return SafePythonObject(integerLiteral: lhsVal & rhsVal)
+////                case .deferredString:
+////                    fatalError("Python TypeError")
+////                case .deferredBool(let rhsVal):
+////                    return SafePythonObject(integerLiteral: lhsVal & (rhsVal ? 1 : 0))
+////                }
+////            case .deferredString:
+////                fatalError("Python TypeError")
+////            case .deferredBool(let lhsVal):
+////                switch rhs.state {
+////                case .bound:
+////                    fatalError("This can never happen.")
+////                case .deferredDouble:
+////                    fatalError("Python TypeError")
+////                case .deferredInt(let rhsVal):
+////                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) & rhsVal)
+////                case .deferredString:
+////                    fatalError("Python TypeError")
+////                case .deferredBool(let rhsVal):
+////                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) & (rhsVal ? 1 : 0))
+////                }
+////            }
+////        }
+////        
+////        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+////        internal func bitwiseOrOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+////            do {
+////                let localInterpreter = interpreter
+////                return try localInterpreter.assumeIsolated {
+////                    try $0.syncBitwiseOr(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
+////                }
+////            } catch {
+////                fatalError("Failed: \(error)")
+////            }
+////        }
+////        
+////        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+////        internal func bitwiseOrInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+////            do {
+////                let localInterpreter = interpreter
+////                return try localInterpreter.assumeIsolated {
+////                    try $0.syncInPlaceBitwiseOr(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
+////                }
+////            } catch {
+////                fatalError("Failed: \(error)")
+////            }
+////        }
+////        
+////        // Python bitwise OR results:
+////        static internal func unboundPythonBitwiseOr(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+////            switch lhs.state {
+////            case .bound:
+////                fatalError("This can never happen.")
+////            case .deferredDouble:
+////                fatalError("Python TypeError")
+////            case .deferredInt(let lhsVal):
+////                switch rhs.state {
+////                case .bound:
+////                    fatalError("This can never happen.")
+////                case .deferredDouble:
+////                    fatalError("Python TypeError")
+////                case .deferredInt(let rhsVal):
+////                    return SafePythonObject(integerLiteral: lhsVal | rhsVal)
+////                case .deferredString:
+////                    fatalError("Python TypeError")
+////                case .deferredBool(let rhsVal):
+////                    return SafePythonObject(integerLiteral: lhsVal | (rhsVal ? 1 : 0))
+////                }
+////            case .deferredString:
+////                fatalError("Python TypeError")
+////            case .deferredBool(let lhsVal):
+////                switch rhs.state {
+////                case .bound:
+////                    fatalError("This can never happen.")
+////                case .deferredDouble:
+////                    fatalError("Python TypeError")
+////                case .deferredInt(let rhsVal):
+////                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) | rhsVal)
+////                case .deferredString:
+////                    fatalError("Python TypeError")
+////                case .deferredBool(let rhsVal):
+////                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) | (rhsVal ? 1 : 0))
+////                }
+////            }
+////        }
+////        
+////        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+////        internal func bitwiseXorOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+////            do {
+////                let localInterpreter = interpreter
+////                return try localInterpreter.assumeIsolated {
+////                    try $0.syncBitwiseXor(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
+////                }
+////            } catch {
+////                fatalError("Failed: \(error)")
+////            }
+////        }
+////        
+////        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+////        internal func bitwiseXorInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+////            do {
+////                let localInterpreter = interpreter
+////                return try localInterpreter.assumeIsolated {
+////                    try $0.syncInPlaceBitwiseXor(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
+////                }
+////            } catch {
+////                fatalError("Failed: \(error)")
+////            }
+////        }
+////        
+////        // Python bitwise XOR results:
+////        static internal func unboundPythonBitwiseXor(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+////            switch lhs.state {
+////            case .bound:
+////                fatalError("This can never happen.")
+////            case .deferredDouble:
+////                fatalError("Python TypeError")
+////            case .deferredInt(let lhsVal):
+////                switch rhs.state {
+////                case .bound:
+////                    fatalError("This can never happen.")
+////                case .deferredDouble:
+////                    fatalError("Python TypeError")
+////                case .deferredInt(let rhsVal):
+////                    return SafePythonObject(integerLiteral: lhsVal ^ rhsVal)
+////                case .deferredString:
+////                    fatalError("Python TypeError")
+////                case .deferredBool(let rhsVal):
+////                    return SafePythonObject(integerLiteral: lhsVal ^ (rhsVal ? 1 : 0))
+////                }
+////            case .deferredString:
+////                fatalError("Python TypeError")
+////            case .deferredBool(let lhsVal):
+////                switch rhs.state {
+////                case .bound:
+////                    fatalError("This can never happen.")
+////                case .deferredDouble:
+////                    fatalError("Python TypeError")
+////                case .deferredInt(let rhsVal):
+////                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) ^ rhsVal)
+////                case .deferredString:
+////                    fatalError("Python TypeError")
+////                case .deferredBool(let rhsVal):
+////                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) ^ (rhsVal ? 1 : 0))
+////                }
+////            }
+////        }
+////        
+////        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+////        internal func bitwiseNotOperator(_ operand: SafePythonConvertible) -> SafePythonObject {
+////            do {
+////                let localInterpreter = interpreter
+////                return try localInterpreter.assumeIsolated {
+////                    try $0.syncBitwiseNot(operand.toSafePythonObject(interpreter: $0))
+////                }
+//            } catch {
+//                fatalError("Failed: \(error)")
+//            }
+//        }
+//        
+//        // Python bitwise NOT results:
+//        static internal func unboundPythonBitwiseNot(operand: SafePythonObject) -> SafePythonObject {
+//            switch operand.state {
+//            case .bound:
+//                fatalError("This can never happen.")
+//            case .deferredDouble:
+//                fatalError("Python TypeError")
+//            case .deferredInt(let operandVal):
+//                return SafePythonObject(integerLiteral: ~operandVal)
+//            case .deferredString:
+//                fatalError("Python TypeError")
+//            case .deferredBool(let operandVal):
+//                return SafePythonObject(integerLiteral: ~(operandVal ? 1 : 0))
+//            }
+//        }
+//        
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        internal func doubleEqualsEquatableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.syncDoubleEqualsEquatable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+//                }
+//            } catch {
+//                fatalError("Failed: \(error)")
+//            }
+//        }
         
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func addInPlaceOperator(sumend: SafePythonConvertible, addend: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncInPlaceAdd(sumend: sumend.toSafePythonObject(interpreter: $0), addend: addend.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        // This is implemented because writing it is better than erroring out.
-        // But seriously, what are you doing here?  Why does your code use this?
-        // Python addition results:
-        static internal func unboundPythonAdd(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            switch lhs.state {
-            case .bound:
-                fatalError("This can never happen.")
-            case .deferredDouble(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
-                    return SafePythonObject(floatLiteral: lhsVal + rhsVal)
-                case .deferredInt(let rhsVal):
-                    return SafePythonObject(floatLiteral: lhsVal + Double(rhsVal))
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return SafePythonObject(floatLiteral: lhsVal + (rhsVal ? 1.0 : 0.0))
-                }
-            case .deferredInt(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
-                    return SafePythonObject(floatLiteral: Double(lhsVal) + rhsVal)
-                case .deferredInt(let rhsVal):
-                    return SafePythonObject(integerLiteral: lhsVal + rhsVal)
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return SafePythonObject(integerLiteral: lhsVal + (rhsVal ? 1 : 0))
-                }
-            case .deferredString(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble:
-                    fatalError("Python TypeError")
-                case .deferredInt:
-                    fatalError("Python TypeError")
-                case .deferredString(let rhsVal):
-                    return SafePythonObject(stringLiteral: lhsVal + rhsVal)
-                case .deferredBool:
-                    fatalError("Python TypeError")
-                }
-            case .deferredBool(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
-                    return SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) + rhsVal)
-                case .deferredInt(let rhsVal):
-                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) + rhsVal)
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) + (rhsVal ? 1 : 0))
-                }
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func multiplyOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncMultiply(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func multiplyInPlaceOperator(productand: SafePythonConvertible, multiplicand: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncInPlaceMultiply(productand: productand.toSafePythonObject(interpreter: $0), multiplicand: multiplicand.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        // Python multiplication results:
-        static internal func unboundPythonMultiply(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            switch lhs.state {
-            case .bound:
-                fatalError("This can never happen.")
-            case .deferredDouble(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
-                    return SafePythonObject(floatLiteral: lhsVal * rhsVal)
-                case .deferredInt(let rhsVal):
-                    return SafePythonObject(floatLiteral: lhsVal * Double(rhsVal))
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return SafePythonObject(floatLiteral: lhsVal * (rhsVal ? 1.0 : 0.0))
-                }
-            case .deferredInt(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
-                    return SafePythonObject(floatLiteral: Double(lhsVal) * rhsVal)
-                case .deferredInt(let rhsVal):
-                    return SafePythonObject(integerLiteral: lhsVal * rhsVal)
-                case .deferredString(let rhsVal):
-                    return (lhsVal < 1) ? SafePythonObject(stringLiteral: "") : SafePythonObject(stringLiteral: String(repeating: rhsVal, count: lhsVal))
-                case .deferredBool(let rhsVal):
-                    return SafePythonObject(integerLiteral: lhsVal * (rhsVal ? 1 : 0))
-                }
-            case .deferredString(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble:
-                    fatalError("Python TypeError")
-                case .deferredInt(let rhsVal):
-                    return (rhsVal < 1) ? SafePythonObject(stringLiteral: "") : SafePythonObject(stringLiteral: String(repeating: lhsVal, count: rhsVal))
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return rhsVal ? SafePythonObject(stringLiteral: lhsVal) : SafePythonObject(stringLiteral: "")
-                }
-            case .deferredBool(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
-                    return SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) * rhsVal)
-                case .deferredInt(let rhsVal):
-                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) * rhsVal)
-                case .deferredString(let rhsVal):
-                    return lhsVal ? SafePythonObject(stringLiteral: rhsVal) : SafePythonObject(stringLiteral: "")
-                case .deferredBool(let rhsVal):
-                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) * (rhsVal ? 1 : 0))
-                }
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func subtractOperator(minuend: SafePythonConvertible, subtrahend: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncSubtract(minuend: minuend.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func subtractInPlaceOperator(diffend: SafePythonConvertible, subtrahend: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncInPlaceSubtract(diffend: diffend.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        // Python subtraction results:
-        static internal func unboundPythonSubtract(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            switch lhs.state {
-            case .bound:
-                fatalError("This can never happen.")
-            case .deferredDouble(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
-                    return SafePythonObject(floatLiteral: lhsVal - rhsVal)
-                case .deferredInt(let rhsVal):
-                    return SafePythonObject(floatLiteral: lhsVal - Double(rhsVal))
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return SafePythonObject(floatLiteral: lhsVal - (rhsVal ? 1.0 : 0.0))
-                }
-            case .deferredInt(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
-                    return SafePythonObject(floatLiteral: Double(lhsVal) - rhsVal)
-                case .deferredInt(let rhsVal):
-                    return SafePythonObject(integerLiteral: lhsVal - rhsVal)
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return SafePythonObject(integerLiteral: lhsVal - (rhsVal ? 1 : 0))
-                }
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
-                    return SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) - rhsVal)
-                case .deferredInt(let rhsVal):
-                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) - rhsVal)
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) - (rhsVal ? 1 : 0))
-                }
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func divideOperator(dividend: SafePythonConvertible, divisor: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncDivide(dividend: dividend.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func divideInPlaceOperator(quotientand: SafePythonConvertible, divisor: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncInPlaceDivide(quotientand: quotientand.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        // Python division results:
-        static internal func unboundPythonDivide(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            switch lhs.state {
-            case .bound:
-                fatalError("This can never happen.")
-            case .deferredDouble(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
-                    guard rhsVal != 0.0 else { fatalError("Python Divide By Zero") }
-                    return SafePythonObject(floatLiteral: lhsVal / rhsVal)
-                case .deferredInt(let rhsVal):
-                    guard rhsVal != 0 else { fatalError("Python Divide By Zero") }
-                    return SafePythonObject(floatLiteral: lhsVal / Double(rhsVal))
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    guard rhsVal else { fatalError("Python Divide By Zero") }
-                    return SafePythonObject(floatLiteral: lhsVal) // n / 1 == n
-                }
-            case .deferredInt(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
-                    guard rhsVal != 0.0 else { fatalError("Python Divide By Zero") }
-                    return SafePythonObject(floatLiteral: Double(lhsVal) / rhsVal)
-                case .deferredInt(let rhsVal):
-                    guard rhsVal != 0 else { fatalError("Python Divide By Zero") }
-                    return SafePythonObject(floatLiteral: Double(lhsVal) / Double(rhsVal))   // Python division always return floating point
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    guard rhsVal else { fatalError("Python Divide By Zero") }
-                    return SafePythonObject(floatLiteral: Double(lhsVal)) // n / 1 == n
-                }
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
-                    guard rhsVal != 0.0 else { fatalError("Python Divide By Zero") }
-                    return SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) / rhsVal)
-                case .deferredInt(let rhsVal):
-                    guard rhsVal != 0 else { fatalError("Python Divide By Zero") }
-                    return SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) / Double(rhsVal))    // Python division always return floating point
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    guard rhsVal else { fatalError("Python Divide By Zero") }
-                    return SafePythonObject(floatLiteral: lhsVal ? 1.0 : 0.0) // n / 1 == n
-                }
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func bitwiseAndOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncBitwiseAnd(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func bitwiseAndInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncInPlaceBitwiseAnd(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        // Python bitwise AND results:
-        static internal func unboundPythonBitwiseAnd(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            switch lhs.state {
-            case .bound:
-                fatalError("This can never happen.")
-            case .deferredDouble:
-                fatalError("Python TypeError")
-            case .deferredInt(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble:
-                    fatalError("Python TypeError")
-                case .deferredInt(let rhsVal):
-                    return SafePythonObject(integerLiteral: lhsVal & rhsVal)
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return SafePythonObject(integerLiteral: lhsVal & (rhsVal ? 1 : 0))
-                }
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble:
-                    fatalError("Python TypeError")
-                case .deferredInt(let rhsVal):
-                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) & rhsVal)
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) & (rhsVal ? 1 : 0))
-                }
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func bitwiseOrOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncBitwiseOr(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func bitwiseOrInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncInPlaceBitwiseOr(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        // Python bitwise OR results:
-        static internal func unboundPythonBitwiseOr(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            switch lhs.state {
-            case .bound:
-                fatalError("This can never happen.")
-            case .deferredDouble:
-                fatalError("Python TypeError")
-            case .deferredInt(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble:
-                    fatalError("Python TypeError")
-                case .deferredInt(let rhsVal):
-                    return SafePythonObject(integerLiteral: lhsVal | rhsVal)
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return SafePythonObject(integerLiteral: lhsVal | (rhsVal ? 1 : 0))
-                }
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble:
-                    fatalError("Python TypeError")
-                case .deferredInt(let rhsVal):
-                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) | rhsVal)
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) | (rhsVal ? 1 : 0))
-                }
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func bitwiseXorOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncBitwiseXor(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func bitwiseXorInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncInPlaceBitwiseXor(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        // Python bitwise XOR results:
-        static internal func unboundPythonBitwiseXor(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            switch lhs.state {
-            case .bound:
-                fatalError("This can never happen.")
-            case .deferredDouble:
-                fatalError("Python TypeError")
-            case .deferredInt(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble:
-                    fatalError("Python TypeError")
-                case .deferredInt(let rhsVal):
-                    return SafePythonObject(integerLiteral: lhsVal ^ rhsVal)
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return SafePythonObject(integerLiteral: lhsVal ^ (rhsVal ? 1 : 0))
-                }
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble:
-                    fatalError("Python TypeError")
-                case .deferredInt(let rhsVal):
-                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) ^ rhsVal)
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) ^ (rhsVal ? 1 : 0))
-                }
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func bitwiseNotOperator(_ operand: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncBitwiseNot(operand.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        // Python bitwise NOT results:
-        static internal func unboundPythonBitwiseNot(operand: SafePythonObject) -> SafePythonObject {
-            switch operand.state {
-            case .bound:
-                fatalError("This can never happen.")
-            case .deferredDouble:
-                fatalError("Python TypeError")
-            case .deferredInt(let operandVal):
-                return SafePythonObject(integerLiteral: ~operandVal)
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let operandVal):
-                return SafePythonObject(integerLiteral: ~(operandVal ? 1 : 0))
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func doubleEqualsEquatableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncDoubleEqualsEquatable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func doubleEqualsOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncDoubleEquals(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        static internal func unboundPythonDoubleEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            SafePythonObject(booleanLiteral: unboundPythonDoubleEqualsEquatable(lhs: lhs, rhs: rhs))
-        }
-        
-        static internal func unboundPythonDoubleEqualsEquatable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
-            switch lhs.state {
-            case .bound:
-                fatalError("This can never happen.")
-                
-            case .deferredDouble(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
-                    return lhsVal == rhsVal
-                case .deferredInt(let rhsVal):
-                    return lhsVal == Double(rhsVal)
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return lhsVal == (rhsVal ? 1.0 : 0.0)
-                }
-                
-            case .deferredInt(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
-                    return Double(lhsVal) == rhsVal
-                case .deferredInt(let rhsVal):
-                    return lhsVal == rhsVal
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return lhsVal == (rhsVal ? 1 : 0)
-                }
-                
-            case .deferredString(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble:
-                    fatalError("Python TypeError")
-                case .deferredInt:
-                    fatalError("Python TypeError")
-                case .deferredString(let rhsVal):
-                    return lhsVal == rhsVal
-                case .deferredBool:
-                    fatalError("Python TypeError")
-                }
-                
-            case .deferredBool(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
-                    return (lhsVal ? 1.0 : 0.0) == rhsVal
-                case .deferredInt(let rhsVal):
-                    return (lhsVal ? 1 : 0) == rhsVal
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return lhsVal == rhsVal
-                }
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func notEqualsEquatableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncNotEqualsEquatable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func notEqualsOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncNotEquals(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        static internal func unboundPythonNotEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            SafePythonObject(booleanLiteral: unboundPythonNotEqualsEquatable(lhs: lhs, rhs: rhs))
-        }
-        
-        static internal func unboundPythonNotEqualsEquatable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
-            switch lhs.state {
-            case .bound:
-                fatalError("This can never happen.")
-                
-            case .deferredDouble(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
-                    return lhsVal != rhsVal
-                case .deferredInt(let rhsVal):
-                    return lhsVal != Double(rhsVal)
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return lhsVal != (rhsVal ? 1.0 : 0.0)
-                }
-                
-            case .deferredInt(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
-                    return Double(lhsVal) != rhsVal
-                case .deferredInt(let rhsVal):
-                    return lhsVal != rhsVal
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return lhsVal != (rhsVal ? 1 : 0)
-                }
-                
-            case .deferredString(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble:
-                    fatalError("Python TypeError")
-                case .deferredInt:
-                    fatalError("Python TypeError")
-                case .deferredString(let rhsVal):
-                    return lhsVal != rhsVal
-                case .deferredBool:
-                    fatalError("Python TypeError")
-                }
-                
-            case .deferredBool(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    fatalError("This can never happen.")
-                case .deferredDouble(let rhsVal):
-                    return (lhsVal ? 1.0 : 0.0) != rhsVal
-                case .deferredInt(let rhsVal):
-                    return (lhsVal ? 1 : 0) != rhsVal
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return lhsVal != rhsVal
-                }
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func lessThanOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncLessThan(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        internal func doubleEqualsOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.syncDoubleEquals(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+//                }
+//            } catch {
+//                fatalError("Failed: \(error)")
+//            }
+//        }
+//        
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        static internal func unboundPythonDoubleEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+//            SafePythonObject(booleanLiteral: unboundPythonDoubleEqualsEquatable(lhs: lhs, rhs: rhs))
+//        }
+//        
+//        static internal func unboundPythonDoubleEqualsEquatable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+//            switch lhs.state {
+//            case .bound:
+//                fatalError("This can never happen.")
+//                
+//            case .deferredDouble(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    fatalError("This can never happen.")
+//                case .deferredDouble(let rhsVal):
+//                    return lhsVal == rhsVal
+//                case .deferredInt(let rhsVal):
+//                    return lhsVal == Double(rhsVal)
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return lhsVal == (rhsVal ? 1.0 : 0.0)
+//                }
+//                
+//            case .deferredInt(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    fatalError("This can never happen.")
+//                case .deferredDouble(let rhsVal):
+//                    return Double(lhsVal) == rhsVal
+//                case .deferredInt(let rhsVal):
+//                    return lhsVal == rhsVal
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return lhsVal == (rhsVal ? 1 : 0)
+//                }
+//                
+//            case .deferredString(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    fatalError("This can never happen.")
+//                case .deferredDouble:
+//                    fatalError("Python TypeError")
+//                case .deferredInt:
+//                    fatalError("Python TypeError")
+//                case .deferredString(let rhsVal):
+//                    return lhsVal == rhsVal
+//                case .deferredBool:
+//                    fatalError("Python TypeError")
+//                }
+//                
+//            case .deferredBool(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    fatalError("This can never happen.")
+//                case .deferredDouble(let rhsVal):
+//                    return (lhsVal ? 1.0 : 0.0) == rhsVal
+//                case .deferredInt(let rhsVal):
+//                    return (lhsVal ? 1 : 0) == rhsVal
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return lhsVal == rhsVal
+//                }
+//            }
+//        }
+//        
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        internal func notEqualsEquatableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.syncNotEqualsEquatable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+//                }
+//            } catch {
+//                fatalError("Failed: \(error)")
+//            }
+//        }
+//        
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        internal func notEqualsOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.syncNotEquals(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+//                }
+//            } catch {
+//                fatalError("Failed: \(error)")
+//            }
+//        }
+//        
+//        static internal func unboundPythonNotEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+//            SafePythonObject(booleanLiteral: unboundPythonNotEqualsEquatable(lhs: lhs, rhs: rhs))
+//        }
+//        
+//        static internal func unboundPythonNotEqualsEquatable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+//            switch lhs.state {
+//            case .bound:
+//                fatalError("This can never happen.")
+//                
+//            case .deferredDouble(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    fatalError("This can never happen.")
+//                case .deferredDouble(let rhsVal):
+//                    return lhsVal != rhsVal
+//                case .deferredInt(let rhsVal):
+//                    return lhsVal != Double(rhsVal)
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return lhsVal != (rhsVal ? 1.0 : 0.0)
+//                }
+//                
+//            case .deferredInt(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    fatalError("This can never happen.")
+//                case .deferredDouble(let rhsVal):
+//                    return Double(lhsVal) != rhsVal
+//                case .deferredInt(let rhsVal):
+//                    return lhsVal != rhsVal
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return lhsVal != (rhsVal ? 1 : 0)
+//                }
+//                
+//            case .deferredString(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    fatalError("This can never happen.")
+//                case .deferredDouble:
+//                    fatalError("Python TypeError")
+//                case .deferredInt:
+//                    fatalError("Python TypeError")
+//                case .deferredString(let rhsVal):
+//                    return lhsVal != rhsVal
+//                case .deferredBool:
+//                    fatalError("Python TypeError")
+//                }
+//                
+//            case .deferredBool(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    fatalError("This can never happen.")
+//                case .deferredDouble(let rhsVal):
+//                    return (lhsVal ? 1.0 : 0.0) != rhsVal
+//                case .deferredInt(let rhsVal):
+//                    return (lhsVal ? 1 : 0) != rhsVal
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return lhsVal != rhsVal
+//                }
+//            }
+//        }
+//        
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        internal func lessThanOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.syncLessThan(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+//                }
+//            } catch {
+//                fatalError("Failed: \(error)")
+//            }
+//        }
         
         // A less than that throws.  Operators cause fatalError()
         // so use this whenever anything might go wrong.
@@ -1581,97 +1581,97 @@ extension PythonInterpreter {
             }
         }
         
-        static internal func unboundPythonLessThan(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            SafePythonObject(booleanLiteral: lessThanComparable(lhs: lhs, rhs: rhs))
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        static internal func boundPythonLessThanComparable(interpreter: PythonInterpreter, lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncLessThanComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Comparison failed: \(error).  Use `SafePythonObject.lessThan()` for comparisons that might throw.")
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        static internal func lessThanComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
-            switch lhs.state {
-            case .bound:
-                return boundPythonLessThanComparable(interpreter: lhs.interpreter, lhs: lhs, rhs: rhs)
-                
-            case .deferredDouble(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    return boundPythonLessThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-                case .deferredDouble(let rhsVal):
-                    return lhsVal < rhsVal
-                case .deferredInt(let rhsVal):
-                    return lhsVal < Double(rhsVal)
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return lhsVal < (rhsVal ? 1.0 : 0.0)
-                }
-                
-            case .deferredInt(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    return boundPythonLessThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-                case .deferredDouble(let rhsVal):
-                    return Double(lhsVal) < rhsVal
-                case .deferredInt(let rhsVal):
-                    return lhsVal < rhsVal
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return lhsVal < (rhsVal ? 1 : 0)
-                }
-                
-            case .deferredString(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    return boundPythonLessThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-                case .deferredDouble:
-                    fatalError("Python TypeError")
-                case .deferredInt:
-                    fatalError("Python TypeError")
-                case .deferredString(let rhsVal):
-                    return lhsVal < rhsVal
-                case .deferredBool:
-                    fatalError("Python TypeError")
-                }
-                
-            case .deferredBool(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    return boundPythonLessThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-                case .deferredDouble(let rhsVal):
-                    return (lhsVal ? 1.0 : 0.0) < rhsVal
-                case .deferredInt(let rhsVal):
-                    return (lhsVal ? 1 : 0) < rhsVal
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return (lhsVal ? 1 : 0) < (rhsVal ? 1 : 0)
-                }
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func lessThanOrEqualOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncLessThanOrEqual(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
+//        static internal func unboundPythonLessThan(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+//            SafePythonObject(booleanLiteral: lessThanComparable(lhs: lhs, rhs: rhs))
+//        }
+//        
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        static internal func boundPythonLessThanComparable(interpreter: PythonInterpreter, lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.syncLessThanComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+//                }
+//            } catch {
+//                fatalError("Comparison failed: \(error).  Use `SafePythonObject.lessThan()` for comparisons that might throw.")
+//            }
+//        }
+//        
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        static internal func lessThanComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+//            switch lhs.state {
+//            case .bound:
+//                return boundPythonLessThanComparable(interpreter: lhs.interpreter, lhs: lhs, rhs: rhs)
+//                
+//            case .deferredDouble(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    return boundPythonLessThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
+//                case .deferredDouble(let rhsVal):
+//                    return lhsVal < rhsVal
+//                case .deferredInt(let rhsVal):
+//                    return lhsVal < Double(rhsVal)
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return lhsVal < (rhsVal ? 1.0 : 0.0)
+//                }
+//                
+//            case .deferredInt(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    return boundPythonLessThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
+//                case .deferredDouble(let rhsVal):
+//                    return Double(lhsVal) < rhsVal
+//                case .deferredInt(let rhsVal):
+//                    return lhsVal < rhsVal
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return lhsVal < (rhsVal ? 1 : 0)
+//                }
+//                
+//            case .deferredString(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    return boundPythonLessThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
+//                case .deferredDouble:
+//                    fatalError("Python TypeError")
+//                case .deferredInt:
+//                    fatalError("Python TypeError")
+//                case .deferredString(let rhsVal):
+//                    return lhsVal < rhsVal
+//                case .deferredBool:
+//                    fatalError("Python TypeError")
+//                }
+//                
+//            case .deferredBool(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    return boundPythonLessThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
+//                case .deferredDouble(let rhsVal):
+//                    return (lhsVal ? 1.0 : 0.0) < rhsVal
+//                case .deferredInt(let rhsVal):
+//                    return (lhsVal ? 1 : 0) < rhsVal
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return (lhsVal ? 1 : 0) < (rhsVal ? 1 : 0)
+//                }
+//            }
+//        }
+//        
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        internal func lessThanOrEqualOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.syncLessThanOrEqual(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+//                }
+//            } catch {
+//                fatalError("Failed: \(error)")
+//            }
+//        }
         
         // A less than that throws.  Operators cause fatalError()
         // so use this whenever anything might go wrong.
@@ -1684,271 +1684,271 @@ extension PythonInterpreter {
             }
         }
         
-        static internal func unboundPythonLessThanOrEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            SafePythonObject(booleanLiteral: lessThanOrEqualsComparable(lhs: lhs, rhs: rhs))
-        }
+//        static internal func unboundPythonLessThanOrEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+//            SafePythonObject(booleanLiteral: lessThanOrEqualsComparable(lhs: lhs, rhs: rhs))
+//        }
+//        
+//        
+//        
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        static internal func boundPythonLessThanOrEqualsComparable(interpreter: PythonInterpreter, lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.syncLessThanOrEqualComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+//                }
+//            } catch {
+//                fatalError("Comparison failed: \(error).  Use `SafePythonObject.lessThanOrEqual()` for comparisons that might throw.")
+//            }
+//        }
+//        
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        static internal func lessThanOrEqualsComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+//            switch lhs.state {
+//            case .bound:
+//                return boundPythonLessThanOrEqualsComparable(interpreter: lhs.interpreter, lhs: lhs, rhs: rhs)
+//                
+//            case .deferredDouble(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    return boundPythonLessThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
+//                case .deferredDouble(let rhsVal):
+//                    return lhsVal <= rhsVal
+//                case .deferredInt(let rhsVal):
+//                    return lhsVal <= Double(rhsVal)
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return lhsVal <= (rhsVal ? 1.0 : 0.0)
+//                }
+//                
+//            case .deferredInt(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    return boundPythonLessThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
+//                case .deferredDouble(let rhsVal):
+//                    return Double(lhsVal) <= rhsVal
+//                case .deferredInt(let rhsVal):
+//                    return lhsVal <= rhsVal
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return lhsVal <= (rhsVal ? 1 : 0)
+//                }
+//                
+//            case .deferredString(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    return boundPythonLessThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
+//                case .deferredDouble:
+//                    fatalError("Python TypeError")
+//                case .deferredInt:
+//                    fatalError("Python TypeError")
+//                case .deferredString(let rhsVal):
+//                    return lhsVal <= rhsVal
+//                case .deferredBool:
+//                    fatalError("Python TypeError")
+//                }
+//                
+//            case .deferredBool(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    return boundPythonLessThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
+//                case .deferredDouble(let rhsVal):
+//                    return (lhsVal ? 1.0 : 0.0) <= rhsVal
+//                case .deferredInt(let rhsVal):
+//                    return (lhsVal ? 1 : 0) <= rhsVal
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return (lhsVal ? 1 : 0) <= (rhsVal ? 1 : 0)
+//                }
+//            }
+//        }
+//        
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        internal func greaterThanOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.syncGreaterThan(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+//                }
+//            } catch {
+//                fatalError("Failed: \(error)")
+//            }
+//        }
+//        
+//        static internal func unboundPythonGreaterThan(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+//            SafePythonObject(booleanLiteral: greaterThanComparable(lhs: lhs, rhs: rhs))
+//        }
+//        
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        static internal func boundPythonGreaterThanComparable(interpreter: PythonInterpreter, lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.syncGreaterThanComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+//                }
+//            } catch {
+//                fatalError("Comparison failed: \(error).  Use `SafePythonObject.greaterThan()` for comparisons that might throw.")
+//            }
+//        }
+//        
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        static internal func greaterThanComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+//            switch lhs.state {
+//            case .bound:
+//                return boundPythonGreaterThanComparable(interpreter: lhs.interpreter, lhs: lhs, rhs: rhs)
+//                
+//            case .deferredDouble(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    return boundPythonGreaterThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
+//                case .deferredDouble(let rhsVal):
+//                    return lhsVal > rhsVal
+//                case .deferredInt(let rhsVal):
+//                    return lhsVal > Double(rhsVal)
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return lhsVal > (rhsVal ? 1.0 : 0.0)
+//                }
+//                
+//            case .deferredInt(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    return boundPythonGreaterThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
+//                case .deferredDouble(let rhsVal):
+//                    return Double(lhsVal) > rhsVal
+//                case .deferredInt(let rhsVal):
+//                    return lhsVal > rhsVal
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return lhsVal > (rhsVal ? 1 : 0)
+//                }
+//                
+//            case .deferredString(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    return boundPythonGreaterThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
+//                case .deferredDouble:
+//                    fatalError("Python TypeError")
+//                case .deferredInt:
+//                    fatalError("Python TypeError")
+//                case .deferredString(let rhsVal):
+//                    return lhsVal > rhsVal
+//                case .deferredBool:
+//                    fatalError("Python TypeError")
+//                }
+//                
+//            case .deferredBool(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    return boundPythonGreaterThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
+//                case .deferredDouble(let rhsVal):
+//                    return (lhsVal ? 1.0 : 0.0) > rhsVal
+//                case .deferredInt(let rhsVal):
+//                    return (lhsVal ? 1 : 0) > rhsVal
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return (lhsVal ? 1 : 0) > (rhsVal ? 1 : 0)
+//                }
+//            }
+//        }
+//               
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        internal func greaterThanOrEqualOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.syncGreaterThanOrEqual(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+//                }
+//            } catch {
+//                fatalError("Failed: \(error)")
+//            }
+//        }
+//        
+//        static internal func unboundPythonGreaterThanOrEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
+//            SafePythonObject(booleanLiteral: greaterThanOrEqualsComparable(lhs: lhs, rhs: rhs))
+//        }
         
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        static internal func boundPythonGreaterThanOrEqualsComparable(interpreter: PythonInterpreter, lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+//            do {
+//                let localInterpreter = interpreter
+//                return try localInterpreter.assumeIsolated {
+//                    try $0.syncGreaterThanOrEqualComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+//                }
+//            } catch {
+//                fatalError("Comparison failed: \(error).  Use `SafePythonObject.greaterThanOrEqual()` for comparisons that might throw.")
+//            }
+//        }
         
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        static internal func boundPythonLessThanOrEqualsComparable(interpreter: PythonInterpreter, lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncLessThanOrEqualComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Comparison failed: \(error).  Use `SafePythonObject.lessThanOrEqual()` for comparisons that might throw.")
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        static internal func lessThanOrEqualsComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
-            switch lhs.state {
-            case .bound:
-                return boundPythonLessThanOrEqualsComparable(interpreter: lhs.interpreter, lhs: lhs, rhs: rhs)
-                
-            case .deferredDouble(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    return boundPythonLessThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-                case .deferredDouble(let rhsVal):
-                    return lhsVal <= rhsVal
-                case .deferredInt(let rhsVal):
-                    return lhsVal <= Double(rhsVal)
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return lhsVal <= (rhsVal ? 1.0 : 0.0)
-                }
-                
-            case .deferredInt(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    return boundPythonLessThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-                case .deferredDouble(let rhsVal):
-                    return Double(lhsVal) <= rhsVal
-                case .deferredInt(let rhsVal):
-                    return lhsVal <= rhsVal
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return lhsVal <= (rhsVal ? 1 : 0)
-                }
-                
-            case .deferredString(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    return boundPythonLessThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-                case .deferredDouble:
-                    fatalError("Python TypeError")
-                case .deferredInt:
-                    fatalError("Python TypeError")
-                case .deferredString(let rhsVal):
-                    return lhsVal <= rhsVal
-                case .deferredBool:
-                    fatalError("Python TypeError")
-                }
-                
-            case .deferredBool(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    return boundPythonLessThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-                case .deferredDouble(let rhsVal):
-                    return (lhsVal ? 1.0 : 0.0) <= rhsVal
-                case .deferredInt(let rhsVal):
-                    return (lhsVal ? 1 : 0) <= rhsVal
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return (lhsVal ? 1 : 0) <= (rhsVal ? 1 : 0)
-                }
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func greaterThanOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncGreaterThan(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        static internal func unboundPythonGreaterThan(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            SafePythonObject(booleanLiteral: greaterThanComparable(lhs: lhs, rhs: rhs))
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        static internal func boundPythonGreaterThanComparable(interpreter: PythonInterpreter, lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncGreaterThanComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Comparison failed: \(error).  Use `SafePythonObject.greaterThan()` for comparisons that might throw.")
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        static internal func greaterThanComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
-            switch lhs.state {
-            case .bound:
-                return boundPythonGreaterThanComparable(interpreter: lhs.interpreter, lhs: lhs, rhs: rhs)
-                
-            case .deferredDouble(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    return boundPythonGreaterThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-                case .deferredDouble(let rhsVal):
-                    return lhsVal > rhsVal
-                case .deferredInt(let rhsVal):
-                    return lhsVal > Double(rhsVal)
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return lhsVal > (rhsVal ? 1.0 : 0.0)
-                }
-                
-            case .deferredInt(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    return boundPythonGreaterThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-                case .deferredDouble(let rhsVal):
-                    return Double(lhsVal) > rhsVal
-                case .deferredInt(let rhsVal):
-                    return lhsVal > rhsVal
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return lhsVal > (rhsVal ? 1 : 0)
-                }
-                
-            case .deferredString(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    return boundPythonGreaterThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-                case .deferredDouble:
-                    fatalError("Python TypeError")
-                case .deferredInt:
-                    fatalError("Python TypeError")
-                case .deferredString(let rhsVal):
-                    return lhsVal > rhsVal
-                case .deferredBool:
-                    fatalError("Python TypeError")
-                }
-                
-            case .deferredBool(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    return boundPythonGreaterThanComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-                case .deferredDouble(let rhsVal):
-                    return (lhsVal ? 1.0 : 0.0) > rhsVal
-                case .deferredInt(let rhsVal):
-                    return (lhsVal ? 1 : 0) > rhsVal
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return (lhsVal ? 1 : 0) > (rhsVal ? 1 : 0)
-                }
-            }
-        }
-               
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        internal func greaterThanOrEqualOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> SafePythonObject {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncGreaterThanOrEqual(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Failed: \(error)")
-            }
-        }
-        
-        static internal func unboundPythonGreaterThanOrEquals(lhs: SafePythonObject, rhs: SafePythonObject) -> SafePythonObject {
-            SafePythonObject(booleanLiteral: greaterThanOrEqualsComparable(lhs: lhs, rhs: rhs))
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        static internal func boundPythonGreaterThanOrEqualsComparable(interpreter: PythonInterpreter, lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.syncGreaterThanOrEqualComparable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
-                }
-            } catch {
-                fatalError("Comparison failed: \(error).  Use `SafePythonObject.greaterThanOrEqual()` for comparisons that might throw.")
-            }
-        }
-        
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-        static internal func greaterThanOrEqualsComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
-            switch lhs.state {
-            case .bound:
-                return boundPythonGreaterThanOrEqualsComparable(interpreter: lhs.interpreter, lhs: lhs, rhs: rhs)
-                
-            case .deferredDouble(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    return boundPythonGreaterThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-                case .deferredDouble(let rhsVal):
-                    return lhsVal >= rhsVal
-                case .deferredInt(let rhsVal):
-                    return lhsVal >= Double(rhsVal)
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return lhsVal >= (rhsVal ? 1.0 : 0.0)
-                }
-                
-            case .deferredInt(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    return boundPythonGreaterThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-                case .deferredDouble(let rhsVal):
-                    return Double(lhsVal) >= rhsVal
-                case .deferredInt(let rhsVal):
-                    return lhsVal >= rhsVal
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return lhsVal >= (rhsVal ? 1 : 0)
-                }
-                
-            case .deferredString(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    return boundPythonGreaterThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-                case .deferredDouble:
-                    fatalError("Python TypeError")
-                case .deferredInt:
-                    fatalError("Python TypeError")
-                case .deferredString(let rhsVal):
-                    return lhsVal >= rhsVal
-                case .deferredBool:
-                    fatalError("Python TypeError")
-                }
-                
-            case .deferredBool(let lhsVal):
-                switch rhs.state {
-                case .bound:
-                    return boundPythonGreaterThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-                case .deferredDouble(let rhsVal):
-                    return (lhsVal ? 1.0 : 0.0) >= rhsVal
-                case .deferredInt(let rhsVal):
-                    return (lhsVal ? 1 : 0) >= rhsVal
-                case .deferredString:
-                    fatalError("Python TypeError")
-                case .deferredBool(let rhsVal):
-                    return (lhsVal ? 1 : 0) >= (rhsVal ? 1 : 0)
-                }
-            }
-        }
+//        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+//        static internal func greaterThanOrEqualsComparable(lhs: SafePythonObject, rhs: SafePythonObject) -> Bool {
+//            switch lhs.state {
+//            case .bound:
+//                return boundPythonGreaterThanOrEqualsComparable(interpreter: lhs.interpreter, lhs: lhs, rhs: rhs)
+//                
+//            case .deferredDouble(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    return boundPythonGreaterThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
+//                case .deferredDouble(let rhsVal):
+//                    return lhsVal >= rhsVal
+//                case .deferredInt(let rhsVal):
+//                    return lhsVal >= Double(rhsVal)
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return lhsVal >= (rhsVal ? 1.0 : 0.0)
+//                }
+//                
+//            case .deferredInt(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    return boundPythonGreaterThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
+//                case .deferredDouble(let rhsVal):
+//                    return Double(lhsVal) >= rhsVal
+//                case .deferredInt(let rhsVal):
+//                    return lhsVal >= rhsVal
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return lhsVal >= (rhsVal ? 1 : 0)
+//                }
+//                
+//            case .deferredString(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    return boundPythonGreaterThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
+//                case .deferredDouble:
+//                    fatalError("Python TypeError")
+//                case .deferredInt:
+//                    fatalError("Python TypeError")
+//                case .deferredString(let rhsVal):
+//                    return lhsVal >= rhsVal
+//                case .deferredBool:
+//                    fatalError("Python TypeError")
+//                }
+//                
+//            case .deferredBool(let lhsVal):
+//                switch rhs.state {
+//                case .bound:
+//                    return boundPythonGreaterThanOrEqualsComparable(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
+//                case .deferredDouble(let rhsVal):
+//                    return (lhsVal ? 1.0 : 0.0) >= rhsVal
+//                case .deferredInt(let rhsVal):
+//                    return (lhsVal ? 1 : 0) >= rhsVal
+//                case .deferredString:
+//                    fatalError("Python TypeError")
+//                case .deferredBool(let rhsVal):
+//                    return (lhsVal ? 1 : 0) >= (rhsVal ? 1 : 0)
+//                }
+//            }
+//        }
         
     }  // end of Safe python object
 }
