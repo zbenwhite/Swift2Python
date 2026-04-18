@@ -19,40 +19,27 @@ extension PythonInterpreter.SafePythonObject {
     // MARK: Addition
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    internal func addOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
+    static internal func boundPythonAdd(interpreter: PythonInterpreter, lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
             return try localInterpreter.assumeIsolated {
                 try $0.syncAdd(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
             }
         } catch {
-            fatalError("Failed: \(error)")
+            fatalError("Addition failed: \(error).  Use `SafePythonObject.add()` for addition that might throw.")
         }
     }
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    internal func addInPlaceOperator(sumend: SafePythonConvertible, addend: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
-        do {
-            let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                try $0.syncInPlaceAdd(sumend: sumend.toSafePythonObject(interpreter: $0), addend: addend.toSafePythonObject(interpreter: $0))
-            }
-        } catch {
-            fatalError("Failed: \(error)")
-        }
-    }
-    
-    // This is implemented because writing it is better than erroring out.
-    // But seriously, what are you doing here?  Why does your code use this?
-    // Python addition results:
-    static internal func unboundPythonAdd(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+    static internal func addOperator(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         switch lhs.state {
         case .bound:
-            fatalError("This can never happen.")
+            return boundPythonAdd(interpreter: lhs.interpreter, lhs: lhs, rhs: rhs)
+            
         case .deferredDouble(let lhsVal):
             switch rhs.state {
             case .bound:
-                fatalError("This can never happen.")
+                return boundPythonAdd(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
             case .deferredDouble(let rhsVal):
                 return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal + rhsVal)
             case .deferredInt(let rhsVal):
@@ -62,10 +49,11 @@ extension PythonInterpreter.SafePythonObject {
             case .deferredBool(let rhsVal):
                 return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal + (rhsVal ? 1.0 : 0.0))
             }
+            
         case .deferredInt(let lhsVal):
             switch rhs.state {
             case .bound:
-                fatalError("This can never happen.")
+                return boundPythonAdd(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
             case .deferredDouble(let rhsVal):
                 return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) + rhsVal)
             case .deferredInt(let rhsVal):
@@ -75,10 +63,11 @@ extension PythonInterpreter.SafePythonObject {
             case .deferredBool(let rhsVal):
                 return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal + (rhsVal ? 1 : 0))
             }
+            
         case .deferredString(let lhsVal):
             switch rhs.state {
             case .bound:
-                fatalError("This can never happen.")
+                return boundPythonAdd(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
             case .deferredDouble:
                 fatalError("Python TypeError")
             case .deferredInt:
@@ -88,10 +77,11 @@ extension PythonInterpreter.SafePythonObject {
             case .deferredBool:
                 fatalError("Python TypeError")
             }
+            
         case .deferredBool(let lhsVal):
             switch rhs.state {
             case .bound:
-                fatalError("This can never happen.")
+                return boundPythonAdd(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
             case .deferredDouble(let rhsVal):
                 return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) + rhsVal)
             case .deferredInt(let rhsVal):
@@ -107,38 +97,27 @@ extension PythonInterpreter.SafePythonObject {
     // MARK: Subtraction
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    internal func subtractOperator(minuend: SafePythonConvertible, subtrahend: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
+    static internal func boundPythonSubtract(interpreter: PythonInterpreter, minuend: PythonInterpreter.SafePythonObject, subtrahend: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
             return try localInterpreter.assumeIsolated {
                 try $0.syncSubtract(minuend: minuend.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
             }
         } catch {
-            fatalError("Failed: \(error)")
+            fatalError("Subtraction failed: \(error).  Use `SafePythonObject.subtract()` for subtraction that might throw.")
         }
     }
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    internal func subtractInPlaceOperator(diffend: SafePythonConvertible, subtrahend: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
-        do {
-            let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                try $0.syncInPlaceSubtract(diffend: diffend.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
-            }
-        } catch {
-            fatalError("Failed: \(error)")
-        }
-    }
-    
-    // Python subtraction results:
-    static internal func unboundPythonSubtract(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        switch lhs.state {
+    static internal func subtractOperator(minuend: PythonInterpreter.SafePythonObject, subtrahend: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        switch minuend.state {
         case .bound:
-            fatalError("This can never happen.")
+            return boundPythonSubtract(interpreter: minuend.interpreter, minuend: minuend, subtrahend: subtrahend)
+            
         case .deferredDouble(let lhsVal):
-            switch rhs.state {
+            switch subtrahend.state {
             case .bound:
-                fatalError("This can never happen.")
+                return boundPythonSubtract(interpreter: subtrahend.interpreter, minuend: minuend, subtrahend: subtrahend)
             case .deferredDouble(let rhsVal):
                 return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal - rhsVal)
             case .deferredInt(let rhsVal):
@@ -148,10 +127,11 @@ extension PythonInterpreter.SafePythonObject {
             case .deferredBool(let rhsVal):
                 return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal - (rhsVal ? 1.0 : 0.0))
             }
+            
         case .deferredInt(let lhsVal):
-            switch rhs.state {
+            switch subtrahend.state {
             case .bound:
-                fatalError("This can never happen.")
+                return boundPythonSubtract(interpreter: subtrahend.interpreter, minuend: minuend, subtrahend: subtrahend)
             case .deferredDouble(let rhsVal):
                 return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) - rhsVal)
             case .deferredInt(let rhsVal):
@@ -161,12 +141,25 @@ extension PythonInterpreter.SafePythonObject {
             case .deferredBool(let rhsVal):
                 return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal - (rhsVal ? 1 : 0))
             }
+            
         case .deferredString:
-            fatalError("Python TypeError")
-        case .deferredBool(let lhsVal):
-            switch rhs.state {
+            switch subtrahend.state {
             case .bound:
-                fatalError("This can never happen.")
+                return boundPythonSubtract(interpreter: subtrahend.interpreter, minuend: minuend, subtrahend: subtrahend)
+            case .deferredDouble:
+                fatalError("Python TypeError")
+            case .deferredInt:
+                fatalError("Python TypeError")
+            case .deferredString:
+                fatalError("Python TypeError")
+            case .deferredBool:
+                fatalError("Python TypeError")
+            }
+            
+        case .deferredBool(let lhsVal):
+            switch subtrahend.state {
+            case .bound:
+                return boundPythonSubtract(interpreter: subtrahend.interpreter, minuend: minuend, subtrahend: subtrahend)
             case .deferredDouble(let rhsVal):
                 return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) - rhsVal)
             case .deferredInt(let rhsVal):
@@ -182,38 +175,27 @@ extension PythonInterpreter.SafePythonObject {
     // MARK: Multiplication
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    internal func multiplyOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
+    static internal func boundPythonMultiply(interpreter: PythonInterpreter, lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
             return try localInterpreter.assumeIsolated {
                 try $0.syncMultiply(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
             }
         } catch {
-            fatalError("Failed: \(error)")
+            fatalError("Multiplication failed: \(error).  Use `SafePythonObject.multiply()` for multiplication that might throw.")
         }
     }
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    internal func multiplyInPlaceOperator(productand: SafePythonConvertible, multiplicand: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
-        do {
-            let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                try $0.syncInPlaceMultiply(productand: productand.toSafePythonObject(interpreter: $0), multiplicand: multiplicand.toSafePythonObject(interpreter: $0))
-            }
-        } catch {
-            fatalError("Failed: \(error)")
-        }
-    }
-    
-    // Python multiplication results:
-    static internal func unboundPythonMultiply(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+    static internal func multiplyOperator(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         switch lhs.state {
         case .bound:
-            fatalError("This can never happen.")
+            return boundPythonMultiply(interpreter: lhs.interpreter, lhs: lhs, rhs: rhs)
+            
         case .deferredDouble(let lhsVal):
             switch rhs.state {
             case .bound:
-                fatalError("This can never happen.")
+                return boundPythonMultiply(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
             case .deferredDouble(let rhsVal):
                 return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal * rhsVal)
             case .deferredInt(let rhsVal):
@@ -226,7 +208,7 @@ extension PythonInterpreter.SafePythonObject {
         case .deferredInt(let lhsVal):
             switch rhs.state {
             case .bound:
-                fatalError("This can never happen.")
+                return boundPythonMultiply(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
             case .deferredDouble(let rhsVal):
                 return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) * rhsVal)
             case .deferredInt(let rhsVal):
@@ -239,7 +221,7 @@ extension PythonInterpreter.SafePythonObject {
         case .deferredString(let lhsVal):
             switch rhs.state {
             case .bound:
-                fatalError("This can never happen.")
+                return boundPythonMultiply(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
             case .deferredDouble:
                 fatalError("Python TypeError")
             case .deferredInt(let rhsVal):
@@ -252,7 +234,7 @@ extension PythonInterpreter.SafePythonObject {
         case .deferredBool(let lhsVal):
             switch rhs.state {
             case .bound:
-                fatalError("This can never happen.")
+                return boundPythonMultiply(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
             case .deferredDouble(let rhsVal):
                 return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) * rhsVal)
             case .deferredInt(let rhsVal):
@@ -268,38 +250,27 @@ extension PythonInterpreter.SafePythonObject {
     // MARK: Division
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    internal func divideOperator(dividend: SafePythonConvertible, divisor: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
+    static internal func boundPythonDivide(interpreter: PythonInterpreter, dividend: PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
             return try localInterpreter.assumeIsolated {
                 try $0.syncDivide(dividend: dividend.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
             }
         } catch {
-            fatalError("Failed: \(error)")
+            fatalError("Subtraction failed: \(error).  Use `SafePythonObject.subtract()` for subtraction that might throw.")
         }
     }
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    internal func divideInPlaceOperator(quotientand: SafePythonConvertible, divisor: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
-        do {
-            let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                try $0.syncInPlaceDivide(quotientand: quotientand.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
-            }
-        } catch {
-            fatalError("Failed: \(error)")
-        }
-    }
-    
-    // Python division results:
-    static internal func unboundPythonDivide(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        switch lhs.state {
+    static internal func divideOperator(dividend: PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        switch dividend.state {
         case .bound:
-            fatalError("This can never happen.")
+            return boundPythonDivide(interpreter: dividend.interpreter, dividend: dividend, divisor: divisor)
+            
         case .deferredDouble(let lhsVal):
-            switch rhs.state {
+            switch divisor.state {
             case .bound:
-                fatalError("This can never happen.")
+                return boundPythonDivide(interpreter: divisor.interpreter, dividend: dividend, divisor: divisor)
             case .deferredDouble(let rhsVal):
                 guard rhsVal != 0.0 else { fatalError("Python Divide By Zero") }
                 return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal / rhsVal)
@@ -312,10 +283,11 @@ extension PythonInterpreter.SafePythonObject {
                 guard rhsVal else { fatalError("Python Divide By Zero") }
                 return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal) // n / 1 == n
             }
+            
         case .deferredInt(let lhsVal):
-            switch rhs.state {
+            switch divisor.state {
             case .bound:
-                fatalError("This can never happen.")
+                return boundPythonDivide(interpreter: divisor.interpreter, dividend: dividend, divisor: divisor)
             case .deferredDouble(let rhsVal):
                 guard rhsVal != 0.0 else { fatalError("Python Divide By Zero") }
                 return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) / rhsVal)
@@ -328,12 +300,25 @@ extension PythonInterpreter.SafePythonObject {
                 guard rhsVal else { fatalError("Python Divide By Zero") }
                 return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal)) // n / 1 == n
             }
+            
         case .deferredString:
-            fatalError("Python TypeError")
-        case .deferredBool(let lhsVal):
-            switch rhs.state {
+            switch divisor.state {
             case .bound:
-                fatalError("This can never happen.")
+                return boundPythonDivide(interpreter: divisor.interpreter, dividend: dividend, divisor: divisor)
+            case .deferredDouble:
+                fatalError("Python TypeError")
+            case .deferredInt:
+                fatalError("Python TypeError")
+            case .deferredString:
+                fatalError("Python TypeError")
+            case .deferredBool:
+                fatalError("Python TypeError")
+            }
+            
+        case .deferredBool(let lhsVal):
+            switch divisor.state {
+            case .bound:
+                return boundPythonDivide(interpreter: divisor.interpreter, dividend: dividend, divisor: divisor)
             case .deferredDouble(let rhsVal):
                 guard rhsVal != 0.0 else { fatalError("Python Divide By Zero") }
                 return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) / rhsVal)

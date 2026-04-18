@@ -20,83 +20,35 @@ public extension PythonInterpreter.SafePythonObject {
     //       the operations as Python would.
     
     static func + (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        if lhs.isBoundToPythonInterpreter {
-            return lhs.addOperator(lhs, rhs)
-        } else if rhs.isBoundToPythonInterpreter {
-            return rhs.addOperator(lhs, rhs)
-        } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonAdd(lhs:lhs, rhs:rhs)
-        }
+        return PythonInterpreter.SafePythonObject.addOperator(lhs:lhs, rhs:rhs)
     }
     
     static func - (minuend: PythonInterpreter.SafePythonObject, subtrahend: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        if minuend.isBoundToPythonInterpreter {
-            return minuend.subtractOperator(minuend: minuend, subtrahend: subtrahend)
-        } else if subtrahend.isBoundToPythonInterpreter {
-            return subtrahend.subtractOperator(minuend: minuend, subtrahend: subtrahend)
-        } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonSubtract(lhs:minuend, rhs:subtrahend)
-        }
+        return PythonInterpreter.SafePythonObject.subtractOperator(minuend:minuend, subtrahend:subtrahend)
     }
 
     static func * (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        if lhs.isBoundToPythonInterpreter {
-            return lhs.multiplyOperator(lhs, rhs)
-        } else if rhs.isBoundToPythonInterpreter {
-            return rhs.multiplyOperator(lhs, rhs)
-        } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonMultiply(lhs:lhs, rhs:rhs)
-        }
+        return PythonInterpreter.SafePythonObject.multiplyOperator(lhs:lhs, rhs:rhs)
     }
 
     static func / (dividend: PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        if dividend.isBoundToPythonInterpreter {
-            return dividend.divideOperator(dividend: dividend, divisor: divisor)
-        } else if divisor.isBoundToPythonInterpreter {
-            return divisor.divideOperator(dividend: dividend, divisor: divisor)
-        } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonDivide(lhs:dividend, rhs:divisor)
-        }
+        return PythonInterpreter.SafePythonObject.divideOperator(dividend:dividend, divisor:divisor)
     }
     
     static func += (sumend: inout PythonInterpreter.SafePythonObject, addend: PythonInterpreter.SafePythonObject) {
-        if sumend.isBoundToPythonInterpreter {
-            sumend = sumend.addInPlaceOperator(sumend:sumend, addend:addend)
-        } else if addend.isBoundToPythonInterpreter {
-            sumend = addend.addInPlaceOperator(sumend:sumend, addend:addend)
-        } else {
-            sumend = PythonInterpreter.SafePythonObject.unboundPythonAdd(lhs:sumend, rhs:addend)
-        }
+        sumend = PythonInterpreter.SafePythonObject.addOperator(lhs:sumend, rhs:addend)
     }
     
     static func -= (diffend: inout PythonInterpreter.SafePythonObject, subtrahend: PythonInterpreter.SafePythonObject) {
-        if diffend.isBoundToPythonInterpreter {
-            diffend = diffend.subtractInPlaceOperator(diffend:diffend, subtrahend:subtrahend)
-        } else if subtrahend.isBoundToPythonInterpreter {
-            diffend = subtrahend.subtractInPlaceOperator(diffend:diffend, subtrahend:subtrahend)
-        } else {
-            diffend = PythonInterpreter.SafePythonObject.unboundPythonSubtract(lhs:diffend, rhs:subtrahend)
-        }
+        diffend = PythonInterpreter.SafePythonObject.subtractOperator(minuend:diffend, subtrahend:subtrahend)
     }
     
     static func *= (productand: inout PythonInterpreter.SafePythonObject, multiplicand: PythonInterpreter.SafePythonObject) {
-        if productand.isBoundToPythonInterpreter {
-            productand = productand.multiplyInPlaceOperator(productand:productand, multiplicand:multiplicand)
-        } else if multiplicand.isBoundToPythonInterpreter {
-            productand = multiplicand.multiplyInPlaceOperator(productand:productand, multiplicand:multiplicand)
-        } else {
-            productand = PythonInterpreter.SafePythonObject.unboundPythonMultiply(lhs:productand, rhs:multiplicand)
-        }
+        productand = PythonInterpreter.SafePythonObject.multiplyOperator(lhs:productand, rhs:multiplicand)
     }
     
     static func /= (quotientand: inout PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) {
-        if quotientand.isBoundToPythonInterpreter {
-            quotientand = quotientand.divideInPlaceOperator(quotientand:quotientand, divisor:divisor)
-        } else if divisor.isBoundToPythonInterpreter {
-            quotientand = divisor.divideInPlaceOperator(quotientand:quotientand, divisor:divisor)
-        } else {
-            quotientand = PythonInterpreter.SafePythonObject.unboundPythonDivide(lhs:quotientand, rhs:divisor)
-        }
+        quotientand = PythonInterpreter.SafePythonObject.divideOperator(dividend:quotientand, divisor:divisor)
     }
     
     static func & (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
