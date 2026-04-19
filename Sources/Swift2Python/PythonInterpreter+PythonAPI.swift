@@ -43,12 +43,16 @@ extension PythonInterpreter {
         let PyNumber_InPlaceAnd: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_InPlaceMultiply: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_InPlaceOr: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
+        let PyNumber_InPlacePower: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?)
+        let PyNumber_InPlaceRemainder: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_InPlaceSubtract: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_InPlaceTrueDivide: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_InPlaceXor: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_Invert: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_Multiply: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_Or: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
+        let PyNumber_Power: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?)
+        let PyNumber_Remainder: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_Subtract: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_TrueDivide: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_Xor: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
@@ -73,6 +77,12 @@ extension PythonInterpreter {
         
         // Optional (only present on Python >= 3.12)
         let PyErr_GetRaisedException: (@convention(c) () -> UnsafeMutableRawPointer?)?
+        
+        // Optional (present on Python >= 3.13 and often backported to older builds)
+        let Py_GetConstant: (@convention(c) (Int32) -> UnsafeMutableRawPointer?)?
+        
+        // Used for Py_None
+        let _Py_NoneStruct: UnsafeMutableRawPointer?
         
         let logger: Logger
         
@@ -191,6 +201,30 @@ extension PythonInterpreter {
             return PyLong_FromUnsignedLongLong(value)
         }
         
+        internal func pythonNumber_InPlacePower(_ lhs: UnsafeMutableRawPointer, _ rhs: UnsafeMutableRawPointer) throws -> UnsafeMutableRawPointer? {
+            logger.trace("CPython API Call: Number_InPlacePower")
+            //return PyNumber_InPlacePower(lhs, rhs, Py_None)
+            if let pyNone = try pythonNone() {
+                logger.trace("CPython API Call: Number_InPlacePower")
+                return PyNumber_Power(lhs, rhs, pyNone)
+            } else {
+                // FIXME: put two args in a tuple and call builtins.pow with it
+                logger.error("Py_None is not found so we can't use PyNumber_InPlacePower")
+                return nil
+            }
+        }
+        
+        internal func pythonNumber_Power(_ lhs: UnsafeMutableRawPointer, _ rhs: UnsafeMutableRawPointer) throws -> UnsafeMutableRawPointer? {
+            if let pyNone = try pythonNone() {
+                logger.trace("CPython API Call: Number_Power")
+                return PyNumber_Power(lhs, rhs, pyNone)
+            } else {
+                // FIXME: put two args in a tuple and call builtins.pow with it
+                logger.error("Py_None is not found so we can't use PyNumber_Power")
+                return nil
+            }
+        }
+        
         internal func pythonObject_Call(_ callable: UnsafeMutableRawPointer, _ args: UnsafeMutableRawPointer, _ kwargs: UnsafeMutableRawPointer?) throws -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: PyObject_Call")
             // Signature: PyObject *PyObject_Call(PyObject *callable, PyObject *args, PyObject *kwargs)
@@ -261,9 +295,30 @@ extension PythonInterpreter {
             }
             return String(cString: utf8)
         }
+        
+        internal func pythonNone() throws -> UnsafeMutableRawPointer? {
+            logger.trace("Obtaining Py_None")
+
+            // Preferred path: Py_GetConstant (Stable ABI, Python 3.13+)
+            if let getConstant = Py_GetConstant {
+                if let none = getConstant(0) {          // 0 == Py_CONSTANT_NONE
+                    return none                         // returns a strong reference (None is immortal)
+                }
+            }
+
+            // Fallback: classic private symbol (works on vast majority of 3.8–3.12 builds,
+            // including most free-threaded installations)
+            if let nonePtr = _Py_NoneStruct {
+                return nonePtr
+            }
+
+            // Last resort – very rare to reach here
+            return nil
+        }
     }
     
-    internal static func loadAllSymbols(using runtime: PythonRuntime) async throws -> PreloadedPythonSymbols {
+    internal static func loadAllSymbols(using runtime: PythonRuntime, _ logger: Logger) async throws -> PreloadedPythonSymbols {
+    //        internal static func loadAllSymbols(using runtime: PythonRuntime) async throws -> PreloadedPythonSymbols {
         return PreloadedPythonSymbols(
             Py_DecRef: try await runtime.loadSendableSymbol(
                 "Py_DecRef", as: (@convention(c) (UnsafeMutableRawPointer) -> Void).self).function,
@@ -327,6 +382,10 @@ extension PythonInterpreter {
                 "PyNumber_InPlaceMultiply", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             PyNumber_InPlaceOr: try await runtime.loadSendableSymbol(
                 "PyNumber_InPlaceOr", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
+            PyNumber_InPlacePower: try await runtime.loadSendableSymbol(
+                "PyNumber_InPlacePower", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self ).function,
+            PyNumber_InPlaceRemainder: try await runtime.loadSendableSymbol(
+                "PyNumber_InPlaceRemainder", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self ).function,
             PyNumber_InPlaceSubtract: try await runtime.loadSendableSymbol(
                 "PyNumber_InPlaceSubtract", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             PyNumber_InPlaceTrueDivide: try await runtime.loadSendableSymbol(
@@ -339,6 +398,10 @@ extension PythonInterpreter {
                 "PyNumber_Multiply", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             PyNumber_Or: try await runtime.loadSendableSymbol(
                 "PyNumber_Or", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
+            PyNumber_Power: try await runtime.loadSendableSymbol(
+                    "PyNumber_Power", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self).function,
+            PyNumber_Remainder: try await runtime.loadSendableSymbol(
+                    "PyNumber_Remainder", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             PyNumber_Subtract: try await runtime.loadSendableSymbol(
                 "PyNumber_Subtract", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             PyNumber_TrueDivide: try await runtime.loadSendableSymbol(
@@ -381,10 +444,13 @@ extension PythonInterpreter {
                 "PyObject_CallNoArgs", as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function),
             PyErr_GetRaisedException: (try? await runtime.loadSendableSymbol(
                 "PyErr_GetRaisedException", as: (@convention(c) () -> UnsafeMutableRawPointer?).self).function),
+            Py_GetConstant: try? await runtime.loadSendableSymbol(
+                "Py_GetConstant", as: (@convention(c) (Int32) -> UnsafeMutableRawPointer?).self).function,
             
-        
-        // Other
-        logger: Logger(label: "swift2python.CPythonAPI")
+            _Py_NoneStruct: try? await runtime.loadSendableSymbol("_Py_NoneStruct", as: UnsafeMutableRawPointer.self).function,
+            
+            // Other
+            logger: logger
         )
     }
 }

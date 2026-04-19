@@ -244,6 +244,32 @@ extension PythonInterpreter {
         return SafePythonObject(interpreter: self, id: productId)
     }
     
+    internal func syncInPlacePower(lhs: SafePythonObject, exponent: SafePythonObject) throws -> SafePythonObject {
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let exponentPtr = getRegisteredPythonObjectPointer(exponent.id)!
+        
+        logger.trace("CPython API call in synchronous mode: PyNumber_InPlacePower")
+        guard let resultPtr = try api.pythonNumber_InPlacePower(lhsPtr, exponentPtr) else {
+            throw PythonError.nullPointer("Python '**=' failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    internal func syncInPlaceRemainder(quotientand: SafePythonObject, divisor: SafePythonObject) throws -> SafePythonObject {
+        let quotientandPtr = getRegisteredPythonObjectPointer(quotientand.id)!
+        let divisorPtr = getRegisteredPythonObjectPointer(divisor.id)!
+        
+        logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceRemainder")
+        guard let remainderPtr = api.PyNumber_InPlaceRemainder(quotientandPtr, divisorPtr) else {
+            throw PythonError.nullPointer("Python '%=' failed")
+        }
+        
+        let reminderId = registerPythonObjectPointer(remainderPtr)
+        return SafePythonObject(interpreter: self, id: reminderId)
+    }
+    
     internal func syncInPlaceSubtract(diffend: SafePythonObject, subtrahend: SafePythonObject) throws -> SafePythonObject {
         let diffendPtr = getRegisteredPythonObjectPointer(diffend.id)!
         let subtrahendPtr = getRegisteredPythonObjectPointer(subtrahend.id)!
@@ -346,6 +372,32 @@ extension PythonInterpreter {
         case 1: return true
         default: try throwPythonError()
         }
+    }
+    
+    internal func syncPower(base: SafePythonObject, exponent: SafePythonObject) throws -> SafePythonObject {
+        let basePtr = getRegisteredPythonObjectPointer(base.id)!
+        let exponentPtr = getRegisteredPythonObjectPointer(exponent.id)!
+        
+        logger.trace("CPython API call in synchronous mode: PyNumber_Power")
+        guard let resultPtr = try api.pythonNumber_Power(basePtr, exponentPtr) else {
+            throw PythonError.nullPointer("Python '**' failed")
+        }
+        
+        let resultId = registerPythonObjectPointer(resultPtr)
+        return SafePythonObject(interpreter: self, id: resultId)
+    }
+    
+    internal func syncModulus(dividend: SafePythonObject, divisor: SafePythonObject) throws -> SafePythonObject {
+        let dividendPtr = getRegisteredPythonObjectPointer(dividend.id)!
+        let divisorPtr = getRegisteredPythonObjectPointer(divisor.id)!
+        
+        logger.trace("CPython API call in synchronous mode: PyNumber_TrueDivide")
+        guard let remainderPtr = api.PyNumber_Remainder(dividendPtr, divisorPtr) else {
+            throw PythonError.nullPointer("Python '%' failed")
+        }
+        
+        let remainderId = registerPythonObjectPointer(remainderPtr)
+        return SafePythonObject(interpreter: self, id: remainderId)
     }
     
     internal func syncSubtract(minuend: SafePythonObject, subtrahend: SafePythonObject) throws -> SafePythonObject {

@@ -5,6 +5,9 @@
 //  Created by Ben White on 3/2/26.
 //
 
+infix operator ** : MultiplicationPrecedence
+infix operator **= : AssignmentPrecedence
+
 public extension PythonInterpreter.SafePythonObject {
     
     //       if they are both unbound and if the internal types are able to be operated on,
@@ -34,6 +37,14 @@ public extension PythonInterpreter.SafePythonObject {
     static func / (dividend: PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         return PythonInterpreter.SafePythonObject.divideOperator(dividend:dividend, divisor:divisor)
     }
+
+    static func % (dividend: PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        return PythonInterpreter.SafePythonObject.modulusOperator(dividend:dividend, divisor:divisor)
+    }
+
+    static func ** (base: PythonInterpreter.SafePythonObject, exponent: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        return PythonInterpreter.SafePythonObject.exponentiationOperator(base:base, exponent:exponent)
+    }
     
     static func += (sumend: inout PythonInterpreter.SafePythonObject, addend: PythonInterpreter.SafePythonObject) {
         sumend = PythonInterpreter.SafePythonObject.addOperator(lhs:sumend, rhs:addend)
@@ -49,6 +60,26 @@ public extension PythonInterpreter.SafePythonObject {
     
     static func /= (quotientand: inout PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) {
         quotientand = PythonInterpreter.SafePythonObject.divideOperator(dividend:quotientand, divisor:divisor)
+    }
+
+    static func %= (quotientand: inout PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) {
+        if quotientand.isBoundToPythonInterpreter {
+            quotientand = quotientand.modulusInPlaceOperator(quotientand, divisor)
+        } else if divisor.isBoundToPythonInterpreter {
+            quotientand = divisor.modulusInPlaceOperator(quotientand, divisor)
+        } else {
+            quotientand = PythonInterpreter.SafePythonObject.modulusOperator(dividend:quotientand, divisor:divisor)
+        }
+    }
+
+    static func **= (base: inout PythonInterpreter.SafePythonObject, exponent: PythonInterpreter.SafePythonObject) {
+        if base.isBoundToPythonInterpreter {
+            base = base.exponentiationInPlaceOperator(base, exponent)
+        } else if exponent.isBoundToPythonInterpreter {
+            base = exponent.exponentiationInPlaceOperator(base, exponent)
+        } else {
+            base = PythonInterpreter.SafePythonObject.exponentiationOperator(base:base, exponent:exponent)
+        }
     }
     
     static func & (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
