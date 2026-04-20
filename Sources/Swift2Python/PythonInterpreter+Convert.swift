@@ -219,8 +219,12 @@ extension PythonInterpreter {
             uint64Value = try await convertToUInt64(obj)
         } catch let error as PythonError {
             switch error {
-            case .conversionType(let value, let sourceType, _, let underlying):
+            case .conversionType(let value, let sourceType, let targetType, let underlying):
+                logger.trace("Conversion type error.  Swapping target from \(targetType) to UInt8.")
                 throw PythonError.conversionType(value: value, sourceType: sourceType, targetType: "UInt8", underlying: underlying)
+            case .conversionOverflow(let value, let sourceType, let targetType):
+                logger.trace("Conversion overflow error.  Swapping target from \(targetType) to UInt8.")
+                throw PythonError.conversionOverflow(value: value, sourceType: sourceType, targetType: "UInt8")
             default: throw error
             }
         }
@@ -238,8 +242,12 @@ extension PythonInterpreter {
             uint64Value = try convertToUInt64(obj)
         } catch let error as PythonError {
             switch error {
-            case .conversionType(let value, let sourceType, _, let underlying):
+            case .conversionType(let value, let sourceType, let targetType, let underlying):
+                logger.trace("Conversion type error.  Swapping target from \(targetType) to UInt8.")
                 throw PythonError.conversionType(value: value, sourceType: sourceType, targetType: "UInt8", underlying: underlying)
+            case .conversionOverflow(let value, let sourceType, let targetType):
+                logger.trace("Conversion overflow error.  Swapping target from \(targetType) to UInt8.")
+                throw PythonError.conversionOverflow(value: value, sourceType: sourceType, targetType: "UInt8")
             default: throw error
             }
         }
@@ -251,38 +259,94 @@ extension PythonInterpreter {
     }
     
     public func convertToUInt16(_ obj: PythonObject) async throws -> UInt16 {
-        logger.trace("convertToUInt16: Convert PythonObject to UInt16.")
-        if let value = try await UInt16(exactly: convertToUInt64(obj)) {
-            return value
+        logger.trace("convertToUInt8: Convert PythonObject to UInt16.")
+        let uint64Value: UInt64
+        do {
+            uint64Value = try await convertToUInt64(obj)
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, let targetType, let underlying):
+                logger.trace("Conversion type error.  Swapping target from \(targetType) to UInt16.")
+                throw PythonError.conversionType(value: value, sourceType: sourceType, targetType: "UInt16", underlying: underlying)
+            case .conversionOverflow(let value, let sourceType, let targetType):
+                logger.trace("Conversion overflow error.  Swapping target from \(targetType) to UInt16.")
+                throw PythonError.conversionOverflow(value: value, sourceType: sourceType, targetType: "UInt16")
+            default: throw error
+            }
+        }
+        if let uint16Value = UInt16(exactly: uint64Value) {
+            return uint16Value
         } else {
-            fatalError("placeholder")
+            throw PythonError.conversionOverflow(value: String(uint64Value), sourceType: "PythonObject", targetType: "UInt16")
         }
     }
     
     public func convertToUInt16(_ obj: SafePythonObject) throws -> UInt16 {
-        logger.trace("convertToUInt16: Convert SafePythonObject to UInt16.")
-        if let value = try UInt16(exactly: convertToUInt64(obj)) {
-            return value
+        logger.trace("convertToUInt16: Convert PythonObject to UInt16.")
+        let uint64Value: UInt64
+        do {
+            uint64Value = try convertToUInt64(obj)
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, let targetType, let underlying):
+                logger.trace("Conversion type error.  Swapping target from \(targetType) to UInt16.")
+                throw PythonError.conversionType(value: value, sourceType: sourceType, targetType: "UInt16", underlying: underlying)
+            case .conversionOverflow(let value, let sourceType, let targetType):
+                logger.trace("Conversion overflow error.  Swapping target from \(targetType) to UInt16.")
+                throw PythonError.conversionOverflow(value: value, sourceType: sourceType, targetType: "UInt16")
+            default: throw error
+            }
+        }
+        if let uint16Value = UInt16(exactly: uint64Value) {
+            return uint16Value
         } else {
-            fatalError("placeholder")
+            throw PythonError.conversionOverflow(value: String(uint64Value), sourceType: "SafePythonObject", targetType: "UInt16")
         }
     }
     
     public func convertToUInt32(_ obj: PythonObject) async throws -> UInt32 {
         logger.trace("convertToUInt32: Convert PythonObject to UInt32.")
-        if let value = try await UInt32(exactly:convertToUInt64(obj)) {
-            return value
+        let uint64Value: UInt64
+        do {
+            uint64Value = try await convertToUInt64(obj)
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, let targetType, let underlying):
+                logger.trace("Conversion type error.  Swapping target from \(targetType) to UInt32.")
+                throw PythonError.conversionType(value: value, sourceType: sourceType, targetType: "UInt32", underlying: underlying)
+            case .conversionOverflow(let value, let sourceType, let targetType):
+                logger.trace("Conversion overflow error.  Swapping target from \(targetType) to UInt32.")
+                throw PythonError.conversionOverflow(value: value, sourceType: sourceType, targetType: "UInt32")
+            default: throw error
+            }
+        }
+        if let uint32Value = UInt32(exactly: uint64Value) {
+            return uint32Value
         } else {
-            fatalError("placeholder")
+            throw PythonError.conversionOverflow(value: String(uint64Value), sourceType: "PythonObject", targetType: "UInt32")
         }
     }
     
     public func convertToUInt32(_ obj: SafePythonObject) throws -> UInt32 {
         logger.trace("convertToUInt32: Convert SafePythonObject to UInt32.")
-        if let value = try UInt32(exactly:convertToUInt64(obj)) {
-            return value
+        let uint64Value: UInt64
+        do {
+            uint64Value = try convertToUInt64(obj)
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, let targetType, let underlying):
+                logger.trace("Conversion type error.  Swapping target from \(targetType) to UInt32.")
+                throw PythonError.conversionType(value: value, sourceType: sourceType, targetType: "UInt32", underlying: underlying)
+            case .conversionOverflow(let value, let sourceType, let targetType):
+                logger.trace("Conversion overflow error.  Swapping target from \(targetType) to UInt32.")
+                throw PythonError.conversionOverflow(value: value, sourceType: sourceType, targetType: "UInt32")
+            default: throw error
+            }
+        }
+        if let uint32Value = UInt32(exactly: uint64Value) {
+            return uint32Value
         } else {
-            fatalError("placeholder")
+            throw PythonError.conversionOverflow(value: String(uint64Value), sourceType: "SafePythonObject", targetType: "UInt32")
         }
     }
     
