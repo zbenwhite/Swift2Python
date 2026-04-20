@@ -31,7 +31,8 @@
 // TODO: SafePythonObject comparisons that throw -- they should also handle unbound
 // TODO: Combine Unbound and bound comparisons and operators
 // TODO: choose "Equal" or "Equals" for comparison function naming and only use one
-
+// TODO: Use the InPlace Python APIs for InPlace just in case the operators are overloaded in python.
+// TODO: bit shift operators?
 
 import Logging
 import Foundation
@@ -89,7 +90,7 @@ public actor PythonInterpreter {
     
     init() async throws {
         logger.trace("Preload all Python C API symbols.")
-        self.api = try await Self.loadAllSymbols(using: runtime)
+        self.api = try await Self.loadAllSymbols(using: runtime, logger)
     }
     
     internal var api: PreloadedPythonSymbols!  // Loaded in init
