@@ -352,6 +352,8 @@ extension PythonInterpreter {
     
     public func convertToUInt64(_ obj: PythonObject) async throws -> UInt64 {
         logger.trace("convertToUInt64: Convert PythonObject to UInt64.")
+        
+        // Check for negative number and throw conversion overflow error
         let isNegative: Bool
         do {
             isNegative = try await obj.lessThan(0)
@@ -372,8 +374,30 @@ extension PythonInterpreter {
             let objStr = try await String(obj)
             throw PythonError.conversionOverflow(value: objStr, sourceType: "PythonObject", targetType: "UInt64")
         }
-        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
         
+        // Check for huge number > 2^64 and throw conversion overflow error
+        let isHuge: Bool
+        do {
+            isHuge = try await obj.greaterThan(UInt64.max)
+        } catch let error as PythonError {
+            switch error {
+            case .pythonException:
+                let objStr = (try? await String(obj)) ?? "<unrepresentable>"
+                
+                throw PythonError.conversionType( value: objStr, sourceType: "PythonObject", targetType: "UInt64", underlying: error )
+            default:
+                throw error
+            }
+        } catch {
+            throw error
+        }
+        if isHuge {
+            logger.error("convertToUInt64: Called for HUGE number PythonObject > \(UInt64.max).")
+            let objStr = try await String(obj)
+            throw PythonError.conversionOverflow(value: objStr, sourceType: "PythonObject", targetType: "UInt64")
+        }
+        
+        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
         
         do {
             return try await withGIL {
@@ -422,6 +446,29 @@ extension PythonInterpreter {
             let objStr = try String(obj)
             throw PythonError.conversionOverflow(value: objStr, sourceType: "SafePythonObject", targetType: "UInt64")
         }
+        
+        // Check for huge number > 2^64 and throw conversion overflow error
+        let isHuge: Bool
+        do {
+            isHuge = try obj.greaterThan(UInt64.max)
+        } catch let error as PythonError {
+            switch error {
+            case .pythonException:
+                let objStr = (try? String(obj)) ?? "<unrepresentable>"
+                
+                throw PythonError.conversionType( value: objStr, sourceType: "PythonObject", targetType: "UInt64", underlying: error )
+            default:
+                throw error
+            }
+        } catch {
+            throw error
+        }
+        if isHuge {
+            logger.error("convertToUInt64: Called for HUGE number SafePythonObject > \(UInt64.max).")
+            let objStr = try String(obj)
+            throw PythonError.conversionOverflow(value: objStr, sourceType: "SafePythonObject", targetType: "UInt64")
+        }
+        
         let objPtr = getRegisteredPythonObjectPointer(obj.id)!
         let value = try api.pythonLong_AsUnsignedLongLong(objPtr)
         if value == UInt64.max {              // (unsigned long long)-1 on error
