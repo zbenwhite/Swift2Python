@@ -849,7 +849,7 @@ extension PythonInterpreter {
         }
         
         
-        // A less than that throws.  Operators cause fatalError()
+        // A less than or equal that throws.  Operators cause fatalError()
         // so use this whenever anything might go wrong.
         @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
         public func lessThanOrEquals(_ other: SafePythonConvertible) throws -> Bool {
@@ -857,6 +857,30 @@ extension PythonInterpreter {
             let lhs = self
             return try localInterpreter.assumeIsolated {
                 try $0.syncLessThanOrEqualComparable(lhs:lhs, rhs:other.toSafePythonObject(interpreter: $0))
+            }
+        }
+        
+        
+        // A greater than that throws.  Operators cause fatalError()
+        // so use this whenever anything might go wrong.
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        public func greaterThan(_ other: SafePythonConvertible) throws -> Bool {
+            let localInterpreter = interpreter
+            let lhs = self
+            return try localInterpreter.assumeIsolated {
+                try $0.syncGreaterThanComparable(lhs:lhs, rhs:other.toSafePythonObject(interpreter: $0))
+            }
+        }
+        
+        
+        // A greater than or equal that throws.  Operators cause fatalError()
+        // so use this whenever anything might go wrong.
+        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        public func greaterThanOrEquals(_ other: SafePythonConvertible) throws -> Bool {
+            let localInterpreter = interpreter
+            let lhs = self
+            return try localInterpreter.assumeIsolated {
+                try $0.syncGreaterThanOrEqualComparable(lhs:lhs, rhs:other.toSafePythonObject(interpreter: $0))
             }
         }
         

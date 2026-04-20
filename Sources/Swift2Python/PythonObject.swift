@@ -205,5 +205,37 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     public func greaterThanOrEqual(_ other: PendingPythonConvertible) async throws -> Bool {
         return try await interpreter.greaterThanOrEqual(lhs: self, rhs: other)
     }
+    
+    public func add(_ other: PendingPythonConvertible) async throws -> PythonObject {
+        return try await interpreter.add(lhs: self, rhs: other.toPythonObject(interpreter: interpreter))
+    }
+    
+    public func addInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
+        return try await interpreter.addInPlace(lhs: self, rhs: other.toPythonObject(interpreter: interpreter))
+    }
+    
+    public func subtract(_ other: PendingPythonConvertible) async throws -> PythonObject {
+        return try await interpreter.subtract(minuend: self, subtrahend: other.toPythonObject(interpreter: interpreter))
+    }
+    
+    public func subtractInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
+        return try await interpreter.subtractInPlace(minuend: self, subtrahend: other.toPythonObject(interpreter: interpreter))
+    }
+    
+//    public func multiply(_ other: PendingPythonConvertible) async throws -> PythonObject {
+//        return try await interpreter.multiply(lhs: self, rhs: other)
+//    }
+//    
+//    public func multiplyInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
+//        return try await interpreter.multiplyInPlace(lhs: self, rhs: other)
+//    }
+//    
+//    public func divide(_ other: PendingPythonConvertible) async throws -> PythonObject {
+//        return try await interpreter.divide(lhs: self, rhs: other)
+//    }
+//    
+//    public func divideInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
+//        return try await interpreter.divideInPlace(lhs: self, rhs: other)
+//    }
 }
 

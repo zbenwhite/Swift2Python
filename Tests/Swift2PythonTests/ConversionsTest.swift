@@ -1028,16 +1028,17 @@ struct ConversionsTests {
     @Test("UI64_005: PythonObject (async) → UInt64 throws on overflow")
     func asyncUInt64ConversionOverflow() async throws {
         
-        let tooBigForUInt64 = "18446744073709551616"
+        let tooBigForUInt64: UInt64 = 18446744073709551610
         
-        let pyObj = try await tooBigForUInt64.toPythonObject(interpreter: interpreter)
+        let pyObj_a = try await tooBigForUInt64.toPythonObject(interpreter: interpreter)
+        let pyObj = try await pyObj_a.add(77)
         let thrownError = await #expect(throws: PythonError.self) {
             _ = try await UInt64(pyObj) as UInt64
         }
         
         // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
-            #expect(value == String(tooBigForUInt64))
+            #expect(value == "18446744073709551687")
             #expect(sourceType.contains("PythonObject"))
             #expect(targetType == "UInt64")
         } else {
@@ -1069,17 +1070,18 @@ struct ConversionsTests {
     @Test("UI64_007: SafePythonObject (synchronous) → UInt64 throws on overflow")
     func safeUInt64ConversionOverflow() async throws {
         
-        let tooBigForUInt64 = "18446744073709551616"
+        let tooBigForUInt64: UInt64 = 18446744073709551610
         
         try await interpreter.withIsolatedContext { isolatedInterpreter in
-            let safePyObj = try tooBigForUInt64.toSafePythonObject(interpreter: isolatedInterpreter)
+            let safePyObj_a = try tooBigForUInt64.toSafePythonObject(interpreter: isolatedInterpreter)
+            let safePyObj = safePyObj_a + 77
             let thrownError = #expect(throws: PythonError.self) {
                 _ = try UInt64(safePyObj) as UInt64
             }
             
             // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
-                #expect(value == String(tooBigForUInt64))
+                #expect(value == "18446744073709551687")
                 #expect(sourceType.contains("SafePythonObject"))
                 #expect(targetType == "UInt64")
             } else {
@@ -1310,7 +1312,8 @@ struct ConversionsTests {
 // [2026-04-10] : UI16_004 : Test Convert SafePythonObject to UInt16 special value -1 equiv Self.max
 // [          ] : Test Convert SafePythonObject to UInt16 error handling when it's not a numeric value
 // [          ] : Test Convert SafePythonObject to UInt16 error handling on overflow
-// [          ] : Test Convert SafePythonObject to UInt16 negative number error handling
+// [          ] : UI16_008 : Test Convert SafePythonObject to UInt16 negative number error handling
+// [          ] : Test Convert SafePythonObject to UInt16 for unbound cases
 
 // [2026-04-10] : UI32_001 : Test Convert UInt32 to PythonObject
 // [2026-04-10] : UI32_002 : Test Convert UInt32 to PythonObject special value -1 equiv Self.max
@@ -1325,7 +1328,8 @@ struct ConversionsTests {
 // [2026-04-10] : UI32_004 : Test Convert SafePythonObject to UInt32 special value -1 equiv Self.max
 // [          ] : Test Convert SafePythonObject to UInt32 error handling when it's not a numeric value
 // [          ] : Test Convert SafePythonObject to UInt32 error handling on overflow
-// [          ] : Test Convert SafePythonObject to UInt32 negative number error handling
+// [          ] : UI32_008 : Test Convert SafePythonObject to UInt32 negative number error handling
+// [          ] : Test Convert SafePythonObject to UInt32 for unbound cases
 
 // [2026-04-10] : UI64_001 : Test Convert UInt64 to PythonObject
 // [2026-04-10] : UI64_002 : Test Convert UInt64 to PythonObject special value -1 equiv Self.max

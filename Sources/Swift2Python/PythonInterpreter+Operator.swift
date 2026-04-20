@@ -8,8 +8,7 @@
 
 extension PythonInterpreter {
     
-    // MARK: Operator support (synchronous mode)
-    // Operators for synchronous mode ----------
+    // MARK: Addition
     
     internal func syncAdd(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
         let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
@@ -23,6 +22,157 @@ extension PythonInterpreter {
         let sumId = registerPythonObjectPointer(sumPtr)
         return SafePythonObject(interpreter: self, id: sumId)
     }
+    
+    internal func add(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_Add")
+        return try withGIL {
+            guard let sumPtr = api.PyNumber_Add(lhsPtr, rhsPtr) else {
+                throw PythonError.nullPointer("Python '+' failed")
+            }
+            
+            let sumId = registerPythonObjectPointer(sumPtr)
+            return PythonObject(id: sumId, interpreter: self)
+        }
+    }
+    
+    internal func syncInPlaceAdd(sumend: SafePythonObject, addend: SafePythonObject) throws -> SafePythonObject {
+        let sumendPtr = getRegisteredPythonObjectPointer(sumend.id)!
+        let addendPtr = getRegisteredPythonObjectPointer(addend.id)!
+        
+        logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceAdd")
+        guard let sumPtr = api.PyNumber_InPlaceAdd(sumendPtr, addendPtr) else {
+            throw PythonError.nullPointer("Python '+=' failed")
+        }
+        
+        let sumId = registerPythonObjectPointer(sumPtr)
+        return SafePythonObject(interpreter: self, id: sumId)
+    }
+    
+    internal func addInPlace(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_InPlaceAdd")
+        return try withGIL {
+            guard let sumPtr = api.PyNumber_InPlaceAdd(lhsPtr, rhsPtr) else {
+                throw PythonError.nullPointer("Python '+=' failed")
+            }
+            
+            let sumId = registerPythonObjectPointer(sumPtr)
+            return PythonObject(id: sumId, interpreter: self)
+        }
+    }
+    
+    // MARK: Subtraction
+    
+    internal func syncSubtract(minuend: SafePythonObject, subtrahend: SafePythonObject) throws -> SafePythonObject {
+        let minuendPtr = getRegisteredPythonObjectPointer(minuend.id)!
+        let subtrahendPtr = getRegisteredPythonObjectPointer(subtrahend.id)!
+        
+        logger.trace("CPython API call in synchronous mode: PyNumber_Subtract")
+        guard let differencePtr = api.PyNumber_Subtract(minuendPtr, subtrahendPtr) else {
+            throw PythonError.nullPointer("Python '-' failed")
+        }
+        
+        let differenceId = registerPythonObjectPointer(differencePtr)
+        return SafePythonObject(interpreter: self, id: differenceId)
+    }
+    
+    internal func subtract(minuend: PythonObject, subtrahend: PythonObject) async throws -> PythonObject {
+        let minuendPtr = getRegisteredPythonObjectPointer(minuend.id)!
+        let subtrahendPtr = getRegisteredPythonObjectPointer(subtrahend.id)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_Subtract")
+        return try withGIL {
+            guard let differencePtr = api.PyNumber_Subtract(minuendPtr, subtrahendPtr) else {
+                throw PythonError.nullPointer("Python '-' failed")
+            }
+            
+            let differenceId = registerPythonObjectPointer(differencePtr)
+            return PythonObject(id: differenceId, interpreter: self)
+        }
+    }
+    
+    internal func syncInPlaceSubtract(diffend: SafePythonObject, subtrahend: SafePythonObject) throws -> SafePythonObject {
+        let diffendPtr = getRegisteredPythonObjectPointer(diffend.id)!
+        let subtrahendPtr = getRegisteredPythonObjectPointer(subtrahend.id)!
+        
+        logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceSubtract")
+        guard let differencePtr = api.PyNumber_InPlaceSubtract(diffendPtr, subtrahendPtr) else {
+            throw PythonError.nullPointer("Python '-=' failed")
+        }
+        
+        let differenceId = registerPythonObjectPointer(differencePtr)
+        return SafePythonObject(interpreter: self, id: differenceId)
+    }
+    
+    internal func subtractInPlace(minuend: PythonObject, subtrahend: PythonObject) async throws -> PythonObject {
+        let minuendPtr = getRegisteredPythonObjectPointer(minuend.id)!
+        let subtrahendPtr = getRegisteredPythonObjectPointer(subtrahend.id)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_InPlaceAddSubtract")
+        return try withGIL {
+            guard let differencePtr = api.PyNumber_InPlaceAdd(minuendPtr, subtrahendPtr) else {
+                throw PythonError.nullPointer("Python '-=' failed")
+            }
+            
+            let differenceId = registerPythonObjectPointer(differencePtr)
+            return PythonObject(id: differenceId, interpreter: self)
+        }
+    }
+    
+    // MARK: Multiplication
+    
+    internal func syncMultiply(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
+        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
+        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
+        
+        logger.trace("CPython API call in synchronous mode: PyNumber_Multiply")
+        guard let productPtr = api.PyNumber_Multiply(lhsPtr, rhsPtr) else {
+            throw PythonError.nullPointer("Python '*' failed")
+        }
+        
+        let productId = registerPythonObjectPointer(productPtr)
+        return SafePythonObject(interpreter: self, id: productId)
+    }
+    
+    internal func syncInPlaceMultiply(productand: SafePythonObject, multiplicand: SafePythonObject) throws -> SafePythonObject {
+        let productandPtr = getRegisteredPythonObjectPointer(productand.id)!
+        let multiplicandPtr = getRegisteredPythonObjectPointer(multiplicand.id)!
+        
+        logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceMultiply")
+        guard let productPtr = api.PyNumber_InPlaceMultiply(productandPtr, multiplicandPtr) else {
+            throw PythonError.nullPointer("Python '*=' failed")
+        }
+        
+        let productId = registerPythonObjectPointer(productPtr)
+        return SafePythonObject(interpreter: self, id: productId)
+    }
+    
+    
+    // MARK: Division
+    
+    
+    
+    
+    // MARK: Modulus
+    
+    
+    
+    
+    
+    // MARK: Exponentiation
+    
+    
+    
+    
+    
+    
+    
+    // MARK: Bitwise AND
     
     internal func syncBitwiseAnd(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
         let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
@@ -166,19 +316,6 @@ extension PythonInterpreter {
         }
     }
     
-    internal func syncInPlaceAdd(sumend: SafePythonObject, addend: SafePythonObject) throws -> SafePythonObject {
-        let sumendPtr = getRegisteredPythonObjectPointer(sumend.id)!
-        let addendPtr = getRegisteredPythonObjectPointer(addend.id)!
-        
-        logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceAdd")
-        guard let sumPtr = api.PyNumber_InPlaceAdd(sumendPtr, addendPtr) else {
-            throw PythonError.nullPointer("Python '+=' failed")
-        }
-        
-        let sumId = registerPythonObjectPointer(sumPtr)
-        return SafePythonObject(interpreter: self, id: sumId)
-    }
-    
     internal func syncInPlaceBitwiseAnd(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
         let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
         let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
@@ -231,19 +368,6 @@ extension PythonInterpreter {
         return SafePythonObject(interpreter: self, id: quotientId)
     }
     
-    internal func syncInPlaceMultiply(productand: SafePythonObject, multiplicand: SafePythonObject) throws -> SafePythonObject {
-        let productandPtr = getRegisteredPythonObjectPointer(productand.id)!
-        let multiplicandPtr = getRegisteredPythonObjectPointer(multiplicand.id)!
-        
-        logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceMultiply")
-        guard let productPtr = api.PyNumber_InPlaceMultiply(productandPtr, multiplicandPtr) else {
-            throw PythonError.nullPointer("Python '*=' failed")
-        }
-        
-        let productId = registerPythonObjectPointer(productPtr)
-        return SafePythonObject(interpreter: self, id: productId)
-    }
-    
     internal func syncInPlacePower(lhs: SafePythonObject, exponent: SafePythonObject) throws -> SafePythonObject {
         let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
         let exponentPtr = getRegisteredPythonObjectPointer(exponent.id)!
@@ -268,19 +392,6 @@ extension PythonInterpreter {
         
         let reminderId = registerPythonObjectPointer(remainderPtr)
         return SafePythonObject(interpreter: self, id: reminderId)
-    }
-    
-    internal func syncInPlaceSubtract(diffend: SafePythonObject, subtrahend: SafePythonObject) throws -> SafePythonObject {
-        let diffendPtr = getRegisteredPythonObjectPointer(diffend.id)!
-        let subtrahendPtr = getRegisteredPythonObjectPointer(subtrahend.id)!
-        
-        logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceSubtract")
-        guard let differencePtr = api.PyNumber_InPlaceSubtract(diffendPtr, subtrahendPtr) else {
-            throw PythonError.nullPointer("Python '-=' failed")
-        }
-        
-        let differenceId = registerPythonObjectPointer(differencePtr)
-        return SafePythonObject(interpreter: self, id: differenceId)
     }
     
     internal func syncLessThan(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
@@ -335,19 +446,6 @@ extension PythonInterpreter {
         }
     }
     
-    internal func syncMultiply(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
-        let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
-        let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
-        
-        logger.trace("CPython API call in synchronous mode: PyNumber_Multiply")
-        guard let productPtr = api.PyNumber_Multiply(lhsPtr, rhsPtr) else {
-            throw PythonError.nullPointer("Python '*' failed")
-        }
-        
-        let productId = registerPythonObjectPointer(productPtr)
-        return SafePythonObject(interpreter: self, id: productId)
-    }
-    
     internal func syncNotEquals(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
         let lhsPtr = getRegisteredPythonObjectPointer(lhs.id)!
         let rhsPtr = getRegisteredPythonObjectPointer(rhs.id)!
@@ -398,19 +496,6 @@ extension PythonInterpreter {
         
         let remainderId = registerPythonObjectPointer(remainderPtr)
         return SafePythonObject(interpreter: self, id: remainderId)
-    }
-    
-    internal func syncSubtract(minuend: SafePythonObject, subtrahend: SafePythonObject) throws -> SafePythonObject {
-        let minuendPtr = getRegisteredPythonObjectPointer(minuend.id)!
-        let subtrahendPtr = getRegisteredPythonObjectPointer(subtrahend.id)!
-        
-        logger.trace("CPython API call in synchronous mode: PyNumber_Subtract")
-        guard let differencePtr = api.PyNumber_Subtract(minuendPtr, subtrahendPtr) else {
-            throw PythonError.nullPointer("Python '-' failed")
-        }
-        
-        let differenceId = registerPythonObjectPointer(differencePtr)
-        return SafePythonObject(interpreter: self, id: differenceId)
     }
     
     
