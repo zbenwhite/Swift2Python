@@ -1303,48 +1303,49 @@ struct ConversionsTests {
 // [2026-04-10] : UI16_002 : Test Convert UInt16 to PythonObject special value -1 equiv Self.max
 // [2026-04-10] : UI16_001 : Test Convert PythonObject to UInt16
 // [2026-04-10] : UI16_002 : Test Convert PythonObject to UInt16 special value -1 equiv Self.max
-// [          ] : Test Convert PythonObject to UInt16 error handling when it's not a numeric value
-// [          ] : Test Convert PythonObject to UInt16 error handling on overflow
-// [          ] : Test Convert PythonObject to UInt16 negative number error handling
+// [2026-04-19] : UI16_009 : Test Convert PythonObject to UInt16 error handling when it's not a numeric value
+// [2026-04-19] : UI16_005 : Test Convert PythonObject to UInt16 error handling on overflow
+// [2026-04-19] : UI16_006 : Test Convert PythonObject to UInt16 negative number error handling
 // [2026-04-10] : UI16_003 : Test Convert UInt16 to SafePythonObject
 // [2026-04-10] : UI16_004 : Test Convert UInt16 to SafePythonObject special value -1 equiv Self.max
 // [2026-04-10] : UI16_003 : Test Convert SafePythonObject to UInt16
 // [2026-04-10] : UI16_004 : Test Convert SafePythonObject to UInt16 special value -1 equiv Self.max
-// [          ] : Test Convert SafePythonObject to UInt16 error handling when it's not a numeric value
-// [          ] : Test Convert SafePythonObject to UInt16 error handling on overflow
-// [          ] : UI16_008 : Test Convert SafePythonObject to UInt16 negative number error handling
+// [2026-04-19] : UI16_010 : Test Convert SafePythonObject to UInt16 error handling when it's not a numeric value
+// [2026-04-19] : UI16_007 : Test Convert SafePythonObject to UInt16 error handling on overflow
+// [2026-04-19] : UI16_008 : Test Convert SafePythonObject to UInt16 negative number error handling
 // [          ] : Test Convert SafePythonObject to UInt16 for unbound cases
 
 // [2026-04-10] : UI32_001 : Test Convert UInt32 to PythonObject
 // [2026-04-10] : UI32_002 : Test Convert UInt32 to PythonObject special value -1 equiv Self.max
 // [2026-04-10] : UI32_001 : Test Convert PythonObject to UInt32
 // [2026-04-10] : UI32_002 : Test Convert PythonObject to UInt32 special value -1 equiv Self.max
-// [          ] : Test Convert PythonObject to UInt32 error handling when it's not a numeric value
-// [          ] : Test Convert PythonObject to UInt32 error handling on overflow
-// [          ] : Test Convert PythonObject to UInt32negative number error handling
+// [2026-04-19] : UI32_009 : Test Convert PythonObject to UInt32 error handling when it's not a numeric value
+// [2026-04-19] : UI32_005 : Test Convert PythonObject to UInt32 error handling on overflow
+// [2026-04-19] : UI32_006 : Test Convert PythonObject to UInt32negative number error handling
 // [2026-04-10] : UI32_003 : Test Convert UInt32 to SafePythonObject
 // [2026-04-10] : UI32_004 : Test Convert UInt32 to SafePythonObject special value -1 equiv Self.max
 // [2026-04-10] : UI32_003 : Test Convert SafePythonObject to UInt32
 // [2026-04-10] : UI32_004 : Test Convert SafePythonObject to UInt32 special value -1 equiv Self.max
-// [          ] : Test Convert SafePythonObject to UInt32 error handling when it's not a numeric value
-// [          ] : Test Convert SafePythonObject to UInt32 error handling on overflow
-// [          ] : UI32_008 : Test Convert SafePythonObject to UInt32 negative number error handling
+// [2026-04-19] : UI32_010 : Test Convert SafePythonObject to UInt32 error handling when it's not a numeric value
+// [2026-04-19] : UI32_007 : Test Convert SafePythonObject to UInt32 error handling on overflow
+// [2026-04-19] : UI32_008 : Test Convert SafePythonObject to UInt32 negative number error handling
 // [          ] : Test Convert SafePythonObject to UInt32 for unbound cases
 
 // [2026-04-10] : UI64_001 : Test Convert UInt64 to PythonObject
 // [2026-04-10] : UI64_002 : Test Convert UInt64 to PythonObject special value -1 equiv Self.max
 // [2026-04-10] : UI64_001 : Test Convert PythonObject to UInt64
 // [2026-04-10] : UI64_002 : Test Convert PythonObject to UInt64 special value -1 equiv Self.max
-// [          ] : Test Convert PythonObject to UInt64 error handling when it's not a numeric value
-// [          ] : Test Convert PythonObject to UInt64 error handling on overflow
-// [          ] : Test Convert PythonObject to UInt64 negative number error handling
+// [2026-04-19] : UI64_009 : Test Convert PythonObject to UInt64 error handling when it's not a numeric value
+// [2026-04-19] : UI64_005 : Test Convert PythonObject to UInt64 error handling on overflow
+// [2026-04-19] : UI64_006 : Test Convert PythonObject to UInt64 negative number error handling
 // [2026-04-10] : UI64_003 : Test Convert UInt64 to SafePythonObject
 // [2026-04-10] : UI64_004 : Test Convert UInt64 to SafePythonObject special value -1 equiv Self.max
 // [2026-04-10] : UI64_003 : Test Convert SafePythonObject to UInt64
 // [2026-04-10] : UI64_004 : Test Convert SafePythonObject to UInt64 special value -1 equiv Self.max
-// [          ] : Test Convert SafePythonObject to UInt64 error handling when it's not a numeric value
-// [          ] : Test Convert SafePythonObject to UInt64 error handling on overflow
-// [          ] : Test Convert SafePythonObject to UInt64 negative number error handling
+// [2026-04-19] : UI64_010 : Test Convert SafePythonObject to UInt64 error handling when it's not a numeric value
+// [2026-04-19] : UI64_007 : Test Convert SafePythonObject to UInt64 error handling on overflow
+// [2026-04-19] : UI64_008 : Test Convert SafePythonObject to UInt64 negative number error handling
+// [          ] : Test Convert SafePythonObject to UInt64 for unbound cases
 
 // Strings
 
