@@ -37,7 +37,7 @@ struct ConversionsTests {
         self.interpreter = try await Self.sharedInterpreterTask.value
     }
     
-    // MARK: FD_xxx Floating Point Double Conversion Tests
+    // MARK: FD_xxx Floating Point Double
     
     @Test("FD_001: Double → PythonObject (async)")
     func asyncDoubleConversion() async throws {
@@ -84,7 +84,7 @@ struct ConversionsTests {
         }
     }
     
-    // MARK: FF_xxx Floating Point Float Conversion Tests
+    // MARK: FF_xxx Floating Point Float
     
     @Test("FF_001: Float → PythonObject (async)")
     func asyncFloatConversion() async throws {
@@ -130,7 +130,7 @@ struct ConversionsTests {
         }
     }
     
-    // MARK: F16_xxx Floating Point Float16 Conversion Tests
+    // MARK: F16_xxx Floating Point Float16
     
     @Test("F16_001: Float16 → PythonObject (async)")
     func asyncFloat16Conversion() async throws {
@@ -176,7 +176,7 @@ struct ConversionsTests {
         }
     }
     
-    // MARK: I_xxx Simple Int Conversion Tests
+    // MARK: I_xxx Simple Int
     
     @Test("I_001: Int → PythonObject (async)")
     func asyncIntConversion() async throws {
@@ -222,7 +222,7 @@ struct ConversionsTests {
         }
     }
     
-    // MARK: I8_xxx Int8 Conversion Tests
+    // MARK: I8_xxx Int8
     
     @Test("I8_001: Int8 → PythonObject (async)")
     func asyncInt8Conversion() async throws {
@@ -268,7 +268,7 @@ struct ConversionsTests {
         }
     }
     
-    // MARK: I16_xxx Int16 Conversion Tests
+    // MARK: I16_xxx Int16
     
     @Test("I16_001: Int16 → PythonObject (async)")
     func asyncInt16Conversion() async throws {
@@ -314,7 +314,7 @@ struct ConversionsTests {
         }
     }
     
-    // MARK: I32_xxx Int32 Conversion Tests
+    // MARK: I32_xxx Int32
     
     @Test("I32_001: Int32 → PythonObject (async)")
     func asyncInt32Conversion() async throws {
@@ -360,7 +360,7 @@ struct ConversionsTests {
         }
     }
     
-    // MARK: I64_xxx Int64 Conversion Tests
+    // MARK: I64_xxx Int64
     
     @Test("I64_001: Int64 → PythonObject (async)")
     func asyncInt64Conversion() async throws {
@@ -406,7 +406,7 @@ struct ConversionsTests {
         }
     }
     
-    // MARK: UI_xxx Simple UInt Conversion Tests
+    // MARK: UI_xxx Simple UInt
     
     @Test("UI_001: UInt → PythonObject (async)")
     func asyncUIntConversion() async throws {
@@ -452,7 +452,137 @@ struct ConversionsTests {
         }
     }
     
-    // MARK: UI8_xxx UInt8 Conversion Tests
+    @Test("UI_005: PythonObject (async) → UInt throws on overflow")
+    func asyncUIntConversionOverflow() async throws {
+        
+        let tooBigForUInt64: UInt64 = 18446744073709551610
+        
+        let pyObj_a = try await tooBigForUInt64.toPythonObject(interpreter: interpreter)
+        let pyObj = try await pyObj_a.add(77)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await UInt(pyObj) as UInt
+        }
+        
+        // Inspect the exact error (very useful for regression safety)
+        if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+            #expect(value == "18446744073709551687")
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "UInt")
+        } else {
+            Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+        }
+    }
+    
+    @Test("UI_006: PythonObject (async) → UInt throws on negative value")
+    func asyncUIntConversionNegative() async throws {
+        
+        let regular_UInt: UInt = 40
+        let negative: Int = Int(regular_UInt) - Int(regular_UInt) - 7
+        
+        let pyObj = try await negative.toPythonObject(interpreter: interpreter)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await UInt(pyObj) as UInt
+        }
+        
+        // Inspect the exact error (very useful for regression safety)
+        if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+            #expect(value == String(negative))
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "UInt")
+        } else {
+            Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+        }
+    }
+    
+    @Test("UI_007: SafePythonObject (synchronous) → UInt throws on overflow")
+    func safeUIntConversionOverflow() async throws {
+        
+        let tooBigForUInt64: UInt64 = 18446744073709551610
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let safePyObj_a = try tooBigForUInt64.toSafePythonObject(interpreter: isolatedInterpreter)
+            let safePyObj = safePyObj_a + 77
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try UInt(safePyObj) as UInt
+            }
+            
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+                #expect(value == "18446744073709551687")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("UI_008: SafePythonObject (synchronous) → UInt throws on negative value")
+    func safeUIntConversionNegative() async throws {
+        
+        let regular_UInt: UInt = 40
+        let negative: Int = Int(regular_UInt) - Int(regular_UInt) - 7
+        
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let safePyObj = try negative.toSafePythonObject(interpreter: isolatedInterpreter)
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try UInt(safePyObj) as UInt
+            }
+            
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+                #expect(value == String(negative))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("UI_009: PythonObject (async) → UInt throws on wrong type")
+    func asyncUIntConversionWrongType() async throws {
+        
+        let s = "not an integer"
+        
+        let pyObj = try await s.toPythonObject(interpreter: interpreter)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await UInt(pyObj) as UInt
+        }
+        
+        // Inspect the exact error (very useful for regression safety)
+        if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+            #expect(value == String(s))
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "UInt")
+        } else {
+            Issue.record("Expected .conversionType, but got \(thrownError)")
+        }
+    }
+    
+    @Test("UI_010: SafePythonObject (synchronous) → UInt throws wrong type")
+    func safeUIntConversionWrongType() async throws {
+        
+        let s = "not an integer"
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let safePyObj = try s.toSafePythonObject(interpreter: isolatedInterpreter)
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try UInt(safePyObj) as UInt
+            }
+            
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == String(s))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+        }
+    }
+    
+    // MARK: UI8_xxx UInt8
     
     @Test("UI8_001: UInt8 → PythonObject (async)")
     func asyncUInt8Conversion() async throws {
@@ -629,7 +759,7 @@ struct ConversionsTests {
         }
     }
     
-    // MARK: UI16_xxx UInt16 Conversion Tests
+    // MARK: UI16_xxx UInt16
     
     @Test("UI16_001: UInt16 → PythonObject (async)")
     func asyncUInt16Conversion() async throws {
@@ -804,7 +934,7 @@ struct ConversionsTests {
         }
     }
     
-    // MARK: UI32_xxx UInt32 Conversion Tests
+    // MARK: UI32_xxx UInt32
     
     @Test("UI32_001: UInt32 → PythonObject (async)")
     func asyncUInt32Conversion() async throws {
@@ -979,7 +1109,7 @@ struct ConversionsTests {
         }
     }
     
-    // MARK: UI64_xxx UInt64 Conversion Tests
+    // MARK: UI64_xxx UInt64
     
     @Test("UI64_001: UInt64 → PythonObject (async)")
     func asyncUInt64Conversion() async throws {
@@ -1270,17 +1400,17 @@ struct ConversionsTests {
 // [2026-04-10] : UI_002 : Test Convert UInt to PythonObject special value -1 equiv Self.max
 // [2026-04-10] : UI_001 : Test Convert PythonObject to UInt
 // [2026-04-10] : UI_002 : Test Convert PythonObject to UInt special value -1 equiv Self.max
-// [          ] : Test Convert PythonObject to UInt error handling when it's not a numeric value
-// [          ] : Test Convert PythonObject to UInt error handling when it's a huge number that won't fit in an UInt
-// [          ] : Test Convert PythonObject to UInt negative number error handling
+// [2026-04-20] : UI_009 : Test Convert PythonObject to UInt error handling when it's not a numeric value
+// [2026-04-20] : UI_005 : Test Convert PythonObject to UInt error handling on overflow
+// [2026-04-20] : UI_006 : Test Convert PythonObject to UInt negative number error handling
 // [2026-04-10] : UI_003 : Test Convert UInt to SafePythonObject
 // [2026-04-10] : UI_004 : Test Convert UInt to SafePythonObject special value -1 equiv Self.max
-// [          ] : Test Convert UInt to SafePythonObject negative number error handling
 // [2026-04-10] : UI_003 : Test Convert SafePythonObject to UInt
-// [2026-04-10] : UI_004 : Test Convert SafePythonObject to UInt special value
-// [          ] : Test Convert SafePythonObject to UInt error handling when it's not a numeric value
-// [          ] : Test Convert SafePythonObject to UInt error handling when it's a huge number that won't fit in an UInt
-// [          ] : Test Convert SafePythonObject to UInt negative number error handling
+// [2026-04-10] : UI_004 : Test Convert SafePythonObject to UInt special value -1 equiv Self.max
+// [2026-04-20] : UI_010 : Test Convert SafePythonObject to UInt error handling when it's not a numeric value
+// [2026-04-20] : UI_007 : Test Convert SafePythonObject to UInt error handling on overflow
+// [2026-04-20] : UI_008 : Test Convert SafePythonObject to UInt negative number error handling
+// [          ] : Test Convert SafePythonObject to UInt for unbound cases
 
 // [2026-04-10] : UI8_001 : Test Convert UInt8 to PythonObject
 // [2026-04-10] : UI8_002 : Test Convert UInt8 to PythonObject special value -1 equiv Self.max

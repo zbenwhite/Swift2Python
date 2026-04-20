@@ -68,6 +68,8 @@ extension PythonInterpreter {
         return Double(exactly: value)!
     }
     
+    // MARK: Int Conversions
+    
     public func convertToPython(int val: Int64) async throws -> PythonObject {
         logger.trace("convertToPython: Convert Int64 to PythonObject.")
         return try withGIL {
@@ -78,6 +80,20 @@ extension PythonInterpreter {
             let id = registerPythonObjectPointer(ptr)
             return PythonObject(id: id, interpreter: self)
         }
+    }
+    
+    internal func convertToSafePython(int val: Int64) throws -> SafePythonObject {
+        let id = try convertToSafePythonID(int: val)
+        return SafePythonObject(interpreter: self, id: id)
+    }
+    
+    internal func convertToSafePythonID(int val: Int64) throws -> PythonObjectUniqueID {
+        guard let ptr = api.pythonLong_FromLongLong(val) else {
+            throw PythonError.nullPointer("Failed to convert int: \(val)")
+        }
+        
+        let id = registerPythonObjectPointer(ptr)
+        return id
     }
     
     public func convertToInt(_ obj: PythonObject) async throws -> Int {
@@ -183,6 +199,8 @@ extension PythonInterpreter {
         return value
     }
     
+    // MARK: UInt Conversions
+    
     public func convertToPython(uint val: UInt64) async throws -> PythonObject {
         return try withGIL {
             guard let ptr = try api.pythonLong_FromUnsignedLongLong(UInt64(val)) else {
@@ -194,23 +212,68 @@ extension PythonInterpreter {
         }
     }
     
+    internal func convertToSafePython(uint val: UInt64) throws -> SafePythonObject {
+        let id = try convertToSafePythonID(uint: val)
+        return SafePythonObject(interpreter: self, id: id)
+    }
+    
+    internal func convertToSafePythonID(uint val: UInt64) throws -> PythonObjectUniqueID {
+        guard let ptr = try api.pythonLong_FromUnsignedLongLong(val) else {
+            throw PythonError.nullPointer("Failed to convert int: \(val)")
+        }
+        
+        let id = registerPythonObjectPointer(ptr)
+        return id
+    }
+    
     public func convertToUInt(_ obj: PythonObject) async throws -> UInt {
         logger.trace("convertToUInt: Convert PythonObject to UInt.")
-        if let value = try await UInt(exactly: convertToUInt64(obj)) {
-            return value
+        
+        let uint64Value: UInt64
+        do {
+            uint64Value = try await convertToUInt64(obj)
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, let targetType, let underlying):
+                logger.trace("Conversion type error.  Swapping target from \(targetType) to UInt.")
+                throw PythonError.conversionType(value: value, sourceType: sourceType, targetType: "UInt", underlying: underlying)
+            case .conversionOverflow(let value, let sourceType, let targetType):
+                logger.trace("Conversion overflow error.  Swapping target from \(targetType) to UInt.")
+                throw PythonError.conversionOverflow(value: value, sourceType: sourceType, targetType: "UInt")
+            default: throw error
+            }
+        }
+        if let uintValue = UInt(exactly: uint64Value) {
+            return uintValue
         } else {
-            fatalError("placeholder")
+            throw PythonError.conversionOverflow(value: String(uint64Value), sourceType: "PythonObject", targetType: "UInt8")
         }
     }
     
     public func convertToUInt(_ obj: SafePythonObject) throws -> UInt {
         logger.trace("convertToUInt: Convert SafePythonObject to UInt.")
-        if let value = try UInt(exactly: convertToUInt64(obj)) {
-            return value
+        let uint64Value: UInt64
+        do {
+            uint64Value = try convertToUInt64(obj)
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, let targetType, let underlying):
+                logger.trace("Conversion type error.  Swapping target from \(targetType) to UInt.")
+                throw PythonError.conversionType(value: value, sourceType: sourceType, targetType: "UInt", underlying: underlying)
+            case .conversionOverflow(let value, let sourceType, let targetType):
+                logger.trace("Conversion overflow error.  Swapping target from \(targetType) to UInt.")
+                throw PythonError.conversionOverflow(value: value, sourceType: sourceType, targetType: "UInt")
+            default: throw error
+            }
+        }
+        if let uintValue = UInt(exactly: uint64Value) {
+            return uintValue
         } else {
-            fatalError("placeholder")
+            throw PythonError.conversionOverflow(value: String(uint64Value), sourceType: "SafePythonObject", targetType: "UInt")
         }
     }
+    
+    // MARK: UInt8
     
     public func convertToUInt8(_ obj: PythonObject) async throws -> UInt8 {
         logger.trace("convertToUInt8: Convert PythonObject to UInt8.")
@@ -258,6 +321,8 @@ extension PythonInterpreter {
         }
     }
     
+    // MARK: UInt16
+    
     public func convertToUInt16(_ obj: PythonObject) async throws -> UInt16 {
         logger.trace("convertToUInt8: Convert PythonObject to UInt16.")
         let uint64Value: UInt64
@@ -304,6 +369,8 @@ extension PythonInterpreter {
         }
     }
     
+    // MARK: UInt32
+    
     public func convertToUInt32(_ obj: PythonObject) async throws -> UInt32 {
         logger.trace("convertToUInt32: Convert PythonObject to UInt32.")
         let uint64Value: UInt64
@@ -349,6 +416,8 @@ extension PythonInterpreter {
             throw PythonError.conversionOverflow(value: String(uint64Value), sourceType: "SafePythonObject", targetType: "UInt32")
         }
     }
+    
+    // MARK: UInt64
     
     public func convertToUInt64(_ obj: PythonObject) async throws -> UInt64 {
         logger.trace("convertToUInt64: Convert PythonObject to UInt64.")
@@ -492,6 +561,7 @@ extension PythonInterpreter {
         return value
     }
     
+    // MARK: String Conversions
     
     public func convertToPython(string: String) async throws -> PythonObject {
         return try withGIL {
@@ -579,9 +649,6 @@ extension PythonInterpreter {
     }
     
     
-    
-    
-    
     // MARK: Conversions from primitives (synchronous mode)
     // Primitive type conversions in synchronous mode ----------
     
@@ -611,34 +678,6 @@ extension PythonInterpreter {
         }
         
         // Register the pointer in our actor's internal hashtable
-        let id = registerPythonObjectPointer(ptr)
-        return id
-    }
-    
-    internal func convertToSafePython(int val: Int64) throws -> SafePythonObject {
-        let id = try convertToSafePythonID(int: val)
-        return SafePythonObject(interpreter: self, id: id)
-    }
-    
-    internal func convertToSafePythonID(int val: Int64) throws -> PythonObjectUniqueID {
-        guard let ptr = api.pythonLong_FromLongLong(val) else {
-            throw PythonError.nullPointer("Failed to convert int: \(val)")
-        }
-        
-        let id = registerPythonObjectPointer(ptr)
-        return id
-    }
-    
-    internal func convertToSafePython(uint val: UInt64) throws -> SafePythonObject {
-        let id = try convertToSafePythonID(uint: val)
-        return SafePythonObject(interpreter: self, id: id)
-    }
-    
-    internal func convertToSafePythonID(uint val: UInt64) throws -> PythonObjectUniqueID {
-        guard let ptr = try api.pythonLong_FromUnsignedLongLong(val) else {
-            throw PythonError.nullPointer("Failed to convert int: \(val)")
-        }
-        
         let id = registerPythonObjectPointer(ptr)
         return id
     }
