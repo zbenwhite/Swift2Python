@@ -222,6 +222,132 @@ struct ConversionsTests {
         }
     }
     
+    @Test("I_005: PythonObject (async) → Int throws on overflow")
+    func asyncIntConversionOverflow() async throws {
+        
+        let tooBigForInt64: UInt64 = UInt64(Int64.max) + 25
+        
+        let pyObj = try await tooBigForInt64.toPythonObject(interpreter: interpreter)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await Int(pyObj) as Int
+        }
+        
+        // Inspect the exact error (very useful for regression safety)
+        if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+            #expect(value == String(tooBigForInt64))
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Int")
+        } else {
+            Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+        }
+    }
+    
+    @Test("I_006: PythonObject (async) → Int throws on underflow")
+    func asyncIntConversionUnderflow() async throws {
+        
+        let smallInt64 = Int64.min + 5
+        let pyObj_a = try await smallInt64.toPythonObject(interpreter: interpreter)
+        let pyObj = try await pyObj_a.subtract(25)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await Int(pyObj) as Int
+        }
+        
+        // Inspect the exact error (very useful for regression safety)
+        if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+            #expect(value == "-9223372036854775828")
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Int")
+        } else {
+            Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+        }
+    }
+    
+    @Test("I_007: SafePythonObject (synchronous) → Int throws on overflow")
+    func safeIntConversionOverflow() async throws {
+        let tooBigForInt64: UInt64 = UInt64(Int64.max) + 25  // use UInt64 for big number
+        
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let pyObj = try tooBigForInt64.toSafePythonObject(interpreter: interpreter)
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try Int(pyObj) as Int
+            }
+            
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+                #expect(value == String(tooBigForInt64))
+                #expect(sourceType.contains("PythonObject"))
+                #expect(targetType == "Int")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("I_008: SafePythonObject (synchronous) → Int throws on negative value")
+    func safeIntConversionUnderflow() async throws {
+        
+        let smallInt64 = Int64.min + 5
+
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let pyObj_a = try smallInt64.toSafePythonObject(interpreter: interpreter)
+            let pyObj = pyObj_a - 25
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try Int(pyObj) as Int
+            }
+            
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+                #expect(value == "-9223372036854775828")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("I_009: PythonObject (async) → UInt throws on wrong type")
+    func asyncIntConversionWrongType() async throws {
+        
+        let s = "not an integer"
+        
+        let pyObj = try await s.toPythonObject(interpreter: interpreter)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await Int(pyObj) as Int
+        }
+        
+        // Inspect the exact error (very useful for regression safety)
+        if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+            #expect(value == String(s))
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Int")
+        } else {
+            Issue.record("Expected .conversionType, but got \(thrownError)")
+        }
+    }
+    
+    @Test("I_010: SafePythonObject (synchronous) → UInt throws wrong type")
+    func safeIntConversionWrongType() async throws {
+        
+        let s = "not an integer"
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let safePyObj = try s.toSafePythonObject(interpreter: isolatedInterpreter)
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try Int(safePyObj) as Int
+            }
+            
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == String(s))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+        }
+    }
+    
     // MARK: I8_xxx Int8
     
     @Test("I8_001: Int8 → PythonObject (async)")
@@ -265,6 +391,136 @@ struct ConversionsTests {
             
             let roundTrip = try Int8(safePyObj)
             #expect(roundTrip == value)
+        }
+    }
+    
+    @Test("I8_005: PythonObject (async) → Int8 throws on overflow")
+    func asyncInt8ConversionOverflow() async throws {
+        
+        let big_Int8: Int8 = Int8.max - 5
+        let tooBigForInt8: Int = Int(big_Int8) + 25
+        
+        let pyObj = try await tooBigForInt8.toPythonObject(interpreter: interpreter)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await Int8(pyObj) as Int8
+        }
+        
+        // Inspect the exact error (very useful for regression safety)
+        if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+            #expect(value == String(tooBigForInt8))
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Int8")
+        } else {
+            Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+        }
+    }
+    
+    @Test("I8_006: PythonObject (async) → Int8 throws on underflow")
+    func asyncInt8ConversionUnderflow() async throws {
+        
+        let small_Int8: Int8 = Int8.min + 5
+        let tooSmallForInt8: Int = Int(small_Int8) - 25
+        
+        let pyObj = try await tooSmallForInt8.toPythonObject(interpreter: interpreter)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await Int8(pyObj) as Int8
+        }
+        
+        // Inspect the exact error (very useful for regression safety)
+        if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+            #expect(value == String(tooSmallForInt8))
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Int8")
+        } else {
+            Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+        }
+    }
+    
+    @Test("I8_007: SafePythonObject (synchronous) → Int8 throws on overflow")
+    func safeInt8ConversionOverflow() async throws {
+        let big_Int8: Int8 = Int8.max - 5
+        let tooBigForInt8: Int = Int(big_Int8) + 25
+        
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let pyObj = try tooBigForInt8.toSafePythonObject(interpreter: interpreter)
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try Int8(pyObj) as Int8
+            }
+            
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+                #expect(value == String(tooBigForInt8))
+                #expect(sourceType.contains("PythonObject"))
+                #expect(targetType == "Int8")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("I8_008: SafePythonObject (synchronous) → Int8 throws on negative value")
+    func safeInt8ConversionUnderflow() async throws {
+        
+        let small_Int8: Int8 = Int8.min + 5
+        let tooSmallForInt8: Int = Int(small_Int8) - 25
+        
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let pyObj = try tooSmallForInt8.toSafePythonObject(interpreter: interpreter)
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try Int8(pyObj) as Int8
+            }
+            
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+                #expect(value == String(tooSmallForInt8))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int8")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("I8_009: PythonObject (async) → UInt throws on wrong type")
+    func asyncInt8ConversionWrongType() async throws {
+        
+        let s = "not an integer"
+        
+        let pyObj = try await s.toPythonObject(interpreter: interpreter)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await Int8(pyObj) as Int8
+        }
+        
+        // Inspect the exact error (very useful for regression safety)
+        if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+            #expect(value == String(s))
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Int8")
+        } else {
+            Issue.record("Expected .conversionType, but got \(thrownError)")
+        }
+    }
+    
+    @Test("I8_010: SafePythonObject (synchronous) → UInt throws wrong type")
+    func safeInt8ConversionWrongType() async throws {
+        
+        let s = "not an integer"
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let safePyObj = try s.toSafePythonObject(interpreter: isolatedInterpreter)
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try Int8(safePyObj) as Int8
+            }
+            
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == String(s))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int8")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
         }
     }
     
@@ -314,6 +570,136 @@ struct ConversionsTests {
         }
     }
     
+    @Test("I16_005: PythonObject (async) → Int16 throws on overflow")
+    func asyncInt16ConversionOverflow() async throws {
+        
+        let big_Int16: Int16 = Int16.max - 5
+        let tooBigForInt16: Int = Int(big_Int16) + 25
+        
+        let pyObj = try await tooBigForInt16.toPythonObject(interpreter: interpreter)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await Int16(pyObj) as Int16
+        }
+        
+        // Inspect the exact error (very useful for regression safety)
+        if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+            #expect(value == String(tooBigForInt16))
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Int16")
+        } else {
+            Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+        }
+    }
+    
+    @Test("I16_006: PythonObject (async) → Int16 throws on underflow")
+    func asyncInt16ConversionUnderflow() async throws {
+        
+        let small_Int16: Int16 = Int16.min + 5
+        let tooSmallForInt16: Int = Int(small_Int16) - 25
+        
+        let pyObj = try await tooSmallForInt16.toPythonObject(interpreter: interpreter)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await Int16(pyObj) as Int16
+        }
+        
+        // Inspect the exact error (very useful for regression safety)
+        if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+            #expect(value == String(tooSmallForInt16))
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Int16")
+        } else {
+            Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+        }
+    }
+    
+    @Test("I16_007: SafePythonObject (synchronous) → Int16 throws on overflow")
+    func safeInt16ConversionOverflow() async throws {
+        let big_Int16: Int16 = Int16.max - 5
+        let tooBigForInt16: Int = Int(big_Int16) + 25
+        
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let pyObj = try tooBigForInt16.toSafePythonObject(interpreter: interpreter)
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try Int16(pyObj) as Int16
+            }
+            
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+                #expect(value == String(tooBigForInt16))
+                #expect(sourceType.contains("PythonObject"))
+                #expect(targetType == "Int16")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("I16_008: SafePythonObject (synchronous) → Int16 throws on negative value")
+    func safeInt16ConversionUnderflow() async throws {
+        
+        let small_Int16: Int16 = Int16.min + 5
+        let tooSmallForInt16: Int = Int(small_Int16) - 25
+        
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let pyObj = try tooSmallForInt16.toSafePythonObject(interpreter: interpreter)
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try Int16(pyObj) as Int16
+            }
+            
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+                #expect(value == String(tooSmallForInt16))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int16")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("I16_009: PythonObject (async) → UInt throws on wrong type")
+    func asyncInt16ConversionWrongType() async throws {
+        
+        let s = "not an integer"
+        
+        let pyObj = try await s.toPythonObject(interpreter: interpreter)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await Int16(pyObj) as Int16
+        }
+        
+        // Inspect the exact error (very useful for regression safety)
+        if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+            #expect(value == String(s))
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Int16")
+        } else {
+            Issue.record("Expected .conversionType, but got \(thrownError)")
+        }
+    }
+    
+    @Test("I16_010: SafePythonObject (synchronous) → UInt throws wrong type")
+    func safeInt16ConversionWrongType() async throws {
+        
+        let s = "not an integer"
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let safePyObj = try s.toSafePythonObject(interpreter: isolatedInterpreter)
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try Int16(safePyObj) as Int16
+            }
+            
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == String(s))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int16")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+        }
+    }
+    
     // MARK: I32_xxx Int32
     
     @Test("I32_001: Int32 → PythonObject (async)")
@@ -360,6 +746,136 @@ struct ConversionsTests {
         }
     }
     
+    @Test("I32_005: PythonObject (async) → Int32 throws on overflow")
+    func asyncInt32ConversionOverflow() async throws {
+        
+        let big_Int32: Int32 = Int32.max - 5
+        let tooBigForInt32: Int64 = Int64(big_Int32) + 25
+        
+        let pyObj = try await tooBigForInt32.toPythonObject(interpreter: interpreter)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await Int32(pyObj) as Int32
+        }
+        
+        // Inspect the exact error (very useful for regression safety)
+        if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+            #expect(value == String(tooBigForInt32))
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Int32")
+        } else {
+            Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+        }
+    }
+    
+    @Test("I32_006: PythonObject (async) → Int32 throws on underflow")
+    func asyncInt32ConversionUnderflow() async throws {
+        
+        let small_Int32: Int32 = Int32.min + 5
+        let tooSmallForInt32: Int64 = Int64(small_Int32) - 25
+        
+        let pyObj = try await tooSmallForInt32.toPythonObject(interpreter: interpreter)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await Int32(pyObj) as Int32
+        }
+        
+        // Inspect the exact error (very useful for regression safety)
+        if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+            #expect(value == String(tooSmallForInt32))
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Int32")
+        } else {
+            Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+        }
+    }
+    
+    @Test("I32_007: SafePythonObject (synchronous) → Int32 throws on overflow")
+    func safeInt32ConversionOverflow() async throws {
+        let big_Int32: Int32 = Int32.max - 5
+        let tooBigForInt32: Int64 = Int64(big_Int32) + 25
+        
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let pyObj = try tooBigForInt32.toSafePythonObject(interpreter: interpreter)
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try Int32(pyObj) as Int32
+            }
+            
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+                #expect(value == String(tooBigForInt32))
+                #expect(sourceType.contains("PythonObject"))
+                #expect(targetType == "Int32")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("I32_008: SafePythonObject (synchronous) → Int32 throws on negative value")
+    func safeInt32ConversionUnderflow() async throws {
+        
+        let small_Int32: Int32 = Int32.min + 5
+        let tooSmallForInt32: Int64 = Int64(small_Int32) - 25
+        
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let pyObj = try tooSmallForInt32.toSafePythonObject(interpreter: interpreter)
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try Int32(pyObj) as Int32
+            }
+            
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+                #expect(value == String(tooSmallForInt32))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int32")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("I32_009: PythonObject (async) → UInt throws on wrong type")
+    func asyncInt32ConversionWrongType() async throws {
+        
+        let s = "not an integer"
+        
+        let pyObj = try await s.toPythonObject(interpreter: interpreter)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await Int32(pyObj) as Int32
+        }
+        
+        // Inspect the exact error (very useful for regression safety)
+        if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+            #expect(value == String(s))
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Int32")
+        } else {
+            Issue.record("Expected .conversionType, but got \(thrownError)")
+        }
+    }
+    
+    @Test("I32_010: SafePythonObject (synchronous) → UInt throws wrong type")
+    func safeInt32ConversionWrongType() async throws {
+        
+        let s = "not an integer"
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let safePyObj = try s.toSafePythonObject(interpreter: isolatedInterpreter)
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try Int32(safePyObj) as Int32
+            }
+            
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == String(s))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int32")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+        }
+    }
+    
     // MARK: I64_xxx Int64
     
     @Test("I64_001: Int64 → PythonObject (async)")
@@ -403,6 +919,132 @@ struct ConversionsTests {
             
             let roundTrip = try Int64(safePyObj)
             #expect(roundTrip == value)
+        }
+    }
+    
+    @Test("I64_005: PythonObject (async) → Int64 throws on overflow")
+    func asyncInt64ConversionOverflow() async throws {
+        
+        let tooBigForInt64: UInt64 = UInt64(Int64.max) + 25
+        
+        let pyObj = try await tooBigForInt64.toPythonObject(interpreter: interpreter)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await Int64(pyObj) as Int64
+        }
+        
+        // Inspect the exact error (very useful for regression safety)
+        if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+            #expect(value == String(tooBigForInt64))
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Int64")
+        } else {
+            Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+        }
+    }
+    
+    @Test("I64_006: PythonObject (async) → Int64 throws on underflow")
+    func asyncInt64ConversionUnderflow() async throws {
+        
+        let smallInt64 = Int64.min + 5
+        let pyObj_a = try await smallInt64.toPythonObject(interpreter: interpreter)
+        let pyObj = try await pyObj_a.subtract(25)  // lowest + 5 - 25 is too small
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await Int64(pyObj) as Int64
+        }
+        
+        // Inspect the exact error (very useful for regression safety)
+        if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+            #expect(value == "-9223372036854775828")
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Int64")
+        } else {
+            Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+        }
+    }
+    
+    @Test("I64_007: SafePythonObject (synchronous) → Int64 throws on overflow")
+    func safeInt64ConversionOverflow() async throws {
+        let tooBigForInt64: UInt64 = UInt64(Int64.max) + 25
+        
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let pyObj = try tooBigForInt64.toSafePythonObject(interpreter: interpreter)
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try Int64(pyObj) as Int64
+            }
+            
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+                #expect(value == String(tooBigForInt64))
+                #expect(sourceType.contains("PythonObject"))
+                #expect(targetType == "Int64")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("I64_008: SafePythonObject (synchronous) → Int64 throws on negative value")
+    func safeInt64ConversionUnderflow() async throws {
+        
+        let smallInt64 = Int64.min + 5
+
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let pyObj_a = try smallInt64.toSafePythonObject(interpreter: interpreter)
+            let pyObj = pyObj_a - 25
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try Int64(pyObj) as Int64
+            }
+            
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
+                #expect(value == "-9223372036854775828")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int64")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("I64_009: PythonObject (async) → UInt throws on wrong type")
+    func asyncInt64ConversionWrongType() async throws {
+        
+        let s = "not an integer"
+        
+        let pyObj = try await s.toPythonObject(interpreter: interpreter)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await Int64(pyObj) as Int64
+        }
+        
+        // Inspect the exact error (very useful for regression safety)
+        if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+            #expect(value == String(s))
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Int64")
+        } else {
+            Issue.record("Expected .conversionType, but got \(thrownError)")
+        }
+    }
+    
+    @Test("I64_010: SafePythonObject (synchronous) → UInt throws wrong type")
+    func safeInt64ConversionWrongType() async throws {
+        
+        let s = "not an integer"
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let safePyObj = try s.toSafePythonObject(interpreter: isolatedInterpreter)
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try Int64(safePyObj) as Int64
+            }
+            
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == String(s))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int64")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
         }
     }
     
@@ -1333,66 +1975,76 @@ struct ConversionsTests {
 // [2026-04-09] : I_002 : Test Convert Int to PythonObject special value -1
 // [2026-04-09] : I_001 : Test Convert PythonObject to Int
 // [2026-04-09] : I_002 : Test Convert PythonObject to Int special value  -1
-// [          ] : Test Convert PythonObject to Int error handling when it's not a numeric value
-// [          ] : Test Convert PythonObject to Int error handling when it's a huge number that won't fit in an Int
+// [2026-04-21] : I_009 : Test Convert PythonObject to Int error handling when it's not a numeric value
+// [2026-04-21] : I_005 : Test Convert PythonObject to Int error handling when it's a huge number that won't fit in an Int
+// [2026-04-21] : I_006 : Test Convert PythonObject to Int error handling when it's a huge negative number that won't fit in an Int
 // [2026-04-09] : I_003 : Test Convert Int to SafePythonObject
 // [2026-04-09] : I_004 : Test Convert Int to SafePythonObject special value -1
 // [2026-04-09] : I_003 : Test Convert SafePythonObject to Int
 // [2026-04-09] : I_004 : Test Convert SafePythonObject to Int special value -1
-// [          ] : Test Convert SafePythonObject to Int error handling when it's not a numeric value
-// [          ] : Test Convert SafePythonObject to Int error handling when it's a huge number that won't fit in an Int
+// [2026-04-21] : I_010 : Test Convert SafePythonObject to Int error handling when it's not a numeric value
+// [2026-04-21] : I_007 : Test Convert SafePythonObject to Int error handling when it's a huge number that won't fit in an Int
+// [2026-04-21] : I_008 : Test Convert SafePythonObject to Int error handling when it's a huge negative number that won't fit in an Int
 
 // [2026-04-11] : I8_001 : Test Convert Int8 to PythonObject
 // [2026-04-11] : I8_002 : Test Convert Int8 to PythonObject special value -1
 // [2026-04-11] : I8_001 : Test Convert PythonObject to Int8
 // [2026-04-11] : I8_002 : Test Convert PythonObject to Int8 special value -1
-// [          ] : Test Convert PythonObject to Int8 error handling when it's not a numeric value
-// [          ] : Test Convert PythonObject to Int8 error handling when it's a huge number that won't fit in an Int8
+// [2026-04-21] : I8_009 : Test Convert PythonObject to Int8 error handling when it's not a numeric value
+// [2026-04-21] : I8_005 : Test Convert PythonObject to Int8 error handling overflow
+// [2026-04-21] : I8_006 : Test Convert PythonObject to Int8 error handling underflow
 // [2026-04-11] : I8_003 : Test Convert Int8 to SafePythonObject
 // [2026-04-11] : I8_004 : Test Convert Int8 to SafePythonObject special value -1
 // [2026-04-11] : I8_003 : Test Convert SafePythonObject to Int8
 // [2026-04-11] : I8_004 : Test Convert SafePythonObject to Int8 special value -1
-// [          ] : Test Convert SafePythonObject to Int8 error handling when it's not a numeric value
-// [          ] : Test Convert SafePythonObject to Int8 error handling when it's a huge number that won't fit in an Int8
+// [2026-04-21] : I8_010 : Test Convert SafePythonObject to Int8 error handling when it's not a numeric value
+// [2026-04-21] : I8_007 : Test Convert SafePythonObject to Int8 error handling overflow
+// [2026-04-21] : I8_008 : Test Convert SafePythonObject to Int8 error handling underflow
 
 // [2026-04-11] : I16_001 : Test Convert Int16 to PythonObject
 // [2026-04-11] : I16_002 : Test Convert Int16 to PythonObject special value -1
 // [2026-04-11] : I16_001 : Test Convert PythonObject to Int16
 // [2026-04-11] : I16_002 : Test Convert PythonObject to Int16 special value -1
-// [          ] : Test Convert PythonObject to Int16 error handling when it's not a numeric value
-// [          ] : Test Convert PythonObject to Int16 error handling when it's a huge number that won't fit in an Int16
+// [2026-04-21] : I16_009 : Test Convert PythonObject to Int16 error handling when it's not a numeric value
+// [2026-04-21] : I16_005 : Test Convert PythonObject to Int16 error handling overflow
+// [2026-04-21] : I16_006 : Test Convert PythonObject to Int16 error handling underflow
 // [2026-04-11] : I16_003 : Test Convert Int16 to SafePythonObject
 // [2026-04-11] : I16_004 : Test Convert Int16 to SafePythonObject special value -1
 // [2026-04-11] : I16_003 : Test Convert SafePythonObject to Int16
 // [2026-04-11] : I16_004 : Test Convert SafePythonObject to Int16 special value -1
-// [          ] : Test Convert SafePythonObject to Int16 error handling when it's not a numeric value
-// [          ] : Test Convert SafePythonObject to Int16 error handling when it's a huge number that won't fit in an Int16
+// [2026-04-21] : I16_010 : Test Convert SafePythonObject to Int16 error handling when it's not a numeric value
+// [2026-04-21] : I16_007 : Test Convert SafePythonObject to Int16 error handling overflow
+// [2026-04-21] : I16_008 : Test Convert SafePythonObject to Int16 error handling underflow
 
 // [2026-04-11] : I32_001 : Test Convert Int32 to PythonObject
 // [2026-04-11] : I32_002 : Test Convert Int32 to PythonObject special value -1
 // [2026-04-11] : I32_001 : Test Convert PythonObject to Int32
 // [2026-04-11] : I32_002 : Test Convert PythonObject to Int32 special value -1
-// [          ] : Test Convert PythonObject to Int32 error handling when it's not a numeric value
-// [          ] : Test Convert PythonObject to Int32 error handling when it's a huge number that won't fit in an Int32
+// [2026-04-21] : I32_009 : Test Convert PythonObject to Int32 error handling when it's not a numeric value
+// [2026-04-21] : I32_005 : Test Convert PythonObject to Int32 error handling overflow
+// [2026-04-21] : I32_006 : Test Convert PythonObject to Int32 error handling underflow
 // [2026-04-11] : I32_003 : Test Convert Int32 to SafePythonObject
 // [2026-04-11] : I32_004 : Test Convert Int32 to SafePythonObject special value -1
 // [2026-04-11] : I32_003 : Test Convert SafePythonObject to Int32
 // [2026-04-11] : I32_004 : Test Convert SafePythonObject to Int32 special value -1
-// [          ] : Test Convert SafePythonObject to Int32 error handling when it's not a numeric value
-// [          ] : Test Convert SafePythonObject to Int32 error handling when it's a huge number that won't fit in an Int32
+// [2026-04-21] : I32_010 : Test Convert SafePythonObject to Int32 error handling when it's not a numeric value
+// [2026-04-21] : I32_007 : Test Convert SafePythonObject to Int32 error handling overflow
+// [2026-04-21] : I32_008 : Test Convert SafePythonObject to Int32 error handling underflow
 
 // [2026-04-11] : I64_001 : Test Convert Int64 to PythonObject
 // [2026-04-11] : I64_002 : Test Convert Int64 to PythonObject special value -1
 // [2026-04-11] : I64_001 : Test Convert PythonObject to Int64
 // [2026-04-11] : I64_002 : Test Convert PythonObject to Int64 special value -1
-// [          ] : Test Convert PythonObject to Int64 error handling when it's not a numeric value
-// [          ] : Test Convert PythonObject to Int64 error handling when it's a huge number that won't fit in an Int64
+// [2026-04-21] : I64_009 : Test Convert PythonObject to Int64 error handling when it's not a numeric value
+// [2026-04-21] : I64_005 : Test Convert PythonObject to Int64 error handling overflow
+// [2026-04-21] : I64_006 : Test Convert PythonObject to Int64 error handling underflow
 // [2026-04-11] : I64_003 : Test Convert Int64 to SafePythonObject
 // [2026-04-11] : I64_004 : Test Convert Int64 to SafePythonObject special value -1
 // [2026-04-11] : I64_003 : Test Convert SafePythonObject to Int64
 // [2026-04-11] : I64_004 : Test Convert SafePythonObject to Int64 special value -1
-// [          ] : Test Convert SafePythonObject to Int64 error handling when it's not a numeric value
-// [          ] : Test Convert SafePythonObject to Int64 error handling when it's a huge number that won't fit in an Int64
+// [2026-04-21] : I64_010 : Test Convert SafePythonObject to Int64 error handling when it's not a numeric value
+// [2026-04-21] : I64_007 : Test Convert SafePythonObject to Int64 error handling overflow
+// [2026-04-21] : I64_008 : Test Convert SafePythonObject to Int64 error handling underflow
 
 // Unsigned Integers
 

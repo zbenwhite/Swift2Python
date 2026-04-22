@@ -108,12 +108,8 @@ extension PythonInterpreter {
             switch state {
             case .bound:
                 let localInterpreter = interpreter
-                return localInterpreter.assumeIsolated {
-                    do {
-                        return try $0.convertToInt(self)
-                    } catch {
-                        fatalError("Failed to get attribute: \(error)")
-                    }
+                return try localInterpreter.assumeIsolated {
+                    return try $0.convertToInt(self)
                 }
             case .deferredDouble(let val):
                 if let i = Int(exactly:val) {
@@ -146,12 +142,8 @@ extension PythonInterpreter {
             switch state {
             case .bound:
                 let localInterpreter = interpreter
-                return localInterpreter.assumeIsolated {
-                    do {
-                        return try $0.convertToInt8(self)
-                    } catch {
-                        fatalError("Failed to get attribute: \(error)")
-                    }
+                return try localInterpreter.assumeIsolated {
+                    return try $0.convertToInt8(self)
                 }
             case .deferredDouble(let val):
                 if let i = Int8(exactly:val) {
@@ -196,12 +188,8 @@ extension PythonInterpreter {
             switch state {
             case .bound:
                 let localInterpreter = interpreter
-                return localInterpreter.assumeIsolated {
-                    do {
-                        return try $0.convertToInt16(self)
-                    } catch {
-                        fatalError("Failed to get attribute: \(error)")
-                    }
+                return try localInterpreter.assumeIsolated {
+                    return try $0.convertToInt16(self)
                 }
             case .deferredDouble(let val):
                 if let i = Int16(exactly:val) {
@@ -246,12 +234,8 @@ extension PythonInterpreter {
             switch state {
             case .bound:
                 let localInterpreter = interpreter
-                return localInterpreter.assumeIsolated {
-                    do {
-                        return try $0.convertToInt32(self)
-                    } catch {
-                        fatalError("Failed to get attribute: \(error)")
-                    }
+                return try localInterpreter.assumeIsolated {
+                    return try $0.convertToInt32(self)
                 }
             case .deferredDouble(let val):
                 if let i = Int32(exactly:val) {
@@ -296,12 +280,8 @@ extension PythonInterpreter {
             switch state {
             case .bound:
                 let localInterpreter = interpreter
-                return localInterpreter.assumeIsolated {
-                    do {
-                        return try $0.convertToInt64(self)
-                    } catch {
-                        fatalError("Failed to get attribute: \(error)")
-                    }
+                return try localInterpreter.assumeIsolated {
+                    return try $0.convertToInt64(self)
                 }
             case .deferredDouble(let val):
                 if let i = Int64(exactly:val) {

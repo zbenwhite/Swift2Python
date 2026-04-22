@@ -98,102 +98,332 @@ extension PythonInterpreter {
     
     public func convertToInt(_ obj: PythonObject) async throws -> Int {
         logger.trace("convertToInt: Convert PythonObject to Int.")
-        if let value = try await Int(exactly: convertToInt64(obj)) {
-            return value
+        let int64Value: Int64
+        do {
+            int64Value = try await convertToInt64(obj)
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, let targetType, let underlying):
+                logger.trace("Conversion type error.  Swapping target from \(targetType) to Int.")
+                throw PythonError.conversionType(value: value, sourceType: sourceType, targetType: "Int", underlying: underlying)
+            case .conversionOverflow(let value, let sourceType, let targetType):
+                logger.trace("Conversion overflow error.  Swapping target from \(targetType) to Int.")
+                throw PythonError.conversionOverflow(value: value, sourceType: sourceType, targetType: "Int")
+            default: throw error
+            }
+        }
+        if let intValue = Int(exactly: int64Value) {
+            return intValue
         } else {
-            fatalError("placeholder")
+            throw PythonError.conversionOverflow(value: String(int64Value), sourceType: "PythonObject", targetType: "Int")
         }
     }
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public func convertToInt(_ obj: SafePythonObject) throws -> Int {
         logger.trace("convertToInt: Convert SafePythonObject to Int.")
-        if let value = try Int(exactly: convertToInt64(obj)) {
-            return value
+        let int64Value: Int64
+        do {
+            int64Value = try convertToInt64(obj)
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, let targetType, let underlying):
+                logger.trace("Conversion type error.  Swapping target from \(targetType) to Int.")
+                throw PythonError.conversionType(value: value, sourceType: sourceType, targetType: "Int", underlying: underlying)
+            case .conversionOverflow(let value, let sourceType, let targetType):
+                logger.trace("Conversion overflow error.  Swapping target from \(targetType) to Int.")
+                throw PythonError.conversionOverflow(value: value, sourceType: sourceType, targetType: "Int")
+            default: throw error
+            }
+        }
+        if let intValue = Int(exactly: int64Value) {
+            return intValue
         } else {
-            fatalError("placeholder")
+            throw PythonError.conversionOverflow(value: String(int64Value), sourceType: "SafePythonObject", targetType: "Int")
         }
     }
     
     public func convertToInt8(_ obj: PythonObject) async throws -> Int8 {
         logger.trace("convertToInt8: Convert PythonObject to Int8.")
-        if let value = try await Int8(exactly: convertToInt64(obj)) {
-            return value
+        let int64Value: Int64
+        do {
+            int64Value = try await convertToInt64(obj)
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, let targetType, let underlying):
+                logger.trace("Conversion type error.  Swapping target from \(targetType) to Int8.")
+                throw PythonError.conversionType(value: value, sourceType: sourceType, targetType: "Int8", underlying: underlying)
+            case .conversionOverflow(let value, let sourceType, let targetType):
+                logger.trace("Conversion overflow error.  Swapping target from \(targetType) to Int8.")
+                throw PythonError.conversionOverflow(value: value, sourceType: sourceType, targetType: "Int8")
+            default: throw error
+            }
+        }
+        if let intValue = Int8(exactly: int64Value) {
+            return intValue
         } else {
-            fatalError("placeholder")
+            throw PythonError.conversionOverflow(value: String(int64Value), sourceType: "PythonObject", targetType: "Int8")
         }
     }
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public func convertToInt8(_ obj: SafePythonObject) throws -> Int8 {
         logger.trace("convertToInt: Convert SafePythonObject to Int8.")
-        if let value = try Int8(exactly: convertToInt64(obj)) {
-            return value
+        let int64Value: Int64
+        do {
+            int64Value = try convertToInt64(obj)
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, let targetType, let underlying):
+                logger.trace("Conversion type error.  Swapping target from \(targetType) to Int8.")
+                throw PythonError.conversionType(value: value, sourceType: sourceType, targetType: "Int8", underlying: underlying)
+            case .conversionOverflow(let value, let sourceType, let targetType):
+                logger.trace("Conversion overflow error.  Swapping target from \(targetType) to Int8.")
+                throw PythonError.conversionOverflow(value: value, sourceType: sourceType, targetType: "Int8")
+            default: throw error
+            }
+        }
+        if let intValue = Int8(exactly: int64Value) {
+            return intValue
         } else {
-            fatalError("placeholder")
+            throw PythonError.conversionOverflow(value: String(int64Value), sourceType: "SafePythonObject", targetType: "Int8")
         }
     }
     
     public func convertToInt16(_ obj: PythonObject) async throws -> Int16 {
         logger.trace("convertToInt16: Convert PythonObject to Int16.")
-        if let value = try await Int16(exactly: convertToInt64(obj)) {
-            return value
+        let int64Value: Int64
+        do {
+            int64Value = try await convertToInt64(obj)
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, let targetType, let underlying):
+                logger.trace("Conversion type error.  Swapping target from \(targetType) to Int16.")
+                throw PythonError.conversionType(value: value, sourceType: sourceType, targetType: "Int16", underlying: underlying)
+            case .conversionOverflow(let value, let sourceType, let targetType):
+                logger.trace("Conversion overflow error.  Swapping target from \(targetType) to Int16.")
+                throw PythonError.conversionOverflow(value: value, sourceType: sourceType, targetType: "Int16")
+            default: throw error
+            }
+        }
+        if let intValue = Int16(exactly: int64Value) {
+            return intValue
         } else {
-            fatalError("placeholder")
+            throw PythonError.conversionOverflow(value: String(int64Value), sourceType: "PythonObject", targetType: "Int16")
         }
     }
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public func convertToInt16(_ obj: SafePythonObject) throws -> Int16 {
         logger.trace("convertToInt16: Convert SafePythonObject to Int16.")
-        if let value = try Int16(exactly: convertToInt64(obj)) {
-            return value
+        let int64Value: Int64
+        do {
+            int64Value = try convertToInt64(obj)
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, let targetType, let underlying):
+                logger.trace("Conversion type error.  Swapping target from \(targetType) to Int16.")
+                throw PythonError.conversionType(value: value, sourceType: sourceType, targetType: "Int16", underlying: underlying)
+            case .conversionOverflow(let value, let sourceType, let targetType):
+                logger.trace("Conversion overflow error.  Swapping target from \(targetType) to Int16.")
+                throw PythonError.conversionOverflow(value: value, sourceType: sourceType, targetType: "Int16")
+            default: throw error
+            }
+        }
+        if let int16Value = Int16(exactly: int64Value) {
+            return int16Value
         } else {
-            fatalError("placeholder")
+            throw PythonError.conversionOverflow(value: String(int64Value), sourceType: "SafePythonObject", targetType: "Int16")
         }
     }
     
     public func convertToInt32(_ obj: PythonObject) async throws -> Int32 {
         logger.trace("convertToInt32: Convert PythonObject to Int32.")
-        if let value = try await Int32(exactly: convertToInt64(obj)) {
-            return value
+        let int64Value: Int64
+        do {
+            int64Value = try await convertToInt64(obj)
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, let targetType, let underlying):
+                logger.trace("Conversion type error.  Swapping target from \(targetType) to Int32.")
+                throw PythonError.conversionType(value: value, sourceType: sourceType, targetType: "Int32", underlying: underlying)
+            case .conversionOverflow(let value, let sourceType, let targetType):
+                logger.trace("Conversion overflow error.  Swapping target from \(targetType) to Int32.")
+                throw PythonError.conversionOverflow(value: value, sourceType: sourceType, targetType: "Int32")
+            default: throw error
+            }
+        }
+        if let intValue = Int32(exactly: int64Value) {
+            return intValue
         } else {
-            fatalError("placeholder")
+            throw PythonError.conversionOverflow(value: String(int64Value), sourceType: "PythonObject", targetType: "Int32")
         }
     }
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public func convertToInt32(_ obj: SafePythonObject) throws -> Int32 {
-        if let value = try Int32(exactly: convertToInt64(obj)) {
-            logger.trace("convertToInt32: Convert SafePythonObject to Int32.")
-            return value
+        logger.trace("convertToInt32: Convert SafePythonObject to Int32.")
+        let int64Value: Int64
+        do {
+            int64Value = try convertToInt64(obj)
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, let targetType, let underlying):
+                logger.trace("Conversion type error.  Swapping target from \(targetType) to Int32.")
+                throw PythonError.conversionType(value: value, sourceType: sourceType, targetType: "Int32", underlying: underlying)
+            case .conversionOverflow(let value, let sourceType, let targetType):
+                logger.trace("Conversion overflow error.  Swapping target from \(targetType) to Int32.")
+                throw PythonError.conversionOverflow(value: value, sourceType: sourceType, targetType: "Int32")
+            default: throw error
+            }
+        }
+        if let int32Value = Int32(exactly: int64Value) {
+            return int32Value
         } else {
-            fatalError("placeholder")
+            throw PythonError.conversionOverflow(value: String(int64Value), sourceType: "SafePythonObject", targetType: "Int32")
         }
     }
     
     public func convertToInt64(_ obj: PythonObject) async throws -> Int64 {
-        logger.trace("convertToInt64: Convert PythonObject to Int64.")
-        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
-        return try await withGIL {
-            let value = try api.pythonLong_AsLongLong(objPtr)
-            if value == -1 {
-                if let _ = try api.pythonErr_Occurred() {
-                    try await throwPythonError()
-                }
+        logger.trace("convertToInt64: Convert PythonObject to UInt64.")
+        
+        // Check for huge number < -1 * 2^32 and throw conversion overflow error
+        let isHugeNegative: Bool
+        do {
+            isHugeNegative = try await obj.lessThan(Int64.min)
+        } catch let error as PythonError {
+            switch error {
+            case .pythonException:
+                let objStr = (try? await String(obj)) ?? "<unrepresentable>"
+                
+                throw PythonError.conversionType( value: objStr, sourceType: "PythonObject", targetType: "Int64", underlying: error )
+            default:
+                throw error
             }
-            return value
+        } catch {
+            throw error
+        }
+        if isHugeNegative {
+            logger.error("convertToInt64: Called for HUGE NEGATIVE number PythonObject.")
+            let objStr = try await String(obj)
+            throw PythonError.conversionOverflow(value: objStr, sourceType: "PythonObject", targetType: "Int64")
+        }
+        
+        // Check for huge number > 2^64 and throw conversion overflow error
+        let isHuge: Bool
+        do {
+            isHuge = try await obj.greaterThan(Int64.max)
+        } catch let error as PythonError {
+            switch error {
+            case .pythonException:
+                let objStr = (try? await String(obj)) ?? "<unrepresentable>"
+                
+                throw PythonError.conversionType( value: objStr, sourceType: "PythonObject", targetType: "Int64", underlying: error )
+            default:
+                throw error
+            }
+        } catch {
+            throw error
+        }
+        if isHuge {
+            logger.error("convertToUInt64: Called for HUGE number PythonObject > \(Int64.max).")
+            let objStr = try await String(obj)
+            throw PythonError.conversionOverflow(value: objStr, sourceType: "PythonObject", targetType: "Int64")
+        }
+        
+        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        
+        do {
+            return try await withGIL {
+                let value = try api.pythonLong_AsLongLong(objPtr)
+                if value == -1 {
+                    if let _ = try api.pythonErr_Occurred() {
+                        try await throwPythonError()
+                    }
+                }
+                return value
+            }
+        } catch let error as PythonError {
+            switch error {
+            case .pythonException:
+                let objStr = (try? await String(obj)) ?? "<unrepresentable>"
+                
+                throw PythonError.conversionType( value: objStr, sourceType: "PythonObject", targetType: "Int64", underlying: error )
+            default:
+                throw error
+            }
+        } catch {
+            throw error
         }
     }
+    
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public func convertToInt64(_ obj: SafePythonObject) throws -> Int64 {
         logger.trace("convertToInt64: Convert SafePythonObject to Int64.")
+        
+        // Check for huge number < -1 * 2^32 and throw conversion overflow error
+        let isHugeNegative: Bool
+        do {
+            isHugeNegative = try obj.lessThan(Int64.min)
+        } catch let error as PythonError {
+            switch error {
+            case .safePythonException:
+                let objStr = (try? String(obj)) ?? "<unrepresentable>"
+                
+                throw PythonError.conversionType( value: objStr, sourceType: "SafePythonObject", targetType: "Int64", underlying: error )
+            default:
+                throw error
+            }
+        } catch {
+            throw error
+        }
+        if isHugeNegative {
+            logger.error("convertToUInt64: Called for HUGE NEGATIVE number SafePythonObject.")
+            let objStr = try String(obj)
+            throw PythonError.conversionOverflow(value: objStr, sourceType: "SafePythonObject", targetType: "Int64")
+        }
+        
+        // Check for huge number > 2^32 and throw conversion overflow error
+        let isHuge: Bool
+        do {
+            isHuge = try obj.greaterThan(Int64.max)
+        } catch let error as PythonError {
+            switch error {
+            case .pythonException:
+                let objStr = (try? String(obj)) ?? "<unrepresentable>"
+                
+                throw PythonError.conversionType( value: objStr, sourceType: "PythonObject", targetType: "Int64", underlying: error )
+            default:
+                throw error
+            }
+        } catch {
+            throw error
+        }
+        if isHuge {
+            logger.error("convertToInt64: Called for HUGE number SafePythonObject > \(Int64.max).")
+            let objStr = try String(obj)
+            throw PythonError.conversionOverflow(value: objStr, sourceType: "SafePythonObject", targetType: "Int64")
+        }
+        
         let objPtr = getRegisteredPythonObjectPointer(obj.id)!
         let value = try api.pythonLong_AsLongLong(objPtr)
         if value == -1 {
             if let _ = try api.pythonErr_Occurred() {
-                try throwPythonError()
+                do {
+                    try throwPythonError()
+                } catch let error as PythonError {
+                    switch error {
+                    case .safePythonException:
+                        let objStr = (try? String(obj)) ?? "<unrepresentable>"
+                        
+                        throw PythonError.conversionType( value: objStr, sourceType: "SafePythonObject", targetType: "Int64", underlying: error )
+                    default:
+                        throw error
+                    }
+                } catch {
+                    throw error
+                }
             }
         }
         return value
