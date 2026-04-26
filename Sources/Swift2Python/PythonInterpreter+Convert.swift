@@ -27,7 +27,7 @@ extension PythonInterpreter {
     }
     
     public func convertToBool(_ obj: PythonObject) async throws -> Bool {
-        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        //let objPtr = getRegisteredPointer(forPythonObject:obj)!
         fatalError("placeholder")
     }
     
@@ -44,7 +44,7 @@ extension PythonInterpreter {
     }
     
     public func convertToDouble(_ obj: PythonObject) async throws -> Double {
-        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        let objPtr = getRegisteredPointer(forPythonObject:obj)!
         return try await withGIL {
             let value = api.pythonFloat_AsDouble(objPtr)
             if value == -1.0 {
@@ -58,7 +58,7 @@ extension PythonInterpreter {
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public func convertToDouble(_ obj: SafePythonObject) throws -> Double {
-        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        let objPtr = getRegisteredPointer(forSafeObj:obj)
         let value = api.pythonFloat_AsDouble(objPtr)
         if value == -1.0 {
             if let _ = try api.pythonErr_Occurred() {
@@ -84,7 +84,9 @@ extension PythonInterpreter {
     
     internal func convertToSafePython(int val: Int64) throws -> SafePythonObject {
         let id = try convertToSafePythonID(int: val)
-        return SafePythonObject(interpreter: self, id: id)
+        let safeObj = SafePythonObject(interpreter: self, id: id)
+        self.incrementHousekeepingRefCount(forSafeObj: safeObj)
+        return safeObj
     }
     
     internal func convertToSafePythonID(int val: Int64) throws -> PythonObjectUniqueID {
@@ -92,7 +94,7 @@ extension PythonInterpreter {
             throw PythonError.nullPointer("Failed to convert int: \(val)")
         }
         
-        let id = registerPythonObjectPointer(ptr)
+        let id = registerSafePythonObject(ptr)
         return id
     }
     
@@ -331,7 +333,7 @@ extension PythonInterpreter {
             throw PythonError.conversionOverflow(value: objStr, sourceType: "PythonObject", targetType: "Int64")
         }
         
-        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        let objPtr = getRegisteredPointer(forPythonObject:obj)!
         
         do {
             return try await withGIL {
@@ -406,7 +408,7 @@ extension PythonInterpreter {
             throw PythonError.conversionOverflow(value: objStr, sourceType: "SafePythonObject", targetType: "Int64")
         }
         
-        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        let objPtr = getRegisteredPointer(forSafeObj:obj)
         let value = try api.pythonLong_AsLongLong(objPtr)
         if value == -1 {
             if let _ = try api.pythonErr_Occurred() {
@@ -444,7 +446,9 @@ extension PythonInterpreter {
     
     internal func convertToSafePython(uint val: UInt64) throws -> SafePythonObject {
         let id = try convertToSafePythonID(uint: val)
-        return SafePythonObject(interpreter: self, id: id)
+        let safeObj = SafePythonObject(interpreter: self, id: id)
+        self.incrementHousekeepingRefCount(forSafeObj: safeObj)
+        return safeObj
     }
     
     internal func convertToSafePythonID(uint val: UInt64) throws -> PythonObjectUniqueID {
@@ -452,7 +456,7 @@ extension PythonInterpreter {
             throw PythonError.nullPointer("Failed to convert int: \(val)")
         }
         
-        let id = registerPythonObjectPointer(ptr)
+        let id = registerSafePythonObject(ptr)
         return id
     }
     
@@ -696,7 +700,7 @@ extension PythonInterpreter {
             throw PythonError.conversionOverflow(value: objStr, sourceType: "PythonObject", targetType: "UInt64")
         }
         
-        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        let objPtr = getRegisteredPointer(forPythonObject:obj)!
         
         do {
             return try await withGIL {
@@ -768,7 +772,7 @@ extension PythonInterpreter {
             throw PythonError.conversionOverflow(value: objStr, sourceType: "SafePythonObject", targetType: "UInt64")
         }
         
-        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        let objPtr = getRegisteredPointer(forSafeObj:obj)
         let value = try api.pythonLong_AsUnsignedLongLong(objPtr)
         if value == UInt64.max {              // (unsigned long long)-1 on error
             if let _ = try api.pythonErr_Occurred() {
@@ -806,7 +810,7 @@ extension PythonInterpreter {
     }
     
     public func convertToString(_ obj: PythonObject) async throws -> String {
-        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        let objPtr = getRegisteredPointer(forPythonObject:obj)!
         
         return try withGIL {
             if let pyStr = api.pythonObject_Str(objPtr) {
@@ -826,7 +830,7 @@ extension PythonInterpreter {
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public func convertToString(_ obj: SafePythonObject) throws -> String {
-        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        let objPtr = getRegisteredPointer(forSafeObj:obj)
         
         guard let pyStr = api.pythonObject_Str(objPtr) else {
             try throwPythonError()
@@ -847,7 +851,7 @@ extension PythonInterpreter {
             }
             for (index, element) in array.enumerated() {
                 let valuePythonObject = try await element.toPythonObject(interpreter: self)
-                let valuePtr = getRegisteredPythonObjectPointer(valuePythonObject.id)
+                let valuePtr = getRegisteredPointer(forPythonObject:valuePythonObject)
                 _ = try api.pythonList_SetItem(listPtr, index, valuePtr!)
             }
             
@@ -867,8 +871,8 @@ extension PythonInterpreter {
             for (key, value) in dictionary {
                 let keyObj = try await key.toPythonObject(interpreter: self)
                 let valueObj = try await value.toPythonObject(interpreter: self)
-                let keyPtr = getRegisteredPythonObjectPointer(keyObj.id)!
-                let valuePtr = getRegisteredPythonObjectPointer(valueObj.id)!
+                let keyPtr = getRegisteredPointer(forPythonObject:keyObj)!
+                let valuePtr = getRegisteredPointer(forPythonObject:valueObj)!
                 _ = try api.pythonDict_SetItem(dictPtr, keyPtr, valuePtr)
             }
             
@@ -884,7 +888,9 @@ extension PythonInterpreter {
     
     internal func convertToSafePython(bool val: Bool) throws -> SafePythonObject {
         let id = try convertToSafePythonID(bool: val)
-        return SafePythonObject(interpreter: self, id: id)
+        let safeObj = SafePythonObject(interpreter: self, id: id)
+        self.incrementHousekeepingRefCount(forSafeObj: safeObj)
+        return safeObj
     }
     
     internal func convertToSafePythonID(bool: Bool) throws -> PythonObjectUniqueID {
@@ -892,13 +898,15 @@ extension PythonInterpreter {
             throw PythonError.nullPointer("Failed to convert bool: \(bool)")
         }
         
-        let id = registerPythonObjectPointer(ptr)
+        let id = registerSafePythonObject(ptr)
         return id
     }
     
     internal func convertToSafePython(double val: Double) throws -> SafePythonObject {
         let id = try convertToSafePythonID(double: val)
-        return SafePythonObject(interpreter: self, id: id)
+        let safeObj = SafePythonObject(interpreter: self, id: id)
+        self.incrementHousekeepingRefCount(forSafeObj: safeObj)
+        return safeObj
     }
     
     internal func convertToSafePythonID(double val: Double) throws -> PythonObjectUniqueID {
@@ -907,23 +915,22 @@ extension PythonInterpreter {
             throw PythonError.nullPointer("Failed to convert double: \(val)")
         }
         
-        // Register the pointer in our actor's internal hashtable
-        let id = registerPythonObjectPointer(ptr)
+        let id = registerSafePythonObject(ptr)
         return id
     }
     
     internal func convertToSafePython(string val: String) throws -> SafePythonObject {
         let id = try convertToSafePythonID(string: val)
-        return SafePythonObject(interpreter: self, id: id)
+        let safeObj = SafePythonObject(interpreter: self, id: id)
+        self.incrementHousekeepingRefCount(forSafeObj: safeObj)
+        return safeObj
     }
     
     internal func convertToSafePythonID(string val: String) throws -> PythonObjectUniqueID {
         guard let ptr = try api.pythonUnicode_FromStringAndSize(val) else {
             throw PythonError.nullPointer("Failed to convert string: \(val)")
         }
-        
-        // Register the pointer in our actor's internal hashtable
-        let id = registerPythonObjectPointer(ptr)
+        let id = registerSafePythonObject(ptr)
         return id
     }
     

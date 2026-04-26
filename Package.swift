@@ -11,7 +11,8 @@ let package = Package(
     ],
     products: [ .library(name: "Swift2Python", targets: ["Swift2Python"]), ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-log.git", from: "1.5.4")
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.5.4"),
+        .package(url: "https://github.com/apple/swift-collections.git", from: "1.1.0")
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -19,7 +20,8 @@ let package = Package(
         .target(
             name: "Swift2Python",
             dependencies: [
-                .product(name: "Logging", package: "swift-log")
+                .product(name: "Logging", package: "swift-log"),
+                .product(name: "Collections", package: "swift-collections")
             ],
         ),
         .testTarget(

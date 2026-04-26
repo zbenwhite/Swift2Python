@@ -23,7 +23,7 @@ extension PythonInterpreter {
             ? nil
             : try await createKwargsDictAsync(kwargs)
             
-            guard let callablePtr = getRegisteredPythonObjectPointer(callable.id) else {
+            guard let callablePtr = getRegisteredPointer(forPythonObject:callable) else {
                 throw PythonError.nullPointer("Callable pointer not found")
             }
             
@@ -43,7 +43,7 @@ extension PythonInterpreter {
         
         for (index, element) in args.enumerated() {
             let pyObj = try await element.toPythonObject(interpreter: self)
-            guard let itemPtr = getRegisteredPythonObjectPointer(pyObj.id) else {
+            guard let itemPtr = getRegisteredPointer(forPythonObject:pyObj) else {
                 throw PythonError.nullPointer("Argument conversion failed")
             }
             _ = try api.pythonTuple_SetItem(tuplePtr, index, itemPtr)
@@ -60,8 +60,8 @@ extension PythonInterpreter {
             let keyObj = try await convertToPython(string: key)
             let valueObj = try await value.toPythonObject(interpreter: self)
             
-            guard let keyPtr = getRegisteredPythonObjectPointer(keyObj.id),
-                  let valuePtr = getRegisteredPythonObjectPointer(valueObj.id) else {
+            guard let keyPtr = getRegisteredPointer(forPythonObject:keyObj),
+                  let valuePtr = getRegisteredPointer(forPythonObject:valueObj) else {
                 throw PythonError.nullPointer("Kwargs conversion failed")
             }
             _ = try api.pythonDict_SetItem(dictPtr, keyPtr, valuePtr)
@@ -72,7 +72,7 @@ extension PythonInterpreter {
     public func callPythonMethod(object: PythonObject, methodName: String, collectedArgs: [any PendingPythonConvertible],
                                  kwargs: [String: PendingPythonConvertible]) async throws -> PythonObject {
         
-        guard let objPtr = getRegisteredPythonObjectPointer(object.id) else {
+        guard let objPtr = getRegisteredPointer(forPythonObject:object) else {
             throw PythonError.nullPointer("Object pointer not found")
         }
         
@@ -89,7 +89,7 @@ extension PythonInterpreter {
     public func callPythonMethod(object: PythonObject, methodName: String,
                                  collectedArgs: [any PendingPythonConvertible]) async throws -> PythonObject {
         
-        guard let objPtr = getRegisteredPythonObjectPointer(object.id) else {
+        guard let objPtr = getRegisteredPointer(forPythonObject:object) else {
             throw PythonError.nullPointer("Object pointer not found")
         }
         
@@ -128,9 +128,7 @@ extension PythonInterpreter {
             
             // Convert args from SafePythonConvertible to SafePythonObject
             let pyObj = try element.toSafePythonObject(interpreter: self)
-            guard let itemPtr = getRegisteredPythonObjectPointer(pyObj.id) else {
-                throw PythonError.nullPointer("Argument conversion failed")
-            }
+            let itemPtr = getRegisteredPointer(forSafeObj:pyObj)
             
             let res = api.PyTuple_SetItem(tuplePtr, index, itemPtr)
             if res != 0 {
@@ -151,8 +149,8 @@ extension PythonInterpreter {
             let keyObj = try convertToSafePython(string: key)           // or use your existing string converter
             let valueObj = try value.toSafePythonObject(interpreter: self)
             
-            let keyPtr = getRegisteredPythonObjectPointer(keyObj.id)!
-            let valuePtr = getRegisteredPythonObjectPointer(valueObj.id)!
+            let keyPtr = getRegisteredPointer(forSafeObj:keyObj)
+            let valuePtr = getRegisteredPointer(forSafeObj:valueObj)
             
             let res = api.PyDict_SetItem(dictPtr, keyPtr, valuePtr)
             if res != 0 {
@@ -165,13 +163,13 @@ extension PythonInterpreter {
     
     internal func syncCall(callable: SafePythonObject) throws -> SafePythonObject {
         if let pyCall = api.PyObject_CallNoArgs {
-            let callablePtr = getRegisteredPythonObjectPointer(callable.id)!
+            let callablePtr = getRegisteredPointer(forSafeObj:callable)
             
             logger.trace("CPython API call in synchronous mode: PyObject_CallNoArgs")
             guard let resultPtr = pyCall(callablePtr) else {
                 throw PythonError.nullPointer("Python call failed")
             }
-            let resultId = registerPythonObjectPointer(resultPtr)
+            let resultId = registerSafePythonObject(resultPtr)
             return SafePythonObject(interpreter: self, id: resultId)
         } else {
             logger.debug("PyObject_CallNoArgs not available → falling back to syncCall with empty args")
@@ -184,14 +182,14 @@ extension PythonInterpreter {
         // Put args in a tuple
         let argTuplePtr = try syncCallCreateTuplePtr(from: args)
         
-        let callablePtr = getRegisteredPythonObjectPointer(callable.id)!
+        let callablePtr = getRegisteredPointer(forSafeObj: callable)
         
         logger.trace("CPython API call in synchronous mode: PyObject_CallObject")
         guard let resultPtr = api.PyObject_CallObject(callablePtr, argTuplePtr) else {
             throw PythonError.nullPointer("Python call failed")
         }
         
-        let resultId = registerPythonObjectPointer(resultPtr)
+        let resultId = registerSafePythonObject(resultPtr)
         return SafePythonObject(interpreter: self, id: resultId)
     }
     
@@ -205,7 +203,7 @@ extension PythonInterpreter {
         // Create kwargs dictionary (can be NULL if no keyword args)
         let kwDictPtr: UnsafeMutableRawPointer? = kwargs.isEmpty ? nil : try syncCallCreateDictPtr(from: kwargs)
         
-        let callablePtr = getRegisteredPythonObjectPointer(callable.id)!
+        let callablePtr = getRegisteredPointer(forSafeObj: callable)
         
         logger.trace("CPython API call (sync): PyObject_Call")
         
@@ -214,7 +212,7 @@ extension PythonInterpreter {
             throw PythonError.nullPointer("Python call failed")
         }
         
-        let resultId = registerPythonObjectPointer(resultPtr)
+        let resultId = registerSafePythonObject(resultPtr)
         return SafePythonObject(interpreter: self, id: resultId)
     }
     

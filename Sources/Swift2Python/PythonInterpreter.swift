@@ -36,6 +36,7 @@
 
 import Logging
 import Foundation
+import Collections
 
 public actor PythonInterpreter {
     
@@ -66,8 +67,12 @@ public actor PythonInterpreter {
         return id
     }
     
-    internal func getRegisteredPythonObjectPointer(_ id: PythonObjectUniqueID) -> UnsafeMutableRawPointer? {
+    private func getRegisteredPythonObjectPointer(_ id: PythonObjectUniqueID) -> UnsafeMutableRawPointer? {
         return pythonObjectRegistry[id]
+    }
+    
+    internal func getRegisteredPointer(forPythonObject: PythonObject) -> UnsafeMutableRawPointer? {
+        return getRegisteredPythonObjectPointer(forPythonObject.id)
     }
     
     /// Decrements the Swift-side reference count.
@@ -175,7 +180,7 @@ public actor PythonInterpreter {
     // MARK: Attribute access (async mode)
     
     public func get(object: PythonObject, attribute: String) async throws -> PythonObject {
-        let objPtr = pythonObjectRegistry[object.id]!
+        let objPtr = getRegisteredPointer(forPythonObject: object)!
         
         return try withGIL {
             let valuePtr = try api.pythonObject_GetAttrString(objPtr, attribute)
@@ -185,8 +190,8 @@ public actor PythonInterpreter {
     }
     
     public func set(object: PythonObject, attribute: String, value: PythonObject) async throws {
-        let objPtr = pythonObjectRegistry[object.id]!
-        let valuePtr = pythonObjectRegistry[value.id]!
+        let objPtr = getRegisteredPointer(forPythonObject: object)!
+        let valuePtr = getRegisteredPointer(forPythonObject: value)!
         
         try withGIL {
             _ = try api.pythonObject_SetAttrString(objPtr, attribute, valuePtr)
@@ -198,9 +203,9 @@ public actor PythonInterpreter {
     
     public func equals(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
         logger.trace("Equals comparison for PythonObject (async)")
-        let lhsPtr = pythonObjectRegistry[lhs.id]!
+        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
         let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
-        let rhsPtr = pythonObjectRegistry[rhsPyObj.id]!
+        let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
         
         return try await withGIL {
             switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.equal.rawValue) {
@@ -213,9 +218,9 @@ public actor PythonInterpreter {
     
     public func notEquals(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
         logger.trace("Not equals comparison for PythonObject (async)")
-        let lhsPtr = pythonObjectRegistry[lhs.id]!
+        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
         let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
-        let rhsPtr = pythonObjectRegistry[rhsPyObj.id]!
+        let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
         
         return try await withGIL {
             switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.notEqual.rawValue) {
@@ -228,9 +233,9 @@ public actor PythonInterpreter {
     
     public func lessThan(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
         logger.trace("Less than comparison for PythonObject (async)")
-        let lhsPtr = pythonObjectRegistry[lhs.id]!
+        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
         let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
-        let rhsPtr = pythonObjectRegistry[rhsPyObj.id]!
+        let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
         
         return try await withGIL {
             switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.lessThan.rawValue) {
@@ -243,9 +248,9 @@ public actor PythonInterpreter {
     
     public func lessThanOrEqual(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
         logger.trace("Less than or equal comparison for PythonObject (async)")
-        let lhsPtr = pythonObjectRegistry[lhs.id]!
+        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
         let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
-        let rhsPtr = pythonObjectRegistry[rhsPyObj.id]!
+        let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
         
         return try await withGIL {
             switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.lessThanOrEqual.rawValue) {
@@ -257,9 +262,9 @@ public actor PythonInterpreter {
     }
     public func greaterThan(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
         logger.trace("Greater than comparison for PythonObject (async)")
-        let lhsPtr = pythonObjectRegistry[lhs.id]!
+        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
         let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
-        let rhsPtr = pythonObjectRegistry[rhsPyObj.id]!
+        let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
         
         return try await withGIL {
             switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.greaterThan.rawValue) {
@@ -272,9 +277,9 @@ public actor PythonInterpreter {
     
     public func greaterThanOrEqual(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
         logger.trace("Greater than or equal comparison for PythonObject (async)")
-        let lhsPtr = pythonObjectRegistry[lhs.id]!
+        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
         let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
-        let rhsPtr = pythonObjectRegistry[rhsPyObj.id]!
+        let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
         
         return try await withGIL {
             switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.greaterThanOrEqual.rawValue) {
@@ -285,11 +290,18 @@ public actor PythonInterpreter {
         }
     }
 
-
     
     // MARK: -
     // MARK: SYNCHRONOUS MODE
     //
+    
+    
+    // Isolated registry
+    //internal var isolatedContextStack: Deque<[PythonObjectUniqueID: IsolatedLifecycleRecord]> = []
+    internal var isolatedContextStack: Deque<IsolatedContextRegistry> = []
+    
+    
+    
     
     // Synchronous mode lives inside this function.  There are many Python-esque things that users might
     // like to do, but they don't really work when you need to await.  You can't await:
@@ -306,16 +318,17 @@ public actor PythonInterpreter {
     ) async throws -> T {
         do {
             return try withGIL {
-                try body(self)
+                setupSafePythonObjectRegistry()
+                defer {
+                    cleanupSafePythonObjects()
+                }
+                return try body(self)
             }
         } catch let error as PythonError {
             // Transform safePythonException → pythonException so the caller gets
             // a normal async-friendly PythonError.
             if case .safePythonException(let safeObj) = error {
-                
-                // FIXME: make sure SafePythonObject destruction doesn't mess up reference counts or something.
-                let id = safeObj.id
-                let pythonObj = PythonObject(id : id, interpreter: self)
+                let pythonObj = escapeFromIsolation(forSafeObj: safeObj)
                 throw PythonError.pythonException(pythonObj)
             }
             
@@ -398,7 +411,7 @@ public actor PythonInterpreter {
             throw PythonError.nullPointer("Failed to import module: \(name)")
         }
         
-        let id = registerPythonObjectPointer(ptr)
+        let id = registerSafePythonObject(ptr)
         return SafePythonObject(interpreter: self, id: id)
     }
     
@@ -414,7 +427,7 @@ public actor PythonInterpreter {
             throw PythonError.nullPointer("Alias '\(attrName)' not found in Python scope")
         }
         
-        let id = registerPythonObjectPointer(aliasPtr)
+        let id = registerSafePythonObject(aliasPtr)
         return SafePythonObject(interpreter: self, id: id)
     }
     
@@ -437,17 +450,17 @@ public actor PythonInterpreter {
     // Subscript attribute operations in synchronous mode ----------
     
     internal func syncGetObjectAttribute(_ obj: SafePythonObject, _ name: String) throws -> SafePythonObject {
-        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        let objPtr = getRegisteredPointer(forSafeObj:obj)
         guard let attrPtr = try api.pythonObject_GetAttrString(objPtr, name) else {
             throw PythonError.nullPointer("Failed ")
         }
-        let attrId = registerPythonObjectPointer(attrPtr)
+        let attrId = registerSafePythonObject(attrPtr)
         return SafePythonObject(interpreter: self, id: attrId)
     }
     
     internal func syncSetObjectAttribute(_ obj: SafePythonObject, _ name: String, _ value: SafePythonObject) throws {
-        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
-        let valuePtr = getRegisteredPythonObjectPointer(value.id)!
+        let objPtr = getRegisteredPointer(forSafeObj: obj)
+        let valuePtr = getRegisteredPointer(forSafeObj: value)
         _ = try api.pythonObject_SetAttrString(objPtr, name, valuePtr)
     }
     
@@ -459,18 +472,18 @@ public actor PythonInterpreter {
             fatalError("Subscript with zero keys is not valid")
         case 1:
             let pyKey = try! key[0].toSafePythonObject(interpreter: self)
-            pyKeyPtr = getRegisteredPythonObjectPointer(pyKey.id)!
+            pyKeyPtr = getRegisteredPointer(forSafeObj: pyKey)
         default:
             pyKeyPtr = try! syncCallCreateTuplePtr(from: key)
         }
         
-        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        let objPtr = getRegisteredPointer(forSafeObj:obj)
         
         guard let resultPtr = try api.pythonObject_GetItem(objPtr, pyKeyPtr) else {
             throw PythonError.nullPointer("Python subscript get failed")
         }
         
-        let resultId = registerPythonObjectPointer(resultPtr)
+        let resultId = registerSafePythonObject(resultPtr)
         return SafePythonObject(interpreter: self, id: resultId)
     }
     
@@ -482,15 +495,15 @@ public actor PythonInterpreter {
             fatalError("Subscript with zero keys is not valid")
         case 1:
             let pyKey = try! key[0].toSafePythonObject(interpreter: self)
-            pyKeyPtr = getRegisteredPythonObjectPointer(pyKey.id)!
+            pyKeyPtr = getRegisteredPointer(forSafeObj: pyKey)
         default:
             pyKeyPtr = try! syncCallCreateTuplePtr(from: key)
         }
         
-        let objPtr = getRegisteredPythonObjectPointer(obj.id)!
+        let objPtr = getRegisteredPointer(forSafeObj:obj)
         
         let newValuePyObj = try! newValue.toSafePythonObject(interpreter: self)
-        let newValuePtr = getRegisteredPythonObjectPointer(newValuePyObj.id)!
+        let newValuePtr = getRegisteredPointer(forSafeObj: newValuePyObj)
         
         _ = try api.pythonObject_SetItem(objPtr, pyKeyPtr, newValuePtr)
     }

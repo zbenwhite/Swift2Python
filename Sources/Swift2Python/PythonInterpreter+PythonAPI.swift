@@ -13,6 +13,7 @@ extension PythonInterpreter {
     
     internal struct PreloadedPythonSymbols {
         let Py_DecRef: (@convention(c) (UnsafeMutableRawPointer) -> Void)
+        let Py_IncRef: (@convention(c) (UnsafeMutableRawPointer) -> Void)
         let PyBool_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)
         let PyBuffer_Release: (@convention(c) (UnsafeMutableRawPointer) -> Void)
         let PyBytes_Size: (@convention(c) (UnsafeMutableRawPointer) -> Int32)
@@ -78,6 +79,12 @@ extension PythonInterpreter {
         
         // Optional (present on Python >= 3.13 and often backported to older builds)
         let Py_GetConstant: (@convention(c) (Int32) -> UnsafeMutableRawPointer?)?
+        
+        // Optional (only present on Python >= 3.14)
+        let Py_REFCNT: (@convention(c) (UnsafeMutableRawPointer) -> Int32)?
+        
+        // Optional (only present on Python >= 3.9)
+//        let PyObject_CallOneArg: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         
         // Used for Py_None
         let _Py_NoneStruct: UnsafeMutableRawPointer?
@@ -297,6 +304,27 @@ extension PythonInterpreter {
             // Last resort – very rare to reach here
             return nil
         }
+        
+        internal func pythonReferenceCount(_ obj: UnsafeMutableRawPointer) throws -> Int32 {
+            if let refCountFunction = Py_REFCNT {
+                return refCountFunction(obj)
+            } else {
+                throw PythonError.symbolNotFound("Py_REFCNT")
+//                let sys = PyImport_ImportModule("sys")
+//                guard let callable = PyObject_GetAttrString(sys, "getrefcount") else {
+//                    throw PythonError.symbolNotFound("sys.getrefcount()")
+//                }
+//                if let call_OneArgFunc = PyObject_CallOneArg {
+//                    let intObj = call_OneArgFunc(callable, obj)
+//                    return Int(intObj)
+//                } else {
+//                    var tuplePtr = PyTuple_New(1)
+//                    let _ = PyTuple_SetItem(tuplePtr, 0, obj)
+//                    let intObj = pythonObject_Call(callable, tuplePtr, nil)
+//                    return Int(intObj)
+//                }
+            }
+        }
     }
     
     internal static func loadAllSymbols(using runtime: PythonRuntime, _ logger: Logger) async throws -> PreloadedPythonSymbols {
@@ -304,6 +332,8 @@ extension PythonInterpreter {
         return PreloadedPythonSymbols(
             Py_DecRef: try await runtime.loadSendableSymbol(
                 "Py_DecRef", as: (@convention(c) (UnsafeMutableRawPointer) -> Void).self).function,
+            Py_IncRef: try await runtime.loadSendableSymbol(
+                "Py_IncRef", as: (@convention(c) (UnsafeMutableRawPointer) -> Void).self).function,
             PyBool_FromLong: try await runtime.loadSendableSymbol(
                 "PyBool_FromLong", as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function,
             PyBuffer_Release: try await runtime.loadSendableSymbol(
@@ -424,6 +454,10 @@ extension PythonInterpreter {
                 "PyErr_GetRaisedException", as: (@convention(c) () -> UnsafeMutableRawPointer?).self).function),
             Py_GetConstant: try? await runtime.loadSendableSymbol(
                 "Py_GetConstant", as: (@convention(c) (Int32) -> UnsafeMutableRawPointer?).self).function,
+            Py_REFCNT: try? await runtime.loadSendableSymbol(
+                "Py_REFCNT", as: (@convention(c) (UnsafeMutableRawPointer) -> Int32).self).function,
+//            PyObject_CallOneArg: try await runtime.loadSendableSymbol(
+//                "PyObject_CallOneArg", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             
             _Py_NoneStruct: try? await runtime.loadSendableSymbol("_Py_NoneStruct", as: UnsafeMutableRawPointer.self).function,
             
@@ -436,7 +470,6 @@ extension PythonInterpreter {
 
 // MARK: -
 // MARK: API Reference
-
 
 
 // MARK: API Py_DecRef
@@ -458,6 +491,47 @@ extension PythonInterpreter {
 ///
 /// - Important:
 ///      If this drops the last reference, the object may be deallocated immediately.
+
+// MARK: API Py_IncRef
+
+/// ### `Py_IncRef`  (https://docs.python.org/3/c-api/refcounting.html)
+/// `void Py_IncRef(PyObject *o)`
+///
+/// Increments the reference count of `o`.
+///
+/// **Thread Safety:**
+///     - Requires an attached thread state in normal CPython usage.
+///     - In free-threaded Python, the refcount update itself is thread-safe, but object lifetime effects still matter to surrounding code.
+/// **ABI:** Stable ABI
+/// **Versions:** Stable Python 3.2 onward.
+/// **Reference counting:** Acquires one owned reference.
+/// **Errors:** Does not return an error code.
+///
+/// - Parameter `o`: The object whose reference count will be incremented.
+///
+/// - Important:
+///      Balance this with a later `Py_DecRef()` when the additional ownership is no longer needed.
+
+// MARK: API Py_REFCNT
+
+/// ### `Py_REFCNT`  (https://docs.python.org/3/c-api/refcounting.html)
+/// `Py_ssize_t Py_REFCNT(PyObject *o)`
+///
+/// Returns the current reference count of `o`.
+///
+/// **Thread Safety:**
+///     - Requires an attached thread state in normal CPython usage.
+///     - In free-threaded Python, the observed value is only a snapshot and must not be treated as a synchronization guarantee.
+/// **ABI:** Stable ABI
+/// **Versions:** Stable Python 3.14 onward.
+/// **Reference counting:** Does not change ownership.
+/// **Errors:** Does not return an error code.
+///
+/// - Parameter `o`: The object whose reference count will be inspected.
+/// - Returns: The current reference count value.
+///
+/// - Important:
+///      CPython documentation warns against using the exact refcount value for program logic except in narrow debugging or implementation-specific cases.
 
 // MARK: API PyBool_FromLong
 
@@ -1739,4 +1813,3 @@ extension PythonInterpreter {
 /// **Errors:** Not applicable.
 ///
 /// - Important: Prefer `Py_GetConstant` when available.
-

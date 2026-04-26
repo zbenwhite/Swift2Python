@@ -66,7 +66,7 @@ extension PythonInterpreter {
             if let exceptionPtr = pyGetRaisedException() {
                 //defer { Py_DECREF(exc) }
                 
-                let id = registerPythonObjectPointer(exceptionPtr)
+                let id = registerSafePythonObject(exceptionPtr)
                 let exception = SafePythonObject(interpreter: self, id: id)
                 logger.warning("Python error: \(exception)")
                 throw PythonError.safePythonException(exception)
@@ -84,12 +84,12 @@ extension PythonInterpreter {
                 logger.trace("CPython API Call: PyErr_NormalizeException")
                 api.PyErr_NormalizeException(&excType, &excValue, &excTraceback)
                 if let valuePtr = excValue {
-                    let id = registerPythonObjectPointer(valuePtr)
+                    let id = registerSafePythonObject(valuePtr)
                     let exception = SafePythonObject(interpreter: self, id: id)
                     logger.warning("Python error: \(exception)")
                     throw PythonError.safePythonException(exception)
                 } else if let typePtr = excType {
-                    let id = registerPythonObjectPointer(typePtr)
+                    let id = registerSafePythonObject(typePtr)
                     let exception = SafePythonObject(interpreter: self, id: id)
                     logger.warning("Python error: \(exception)")
                     throw PythonError.safePythonException(exception)
