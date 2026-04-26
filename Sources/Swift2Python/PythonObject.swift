@@ -237,5 +237,13 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
 //    public func divideInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
 //        return try await interpreter.divideInPlace(lhs: self, rhs: other)
 //    }
+    
+    public func isTrue() async throws -> Bool {
+        return try await interpreter.isTrue(self)
+    }
+    
+    public func isNotTrue() async throws -> Bool {
+        return try await interpreter.isNotTrue(self)
+    }
 }
 
