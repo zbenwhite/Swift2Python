@@ -60,6 +60,8 @@ extension PythonInterpreter {
         let PyObject_GetAttrString: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?)
         let PyObject_GetBuffer: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer, Int32) -> Int32)
         let PyObject_GetItem: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
+        let PyObject_IsTrue: (@convention(c) (UnsafeMutableRawPointer) -> Int32)
+        let PyObject_Not: (@convention(c) (UnsafeMutableRawPointer) -> Int32)
         let PyObject_RichCompare: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, Int32) -> UnsafeMutableRawPointer?)
         let PyObject_RichCompareBool: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, Int32) -> Int32)
         let PyObject_SetAttrString: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?, UnsafeMutableRawPointer?) -> Int32)
@@ -234,6 +236,16 @@ extension PythonInterpreter {
         internal func pythonObject_GetItem(_ obPtr: UnsafeMutableRawPointer, _ keyPtr: UnsafeMutableRawPointer) throws -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: PyObject_GetItem")
             return PyObject_GetItem(obPtr, keyPtr)
+        }
+        
+        internal func pythonObject_IsTrue(_ obPtr: UnsafeMutableRawPointer) -> Bool {
+            logger.trace("CPython API Call: PyObject_IsTrue")
+            return PyObject_IsTrue(obPtr) == 1
+        }
+            
+        internal func pythonObject_Not(_ obPtr: UnsafeMutableRawPointer) -> Bool {
+            logger.trace("CPython API Call: PyObject_Not")
+            return PyObject_Not(obPtr) == 1
         }
         
         internal func pythonObject_SetAttrString(_ obPtr: UnsafeMutableRawPointer, _ name: String, _ rvalPtr: UnsafeMutableRawPointer) throws -> Int32? {
@@ -426,6 +438,10 @@ extension PythonInterpreter {
                 "PyObject_GetBuffer", as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer, Int32) -> Int32).self).function,
             PyObject_GetItem: try await runtime.loadSendableSymbol(
                 "PyObject_GetItem", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
+            PyObject_IsTrue: try await runtime.loadSendableSymbol(
+                "PyObject_IsTrue", as: (@convention(c) (UnsafeMutableRawPointer) -> Int32).self).function,
+            PyObject_Not: try await runtime.loadSendableSymbol(
+                "PyObject_Not", as: (@convention(c) (UnsafeMutableRawPointer) -> Int32).self).function,
             PyObject_RichCompare: try await runtime.loadSendableSymbol(
                 "PyObject_RichCompare", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, Int32) -> UnsafeMutableRawPointer?).self).function,
             PyObject_RichCompareBool: try await runtime.loadSendableSymbol(
