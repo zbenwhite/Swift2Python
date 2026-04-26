@@ -32,6 +32,18 @@ extension PythonInterpreter.SafePythonObject {
     }
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    internal func addInPlaceOperator(sumend: SafePythonConvertible, addend: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
+        do {
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                try $0.syncInPlaceAdd(sumend: sumend.toSafePythonObject(interpreter: $0), addend: addend.toSafePythonObject(interpreter: $0))
+            }
+        } catch {
+            fatalError("Failed: \(error)")
+        }
+    }
+    
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     static internal func addOperator(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         switch lhs.state {
         case .bound:
@@ -106,6 +118,18 @@ extension PythonInterpreter.SafePythonObject {
             }
         } catch {
             fatalError("Subtraction failed: \(error).  Use `SafePythonObject.subtract()` for subtraction that might throw.")
+        }
+    }
+    
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    internal func subtractInPlaceOperator(diffend: SafePythonConvertible, subtrahend: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
+        do {
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                try $0.syncInPlaceSubtract(diffend: diffend.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
+            }
+        } catch {
+            fatalError("Failed: \(error)")
         }
     }
     
@@ -188,6 +212,18 @@ extension PythonInterpreter.SafePythonObject {
     }
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    internal func multiplyInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
+        do {
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                try $0.syncInPlaceMultiply(productand: lhs.toSafePythonObject(interpreter: $0), multiplicand: rhs.toSafePythonObject(interpreter: $0))
+            }
+        } catch {
+            fatalError("Failed: \(error)")
+        }
+    }
+    
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     static internal func multiplyOperator(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         switch lhs.state {
         case .bound:
@@ -259,6 +295,18 @@ extension PythonInterpreter.SafePythonObject {
             }
         } catch {
             fatalError("Subtraction failed: \(error).  Use `SafePythonObject.subtract()` for subtraction that might throw.")
+        }
+    }
+    
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    internal func divideInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
+        do {
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                try $0.syncInPlaceDivide(quotientand: lhs.toSafePythonObject(interpreter: $0), divisor: rhs.toSafePythonObject(interpreter: $0))
+            }
+        } catch {
+            fatalError("Failed: \(error)")
         }
     }
     
