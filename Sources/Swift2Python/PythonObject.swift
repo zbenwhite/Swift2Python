@@ -224,21 +224,21 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         return try await interpreter.subtractInPlace(minuend: self, subtrahend: other.toPythonObject(interpreter: interpreter))
     }
     
-//    public func multiply(_ other: PendingPythonConvertible) async throws -> PythonObject {
-//        return try await interpreter.multiply(lhs: self, rhs: other)
-//    }
-//    
-//    public func multiplyInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
-//        return try await interpreter.multiplyInPlace(lhs: self, rhs: other)
-//    }
-//    
-//    public func divide(_ other: PendingPythonConvertible) async throws -> PythonObject {
-//        return try await interpreter.divide(lhs: self, rhs: other)
-//    }
-//    
-//    public func divideInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
-//        return try await interpreter.divideInPlace(lhs: self, rhs: other)
-//    }
+    public func multiply(_ other: PendingPythonConvertible) async throws -> PythonObject {
+        return try await interpreter.multiply(self, other.toPythonObject(interpreter: interpreter))
+    }
+    
+    public func multiplyInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
+        return try await interpreter.multiplyInPlace(self, other.toPythonObject(interpreter: interpreter))
+    }
+    
+    public func divide(_ other: PendingPythonConvertible) async throws -> PythonObject {
+        return try await interpreter.divide(dividend: self, divisor: other.toPythonObject(interpreter: interpreter))
+    }
+    
+    public func divideInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
+        return try await interpreter.divideInPlace(self, other.toPythonObject(interpreter: interpreter))
+    }
     
     public func isTrue() async throws -> Bool {
         return try await interpreter.isTrue(self)
@@ -248,4 +248,3 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         return try await interpreter.isNotTrue(self)
     }
 }
-

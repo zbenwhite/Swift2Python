@@ -120,15 +120,15 @@ extension PythonInterpreter {
             guard let differencePtr = api.PyNumber_InPlaceAdd(minuendPtr, subtrahendPtr) else {
                 throw PythonError.nullPointer("Python '-=' failed")
             }
-            return newPythonObject(fromReturnedPointer:differencePtr)
+            return newPythonObject(fromReturnedPointer: differencePtr)
         }
     }
     
     // MARK: Multiplication
     
     internal func syncMultiply(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
-        let lhsPtr = getRegisteredPointer(forSafeObj:lhs)
-        let rhsPtr = getRegisteredPointer(forSafeObj:rhs)
+        let lhsPtr = getRegisteredPointer(forSafeObj: lhs)
+        let rhsPtr = getRegisteredPointer(forSafeObj: rhs)
         
         logger.trace("CPython API call in synchronous mode: PyNumber_Multiply")
         guard let productPtr = api.PyNumber_Multiply(lhsPtr, rhsPtr) else {
@@ -141,9 +141,22 @@ extension PythonInterpreter {
         return productObj
     }
     
+    internal func multiply(_ lhs: PythonObject, _ rhs: PythonObject) async throws -> PythonObject {
+        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
+        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_Multiply")
+        return try withGIL {
+            guard let productPtr = api.PyNumber_Multiply(lhsPtr, rhsPtr) else {
+                throw PythonError.nullPointer("Python '*' failed")
+            }
+            return newPythonObject(fromReturnedPointer: productPtr)
+        }
+    }
+    
     internal func syncInPlaceMultiply(productand: SafePythonObject, multiplicand: SafePythonObject) throws -> SafePythonObject {
-        let productandPtr = getRegisteredPointer(forSafeObj:productand)
-        let multiplicandPtr = getRegisteredPointer(forSafeObj:multiplicand)
+        let productandPtr = getRegisteredPointer(forSafeObj: productand)
+        let multiplicandPtr = getRegisteredPointer(forSafeObj: multiplicand)
         
         logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceMultiply")
         guard let productPtr = api.PyNumber_InPlaceMultiply(productandPtr, multiplicandPtr) else {
@@ -156,11 +169,24 @@ extension PythonInterpreter {
         return productObj
     }
     
+    internal func multiplyInPlace(_ lhs: PythonObject, _ rhs: PythonObject) async throws -> PythonObject {
+        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
+        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_InPlaceMultiply")
+        return try withGIL {
+            guard let productPtr = api.PyNumber_InPlaceMultiply(lhsPtr, rhsPtr) else {
+                throw PythonError.nullPointer("Python '*=' failed")
+            }
+            return newPythonObject(fromReturnedPointer: productPtr)
+        }
+    }
+    
     // MARK: Division
     
     internal func syncDivide(dividend: SafePythonObject, divisor: SafePythonObject) throws -> SafePythonObject {
-        let dividendPtr = getRegisteredPointer(forSafeObj:dividend)
-        let divisorPtr = getRegisteredPointer(forSafeObj:divisor)
+        let dividendPtr = getRegisteredPointer(forSafeObj: dividend)
+        let divisorPtr = getRegisteredPointer(forSafeObj: divisor)
         
         logger.trace("CPython API call in synchronous mode: PyNumber_TrueDivide")
         guard let quotientPtr = api.PyNumber_TrueDivide(dividendPtr, divisorPtr) else {
@@ -171,6 +197,19 @@ extension PythonInterpreter {
         let quotientObj = SafePythonObject(interpreter: self, id: quotientId)
         self.incrementHousekeepingRefCount(forSafeObj: quotientObj)
         return quotientObj
+    }
+    
+    internal func divide(dividend: PythonObject, divisor: PythonObject) async throws -> PythonObject {
+        let dividendPtr = getRegisteredPointer(forPythonObject: dividend)!
+        let divisorPtr = getRegisteredPointer(forPythonObject: divisor)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_TrueDivide")
+        return try withGIL {
+            guard let quotientPtr = api.PyNumber_TrueDivide(dividendPtr, divisorPtr) else {
+                throw PythonError.nullPointer("Python '/' failed")
+            }
+            return newPythonObject(fromReturnedPointer: quotientPtr)
+        }
     }
     
     internal func syncInPlaceDivide(quotientand: SafePythonObject, divisor: SafePythonObject) throws -> SafePythonObject {
@@ -186,6 +225,19 @@ extension PythonInterpreter {
         let quotientObj = SafePythonObject(interpreter: self, id: quotientId)
         self.incrementHousekeepingRefCount(forSafeObj: quotientObj)
         return quotientObj
+    }
+    
+    internal func divideInPlace(_ lhs: PythonObject, _ divisor: PythonObject) async throws -> PythonObject {
+        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
+        let divisorPtr = getRegisteredPointer(forPythonObject: divisor)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_TrueDivide")
+        return try withGIL {
+            guard let quotientPtr = api.PyNumber_TrueDivide(lhsPtr, divisorPtr) else {
+                throw PythonError.nullPointer("Python '/' failed")
+            }
+            return newPythonObject(fromReturnedPointer: quotientPtr)
+        }
     }
     
     // MARK: Modulus
