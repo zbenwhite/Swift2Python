@@ -19,10 +19,7 @@ extension PythonInterpreter {
             guard let ptr = api.pythonBool_FromLong(bool) else {
                 throw PythonError.nullPointer("Failed to convert bool: \(bool)")
             }
-            
-            // Register the pointer in our actor's internal hashtable
-            let id = registerPythonObjectPointer(ptr)
-            return PythonObject(id: id, interpreter: self)
+            return newPythonObject(fromReturnedPointer: ptr)
         }
     }
     
@@ -36,10 +33,7 @@ extension PythonInterpreter {
             guard let ptr =  try api.pythonFloat_FromDouble(double) else {
                 throw PythonError.nullPointer("Failed to convert double: \(double)")
             }
-            
-            // Register the pointer in our actor's internal hashtable
-            let id = registerPythonObjectPointer(ptr)
-            return PythonObject(id: id, interpreter: self)
+            return newPythonObject(fromReturnedPointer: ptr)
         }
     }
     
@@ -76,9 +70,7 @@ extension PythonInterpreter {
             guard let ptr = api.pythonLong_FromLongLong(val) else {
                 throw PythonError.nullPointer("Failed to convert int: \(val)")
             }
-            
-            let id = registerPythonObjectPointer(ptr)
-            return PythonObject(id: id, interpreter: self)
+            return newPythonObject(fromReturnedPointer: ptr)
         }
     }
     
@@ -438,9 +430,7 @@ extension PythonInterpreter {
             guard let ptr = try api.pythonLong_FromUnsignedLongLong(UInt64(val)) else {
                 throw PythonError.nullPointer("Failed to convert int: \(val)")
             }
-            
-            let id = registerPythonObjectPointer(ptr)
-            return PythonObject(id: id, interpreter: self)
+            return newPythonObject(fromReturnedPointer: ptr)
         }
     }
     
@@ -802,10 +792,7 @@ extension PythonInterpreter {
             guard let ptr = try api.pythonUnicode_FromStringAndSize(string) else {
                 throw PythonError.nullPointer("Failed to convert string: \(string)")
             }
-            
-            // Register the pointer in our actor's internal hashtable
-            let id = registerPythonObjectPointer(ptr)
-            return PythonObject(id: id, interpreter: self)
+            return newPythonObject(fromReturnedPointer: ptr)
         }
     }
     
@@ -854,10 +841,7 @@ extension PythonInterpreter {
                 let valuePtr = getRegisteredPointer(forPythonObject:valuePythonObject)
                 _ = try api.pythonList_SetItem(listPtr, index, valuePtr!)
             }
-            
-            // Register the pointer in our actor's internal hashtable
-            let id = registerPythonObjectPointer(listPtr)
-            return PythonObject(id: id, interpreter: self)
+            return newPythonObject(fromReturnedPointer: listPtr)
         }
     }
     
@@ -875,10 +859,7 @@ extension PythonInterpreter {
                 let valuePtr = getRegisteredPointer(forPythonObject:valueObj)!
                 _ = try api.pythonDict_SetItem(dictPtr, keyPtr, valuePtr)
             }
-            
-            // Register the pointer in our actor's internal hashtable
-            let id = registerPythonObjectPointer(dictPtr)
-            return PythonObject(id: id, interpreter: self)
+            return newPythonObject(fromReturnedPointer: dictPtr)
         }
     }
     

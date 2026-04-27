@@ -57,40 +57,9 @@ public actor PythonInterpreter {
     private let runtime = PythonRuntime.shared
     internal let logger: Logger = Logger(label: "swift2python.PythonInterpreter")
     
-    private var pythonObjectRegistry: [PythonObjectUniqueID: UnsafeMutableRawPointer] = [:]
-    private var pythonObjectSwiftRefCount: [PythonObjectUniqueID: Int] = [:]
+    internal var pythonObjectRegistry: [PythonObjectUniqueID: PyObjectLifecycleRecord] = [:]
     
-    internal func registerPythonObjectPointer(_ ptr: UnsafeMutableRawPointer) -> PythonObjectUniqueID {
-        let id = PythonObjectUniqueID(ptr)
-        pythonObjectRegistry[id] = ptr
-        pythonObjectSwiftRefCount[id] = 1
-        return id
-    }
-    
-    private func getRegisteredPythonObjectPointer(_ id: PythonObjectUniqueID) -> UnsafeMutableRawPointer? {
-        return pythonObjectRegistry[id]
-    }
-    
-    internal func getRegisteredPointer(forPythonObject: PythonObject) -> UnsafeMutableRawPointer? {
-        return getRegisteredPythonObjectPointer(forPythonObject.id)
-    }
-    
-    /// Decrements the Swift-side reference count.
-    /// When it hits zero, it triggers the Python C-API DecRef.
-    internal func releaseHandle(_ id: PythonObjectUniqueID) async throws {
-        guard let count = pythonObjectSwiftRefCount[id] else { return }
-        
-        if count <= 1 {
-//            if let ptr = pythonObjectRegistry[id] {
-//                // Perform the actual Python cleanup
-//                //try py_DecRef(ptr)
-//            }
-            pythonObjectRegistry.removeValue(forKey: id)
-            pythonObjectSwiftRefCount.removeValue(forKey: id)
-        } else {
-            pythonObjectSwiftRefCount[id] = count - 1
-        }
-    }
+
     
     
     init() async throws {
@@ -100,9 +69,6 @@ public actor PythonInterpreter {
     
     internal var api: PreloadedPythonSymbols!  // Loaded in init
         
-    // MARK: Python Errors
-    
-    
     // MARK: GIL handling (async mode)
     
     // A GIL handler for async mode
@@ -123,10 +89,7 @@ public actor PythonInterpreter {
         guard let ptr = try api.pythonImport_ImportModule(name) else {
             throw PythonError.nullPointer("Failed to import module: \(name)")
         }
-        
-        // Register the pointer in our actor's internal hashtable
-        let id = registerPythonObjectPointer(ptr)
-        return PythonObject(id: id, interpreter: self)
+        return newPythonObject(fromReturnedPointer: ptr)
     }
     
     /// Aliased import using PyRun_SimpleString and __main__ lookup
@@ -156,9 +119,7 @@ public actor PythonInterpreter {
         guard let aliasPtr = try api.pythonObject_GetAttrString(mainModulePtr, attrName) else {
             throw PythonError.nullPointer("Alias '\(attrName)' not found in Python scope")
         }
-        
-        let id = registerPythonObjectPointer(aliasPtr)
-        return PythonObject(id: id, interpreter: self)
+        return newPythonObject(fromReturnedPointer: aliasPtr)
     }
     
     
@@ -183,9 +144,8 @@ public actor PythonInterpreter {
         let objPtr = getRegisteredPointer(forPythonObject: object)!
         
         return try withGIL {
-            let valuePtr = try api.pythonObject_GetAttrString(objPtr, attribute)
-            let id = registerPythonObjectPointer(valuePtr!)
-            return PythonObject(id: id, interpreter: self)
+            let valuePtr = try api.pythonObject_GetAttrString(objPtr, attribute)!
+            return newPythonObject(fromReturnedPointer: valuePtr)
         }
     }
     
@@ -199,7 +159,6 @@ public actor PythonInterpreter {
     }
     
     // MARK: Comparion Support (async mode)
-    
     
     public func equals(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
         logger.trace("Equals comparison for PythonObject (async)")
@@ -351,11 +310,6 @@ public actor PythonInterpreter {
     }
     
     
-    // MARK: Prepare for synchronous mode
-    // No asynchronous loading of symbols, so they all need to be preloaded
-    // at the beginning of synchronous mode.  They only load the first time
-    // and are cached after that.
-    
     public enum PythonRichCompareOp: CInt {
         case lessThan           = 0     // Py_LT   →  <
         case lessThanOrEqual    = 1     // Py_LE   →  <=
@@ -375,11 +329,6 @@ public actor PythonInterpreter {
             case .greaterThanOrEqual: return 5
             }
         }
-    }
-    
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
-    public func bind(_ obj: PythonObject) -> PythonInterpreter.SafePythonObject {
-        return SafePythonObject(interpreter: self, id: obj.id)
     }
     
     // MARK: Module Import (synchronous mode)

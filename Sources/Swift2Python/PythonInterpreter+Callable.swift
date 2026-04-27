@@ -31,8 +31,7 @@ extension PythonInterpreter {
             guard let resultPtr = try api.pythonObject_Call(callablePtr, argTuplePtr!, kwDictPtr) else {
                 throw PythonError.nullPointer("Python call returned NULL")
             }
-            let resultID = registerPythonObjectPointer(resultPtr)
-            return PythonObject(id: resultID, interpreter: self)
+            return newPythonObject(fromReturnedPointer: resultPtr)
         }
     }
     
@@ -80,9 +79,7 @@ extension PythonInterpreter {
             throw PythonError.nullPointer("Method '\(methodName)' not found on object")
         }
         
-        let methodID = registerPythonObjectPointer(methodPtr)
-        let methodObject = PythonObject(id: methodID, interpreter: self)
-        
+        let methodObject = newPythonObject(fromReturnedPointer: methodPtr)
         return try await callPythonCallable(methodObject, args: collectedArgs, kwargs: kwargs)
     }
     
@@ -97,9 +94,7 @@ extension PythonInterpreter {
             throw PythonError.nullPointer("Method '\(methodName)' not found on object")
         }
         
-        let methodID = registerPythonObjectPointer(methodPtr)
-        let methodObject = PythonObject(id: methodID, interpreter: self)
-        
+        let methodObject = newPythonObject(fromReturnedPointer: methodPtr)
         return try await callPythonCallable(methodObject, args: collectedArgs, kwargs: [:])
     }
     

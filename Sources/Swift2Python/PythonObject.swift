@@ -10,7 +10,8 @@ import Foundation
 @dynamicMemberLookup
 public struct PythonObject: Sendable, PendingPythonConvertible {
     
-    /// Helper to bridge Swift ARC to the Actor's registry
+    // This gets de-initialized as soon as the last copy of the PythonObject
+    // goes out of scope.  It's a woraround for deinit not working on PythonObject.
     private final class LifetimeTracker: Sendable {
         let id: PythonInterpreter.PythonObjectUniqueID
         let interpreter: PythonInterpreter
@@ -21,14 +22,15 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         }
         
         deinit {
-            let capturedID = id
-            let capturedInterpreter = interpreter
+            let localID = id
+            let localInterpreter = interpreter
             Task {
-                try? await capturedInterpreter.releaseHandle(capturedID)
+                try? await localInterpreter.releasePythonObject(forPythonObjectID: localID)
             }
         }
     }
     
+    // Temporary object result of attribute access.  Methods can be called asynchronously on PythonObject this way.
     public struct CallablePythonObject {
         private let obj: PythonObject
         private let method: String
@@ -51,7 +53,7 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     private let interpreter: PythonInterpreter
     private let lifetime: LifetimeTracker
     
-    init(id: PythonInterpreter.PythonObjectUniqueID, interpreter: PythonInterpreter) {
+    internal init(id: PythonInterpreter.PythonObjectUniqueID, interpreter: PythonInterpreter) {
         self.id = id
         self.interpreter = interpreter
         self.lifetime = LifetimeTracker(id: id, interpreter: interpreter)

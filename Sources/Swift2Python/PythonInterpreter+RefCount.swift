@@ -8,7 +8,7 @@
 extension PythonInterpreter {
     
     
-    struct IsolatedLifecycleRecord {
+    struct PyObjectLifecycleRecord {
         var referenceCount: Int
         let objectPtr: UnsafeMutableRawPointer
     }
@@ -17,8 +17,59 @@ extension PythonInterpreter {
         let handle: UnsafeMutableRawPointer
     }
     
+    // MARK: Async
+    
+    internal func newPythonObject(fromReturnedPointer: UnsafeMutableRawPointer) -> PythonObject {
+        let id = PythonObjectUniqueID(fromReturnedPointer)
+        let record = PyObjectLifecycleRecord(referenceCount: 1, objectPtr: fromReturnedPointer)
+        pythonObjectRegistry[id] = record
+        return PythonObject(id: id, interpreter: self)
+    }
+    
+    internal func getRegisteredPointer(forPythonObject: PythonObject) -> UnsafeMutableRawPointer? {
+        return getRegisteredPointer(forPythonObjectID: forPythonObject.id)
+    }
+    
+    internal func getRegisteredPointer(forPythonObjectID: PythonObjectUniqueID) -> UnsafeMutableRawPointer? {
+        let record = getRegisteredRecord(forPythonObjectID: forPythonObjectID)!
+        return record.objectPtr
+    }
+    
+    internal func getRegisteredRecord(forPythonObjectID: PythonObjectUniqueID) -> PyObjectLifecycleRecord? {
+        return pythonObjectRegistry[forPythonObjectID]!
+    }
+    
+    internal func releasePythonObject(forPythonObjectID: PythonObjectUniqueID) async throws {
+        guard let record  = getRegisteredRecord(forPythonObjectID: forPythonObjectID) else {
+            fatalError("Attempted to release a PythonObject that was not in the registry!")
+        }
+        try await decrementHousekeepingRefCount(forPythonObjectID: forPythonObjectID, andAlsoPythonsRefCount: (record.referenceCount <= 1), andRemoveWhenZero: true)
+    }
+    
+    internal func incrementHousekeepingRefCount(forPythonObjectID: PythonObjectUniqueID) {
+        guard var record  = getRegisteredRecord(forPythonObjectID: forPythonObjectID) else { return }
+        record.referenceCount += 1                           // update the housekeeping reference count
+        pythonObjectRegistry[forPythonObjectID] = record     // write it back because it's a struct
+    }
+    
+    internal func decrementHousekeepingRefCount(forPythonObjectID: PythonObjectUniqueID, andAlsoPythonsRefCount: Bool = false, andRemoveWhenZero: Bool = false) async throws {
+        guard var record  = getRegisteredRecord(forPythonObjectID: forPythonObjectID) else { return }
+        record.referenceCount -= 1                           // update the housekeeping reference count
+        pythonObjectRegistry[forPythonObjectID] = record     // write it back because it's a struct
+        if andAlsoPythonsRefCount {
+            try withGIL {
+                api.Py_DecRef(record.objectPtr)
+            }
+        }
+        if andRemoveWhenZero && record.referenceCount <= 0 {
+            pythonObjectRegistry.removeValue(forKey: forPythonObjectID)
+        }
+    }
+    
+    // MARK: Synchronous
+    
     class IsolatedContextRegistry {
-        var registry: [PythonObjectUniqueID: IsolatedLifecycleRecord] = [:]
+        var registry: [PythonObjectUniqueID: PyObjectLifecycleRecord] = [:]
     }
     
     internal func getRefCount(forHandle: ReferenceCountTestHandle) async throws -> Int {
@@ -78,8 +129,7 @@ extension PythonInterpreter {
         record.referenceCount -= 1                           // update the reference count
         currentContext.registry[forSafeObj.id] = record      // write it back because it's a struct
         let ptr = record.objectPtr
-        let newId = registerPythonObjectPointer(ptr)
-        return PythonObject(id: newId, interpreter: self)
+        return newPythonObject(fromReturnedPointer: ptr)
     }
     
     internal func setupSafePythonObjectRegistry() {
@@ -92,7 +142,7 @@ extension PythonInterpreter {
             fatalError("Attempted to register a SafePythonPython but the isolatedContextStack was empty!")
         }
         let id = PythonObjectUniqueID(ptr)
-        let record = IsolatedLifecycleRecord(referenceCount: 0, objectPtr: ptr)
+        let record = PyObjectLifecycleRecord(referenceCount: 0, objectPtr: ptr)
         currentContext.registry[id] = record
         return id
     }
@@ -108,6 +158,20 @@ extension PythonInterpreter {
     @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
     internal func getRegisteredPointer(forSafeObj: SafePythonObject) -> UnsafeMutableRawPointer {
         return getRegisteredSafeObjectPtr(id: forSafeObj.id)
+    }
+    
+    // Copy a PythonObject (reference) into a SafePythonObject
+    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    public func bind(pythonObject: PythonObject) -> PythonInterpreter.SafePythonObject {
+        
+        // At the end of the withIsolatedContext block, Py_DecRef will be called on the object.
+        // So call Py_IncRef on it here
+        
+        let pythonObjectPtr = getRegisteredPointer(forPythonObject: pythonObject)!
+        let safeObjID = registerSafePythonObject(pythonObjectPtr)
+        let safeObj = SafePythonObject(interpreter: self, id: safeObjID)                     // SafePythonObject refCount starts at zero
+        incrementHousekeepingRefCount(forSafeObj: safeObj, andAlsoPythonsRefCount: true)     // Make it 1, incref because it's a copy
+        return safeObj
     }
                                            
     internal func cleanupSafePythonObjects() {

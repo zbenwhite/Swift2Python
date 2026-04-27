@@ -19,10 +19,9 @@ extension PythonInterpreter {
             // Do it the new Python 3.12 way
             logger.trace("CPython API Call: PyErr_GetRaisedException")
             if let exceptionPtr = pyGetRaisedException() {
-                //defer { Py_DECREF(exc) }
-                let id = registerPythonObjectPointer(exceptionPtr)
-                let exception = PythonObject(id: id, interpreter: self)
-                throw PythonError.pythonException(exception)            }
+                let exception = newPythonObject(fromReturnedPointer: exceptionPtr)
+                throw PythonError.pythonException(exception)
+            }
         } else {
             // Do it the old Python 3.11 or earlier way
             var excType: UnsafeMutableRawPointer? = nil
@@ -36,12 +35,10 @@ extension PythonInterpreter {
                 logger.trace("CPython API Call: PyErr_NormalizeException")
                 api.PyErr_NormalizeException(&excType, &excValue, &excTraceback)
                 if let valuePtr = excValue {
-                    let id = registerPythonObjectPointer(valuePtr)
-                    let exception = PythonObject(id: id, interpreter: self)
+                    let exception = newPythonObject(fromReturnedPointer: valuePtr)
                     throw PythonError.pythonException(exception)
                 } else if let typePtr = excType {
-                    let id = registerPythonObjectPointer(typePtr)
-                    let exception = PythonObject(id: id, interpreter: self)
+                    let exception = newPythonObject(fromReturnedPointer: typePtr)
                     throw PythonError.pythonException(exception)
                 } else {
                     throw PythonError.unknownPythonException

@@ -33,9 +33,7 @@ extension PythonInterpreter {
             guard let sumPtr = api.PyNumber_Add(lhsPtr, rhsPtr) else {
                 throw PythonError.nullPointer("Python '+' failed")
             }
-            
-            let sumId = registerPythonObjectPointer(sumPtr)
-            return PythonObject(id: sumId, interpreter: self)
+            return newPythonObject(fromReturnedPointer:sumPtr)
         }
     }
     
@@ -64,8 +62,7 @@ extension PythonInterpreter {
                 throw PythonError.nullPointer("Python '+=' failed")
             }
             
-            let sumId = registerPythonObjectPointer(sumPtr)
-            return PythonObject(id: sumId, interpreter: self)
+            return newPythonObject(fromReturnedPointer: sumPtr)
         }
     }
     
@@ -95,9 +92,7 @@ extension PythonInterpreter {
             guard let differencePtr = api.PyNumber_Subtract(minuendPtr, subtrahendPtr) else {
                 throw PythonError.nullPointer("Python '-' failed")
             }
-            
-            let differenceId = registerPythonObjectPointer(differencePtr)
-            return PythonObject(id: differenceId, interpreter: self)
+            return newPythonObject(fromReturnedPointer:differencePtr)
         }
     }
     
@@ -125,9 +120,7 @@ extension PythonInterpreter {
             guard let differencePtr = api.PyNumber_InPlaceAdd(minuendPtr, subtrahendPtr) else {
                 throw PythonError.nullPointer("Python '-=' failed")
             }
-            
-            let differenceId = registerPythonObjectPointer(differencePtr)
-            return PythonObject(id: differenceId, interpreter: self)
+            return newPythonObject(fromReturnedPointer:differencePtr)
         }
     }
     
