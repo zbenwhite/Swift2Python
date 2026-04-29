@@ -9,6 +9,24 @@ import Foundation
 
 extension PythonInterpreter.SafePythonObject {
     
+    public func convertToBool() throws -> Bool {
+        switch state {
+        case .bound:
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                return try $0.convertToBool(self)
+            }
+        case .deferredDouble(let val):
+            return val == 0.0 ? false : true
+        case .deferredInt(let val):
+            return val == 0 ? false : true
+        case .deferredString(let val):
+            return val == "" ? false : true
+        case .deferredBool(let val):
+            return val
+        }
+    }
+    
     public func convertToDouble() throws -> Double {
         switch state {
         case .bound:

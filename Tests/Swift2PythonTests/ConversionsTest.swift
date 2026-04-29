@@ -1925,6 +1925,58 @@ struct ConversionsTests {
             }
         }
     }
+    
+    // MARK: ST_xxx String
+    
+    @Test("ST_001: String → PythonObject (async)")
+    func asyncStringConversion() async throws {
+        
+        let value = "this is a string ?"
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await String(pyObj)
+        #expect(roundTrip == value)
+    }
+
+    @Test("ST_002: String → SafePythonObject (synchronous)")
+    func safeStringConversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value = "this is a string ?"
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try String(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
+    
+    // MARK: B_xxx Bool
+    
+    @Test("B_001: Bool → PythonObject (async)")
+    func asyncBoolConversion() async throws {
+        
+        let a = 5
+        let b = "3"
+        let value = a > Int(b)!
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        let roundTrip = try await Bool(pyObj)
+        #expect(roundTrip == value)
+    }
+
+    @Test("B_002: Bool → SafePythonObject (synchronous)")
+    func safeBoolConversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let a = 5
+            let b = "3"
+            let value = a > Int(b)!
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let roundTrip = try Bool(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
 
 }
 

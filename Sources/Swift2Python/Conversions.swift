@@ -35,6 +35,16 @@ extension Bool: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
         try await interpreter.convertToPython(bool: self)
     }
+    
+    public func from(pythonObject: PythonObject) async throws -> Self? {
+        return try await Bool(pythonObject)
+    }
+}
+
+extension Bool {
+    public init(_ pythonObject: PythonObject) async throws {
+        self = try await pythonObject.convertToBool()
+    }
 }
 
 extension Double: PendingPythonConvertible {
@@ -307,6 +317,17 @@ extension Bool: SafePythonConvertible {
         try interpreter.assumeIsolated {
             try $0.convertToSafePython(bool:self)
         }
+    }
+    
+    public func from(safePythonObject: PythonInterpreter.SafePythonObject) throws -> Self? {
+        return try Bool(safePythonObject)
+    }
+}
+
+extension Bool {
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
+        self = try safePythonObject.convertToBool()
     }
 }
 

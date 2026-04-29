@@ -10,9 +10,7 @@ import Foundation
 
 extension PythonInterpreter {
     
-    
-    
-    // MARK: Conversion of primative types (async mode)
+    // MARK: Bool Conversions
     
     public func convertToPython(bool: Bool) async throws -> PythonObject {
         return try withGIL {
@@ -24,9 +22,15 @@ extension PythonInterpreter {
     }
     
     public func convertToBool(_ obj: PythonObject) async throws -> Bool {
-        //let objPtr = getRegisteredPointer(forPythonObject:obj)!
-        fatalError("placeholder")
+        return try await obj.isTrue()
     }
+    
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public func convertToBool(_ obj: SafePythonObject) throws -> Bool {
+        return try obj.isTrue()
+    }
+    
+    // MARK: Double Conversions
     
     public func convertToPython(double: Double) async throws -> PythonObject {
         return try withGIL {

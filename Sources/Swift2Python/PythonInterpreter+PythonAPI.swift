@@ -238,14 +238,14 @@ extension PythonInterpreter {
             return PyObject_GetItem(obPtr, keyPtr)
         }
         
-        internal func pythonObject_IsTrue(_ obPtr: UnsafeMutableRawPointer) throws -> Bool {
+        internal func pythonObject_IsTrue(_ obPtr: UnsafeMutableRawPointer) throws -> Int32 {
             logger.trace("CPython API Call: PyObject_IsTrue")
-            return PyObject_IsTrue(obPtr) == 1
+            return PyObject_IsTrue(obPtr)
         }
             
-        internal func pythonObject_Not(_ obPtr: UnsafeMutableRawPointer) throws -> Bool {
+        internal func pythonObject_Not(_ obPtr: UnsafeMutableRawPointer) throws -> Int32 {
             logger.trace("CPython API Call: PyObject_Not")
-            return PyObject_Not(obPtr) == 1
+            return PyObject_Not(obPtr)
         }
         
         internal func pythonObject_SetAttrString(_ obPtr: UnsafeMutableRawPointer, _ name: String, _ rvalPtr: UnsafeMutableRawPointer) throws -> Int32? {
