@@ -136,6 +136,10 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         }
     }
     
+    public func convertToBool() async throws -> Bool {
+        return try await interpreter.convertToBool(self)
+    }
+    
     public func convertToDouble() async throws -> Double {
         return try await interpreter.convertToDouble(self)
     }
