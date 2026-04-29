@@ -14,24 +14,23 @@
 // [2026-04-05]: DONE: Make C API lookups happen at initialize and stop checking for validity all the time
 // TODO: Reference handling
 // TODO: handle exceptions from python in a nice swift way
-// TODO: logic operators and true/false checking in python objects
+// [2026-04-26]: DONE: true/false checking in python objects
 // TODO: tuples
 // TODO: builtins
 // TODO: python dict and sequence APIs
 // TODO: PythonBytes -- create python bytes objects from swift
-// TODO: exponent operator?
-// TODO: modulus operator?
+// [2026-04-18]: DONE: exponent operator
+// [2026-04-18]: DONE: modulus operator
 // TODO: custom ENV variables to find python
-// TODO: dict support
 // TODO: change the id <--> pointer stuff to a typecast of the pointer?
 // TODO: All conversions should work in both PythonObject and SafePythonObject mode
-// TODO: unbind or something to let SafePythonObject become a PythonObject at the end of the isolated closure?
+// [2026-04-25]: DONE: unbind or something to let SafePythonObject become a PythonObject at the end of the isolated closure
 // TODO: api for arithmetic on PythonObject since operators can't be async
 // TODO: understand free threaded python
 // TODO: SafePythonObject comparisons that throw -- they should also handle unbound
 // TODO: Combine Unbound and bound comparisons and operators
 // TODO: choose "Equal" or "Equals" for comparison function naming and only use one
-// TODO: Use the InPlace Python APIs for InPlace just in case the operators are overloaded in python.
+// [2026-04-25]: DONE: Use the InPlace Python APIs for InPlace just in case the operators are overloaded in python.
 // TODO: bit shift operators?
 
 import Logging
