@@ -819,35 +819,52 @@ extension PythonInterpreter {
     public func convertToString(_ obj: PythonObject) async throws -> String {
         let objPtr = getRegisteredPointer(forPythonObject:obj)!
         
-        return try withGIL {
-            if let pyStr = api.pythonObject_Str(objPtr) {
-                // FIXME: New object is created.  It needs to disappear.
-                // defer { Py_DECREF(pyStr) }
-                if let s = try api.pythonUnicode_AsUTF8AndSize(pyStr) {
-                    return s
-                } else {
-                    try throwPythonError()
+        return try await withGIL {
+            do {
+                if let pyStr = api.pythonObject_Str(objPtr) {
+                    // pythonObject_Str creates an object.  The easiest way to deal with
+                    // reference counting is to register it and set it up for normal collection later,
+                    // even though it's only temporary.
+                    _ = newPythonObject(fromReturnedPointer: pyStr)
+                    
+                    if let s = try api.pythonUnicode_AsUTF8AndSize(pyStr) {
+                        return s
+                    } else {
+                        try await throwPythonError()
+                    }
                 }
-            }
-            else {
-                try throwPythonError()
+                else {
+                    try await throwPythonError()
+                }
+            } catch let error as PythonError {
+                throw PythonError.conversionType( value: "<unrepresentable>", sourceType: "PythonObject", targetType: "String", underlying: error )
             }
         }
     }
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public func convertToString(_ obj: SafePythonObject) throws -> String {
-        let objPtr = getRegisteredPointer(forSafeObj:obj)
-        
-        guard let pyStr = api.pythonObject_Str(objPtr) else {
-            try throwPythonError()
-        }
-        // FIXME: New object is created.  It needs to disappear.
-        // defer { Py_DECREF(pyStr) }
-        if let s = try api.pythonUnicode_AsUTF8AndSize(pyStr) {
-            return s
-        } else {
-            try throwPythonError()
+        do {
+            let objPtr = getRegisteredPointer(forSafeObj:obj)
+            // Call __string__ so this works on more-or-less any object
+            guard let pyStr = api.pythonObject_Str(objPtr) else {
+                try throwPythonError()
+            }
+            // pythonObject_Str creates an object.  The easiest way to deal with
+            // reference counting is to register it and set it up for normal collection later,
+            // even though it's only temporary.
+            let id = registerSafePythonObject(pyStr)
+            let safeObj = SafePythonObject(interpreter: self, id: id)
+            self.incrementHousekeepingRefCount(forSafeObj: safeObj)
+            
+            // Turn the python string into a Swift string.
+            if let s = try api.pythonUnicode_AsUTF8AndSize(pyStr) {
+                return s
+            } else {
+                try throwPythonError()
+            }
+        } catch let error as PythonError {
+            throw PythonError.conversionType( value: "<unrepresentable>", sourceType: "SafePythonObject", targetType: "String", underlying: error )
         }
     }
     

@@ -1950,6 +1950,92 @@ struct ConversionsTests {
         }
     }
     
+    @Test("ST_003: PythonObject to string error handling (async)")
+    func asyncStringError() async throws {
+        
+        // \ud800 is a lone surrogate, legal in Python str but illegal in UTF-8
+        let pythonCode = "poisonST_003 = '\\ud800'"
+        
+        try await interpreter.runSimpleString(pythonCode: pythonCode)
+        let poisonObj = try await interpreter.getGlobals().getItem(key: "poisonST_003")  // __main__.__dict__["poison"]
+        
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await String(poisonObj)
+        }
+        
+        if case let .conversionType(_, sourceType, targetType, _) = thrownError {
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "String")
+        } else {
+            Issue.record("Expected .conversionType, but got \(thrownError)")
+        }
+    }
+    
+    @Test("ST_004: SafePythonObject to string error handling (synchronous)")
+    func safeStringError() async throws {
+        
+        // \ud800 is a lone surrogate, legal in Python str but illegal in UTF-8
+        let pythonCode = "poisonST_004 = '\\ud800'"
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            try isolatedInterpreter.runSimpleString(pythonCode: pythonCode)
+            
+            let thrownError = #expect(throws: PythonError.self) {
+                // This should trigger PyUnicode_AsUTF8AndSize to return NULL
+                _ = try String(isolatedInterpreter.globals["poisonST_004"])
+            }
+            
+            if case let .conversionType(_, sourceType, targetType, _) = thrownError {
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "String")
+            } else {
+                Issue.record("Expected .conversionType error")
+            }
+        }
+    }
+    
+    // Real Swift string to python can only really fail with an error if out of RAM.  No testing.
+    // @Test("ST_005: String to PythonObject error handling (async)")
+    // @Test("ST_006: String to SafePythonObject error handling (synchronous)")
+    
+    @Test("ST_007: SafePythonObject to String for unbound cases (synchronous)")
+    func safeStringUnboundConversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let a: PythonInterpreter.SafePythonObject = true
+            let a_str = try String(a)
+            #expect(a_str == "True")
+            
+            let b: PythonInterpreter.SafePythonObject = false
+            let b_str = try String(b)
+            #expect(b_str == "False")
+            
+            let c: PythonInterpreter.SafePythonObject = 5
+            let c_str = try String(c)
+            #expect(c_str == "5")
+            
+            let d: PythonInterpreter.SafePythonObject = 0
+            let d_str = try String(d)
+            #expect(d_str == "0")
+            
+            let e: PythonInterpreter.SafePythonObject = -74.6
+            let e_str = try String(e)
+            #expect(e_str == "-74.6")
+            
+            let f: PythonInterpreter.SafePythonObject = 0.0
+            let f_str = try String(f)
+            #expect(f_str == "0.0")
+            
+            let g: PythonInterpreter.SafePythonObject = "i like turnips"
+            let g_str = try String(g)
+            #expect(g_str == "i like turnips")
+            
+            let h: PythonInterpreter.SafePythonObject = ""
+            let h_str = try String(h)
+            #expect(h_str == "")
+        }
+    }
+    
     // MARK: B_xxx Bool
     
     @Test("B_001: Bool → PythonObject (async)")
@@ -1987,11 +2073,11 @@ struct ConversionsTests {
             def __bool__(self):
                 raise ValueError("Intentional Interop Error")
 
-        poison = Breakable()
+        poisonB_003 = Breakable()
         """
         
         try await interpreter.runSimpleString(pythonCode: pythonCode)
-        let poisonObj = try await interpreter.getGlobals().getItem(key: "poison")  // __main__.__dict__["poison"]
+        let poisonObj = try await interpreter.getGlobals().getItem(key: "poisonB_003")  // __main__.__dict__["poison"]
         
         let thrownError = await #expect(throws: PythonError.self) {
             _ = try await Bool(poisonObj)
@@ -2016,13 +2102,13 @@ struct ConversionsTests {
             def __bool__(self):
                 raise ValueError("Intentional Interop Error")
 
-        poison = Breakable()
+        poisonB_004 = Breakable()
         """
         
         try await interpreter.withIsolatedContext { isolatedInterpreter in
             try isolatedInterpreter.runSimpleString(pythonCode: pythonCode)
             let thrownError = #expect(throws: PythonError.self) {
-                _ = try Bool(isolatedInterpreter.globals["poison"])
+                _ = try Bool(isolatedInterpreter.globals["poisonB_004"])
             }
             
             // Inspect the exact error (very useful for regression safety)
@@ -2039,6 +2125,44 @@ struct ConversionsTests {
     // PyBool_FromLong never fails.  Errors don't happen.  No testing is possible.
     // @Test("B_005: Bool to PythonObject error handling (async)")
     // @Test("B_006: Bool to SafePythonObject error handling (synchronous)")
+    
+    @Test("B_007: SafePythonObject to Bool for unbound cases (synchronous)")
+    func safeBoolUnboundConversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let a: PythonInterpreter.SafePythonObject = true
+            let a_bool = try Bool(a)
+            #expect(a_bool == true)
+            
+            let b: PythonInterpreter.SafePythonObject = false
+            let b_bool = try Bool(b)
+            #expect(b_bool == false)
+            
+            let c: PythonInterpreter.SafePythonObject = 5
+            let c_bool = try Bool(c)
+            #expect(c_bool == true)
+            
+            let d: PythonInterpreter.SafePythonObject = 0
+            let d_bool = try Bool(d)
+            #expect(d_bool == false)
+            
+            let e: PythonInterpreter.SafePythonObject = -74.6
+            let e_bool = try Bool(e)
+            #expect(e_bool == true)
+            
+            let f: PythonInterpreter.SafePythonObject = 0.0
+            let f_bool = try Bool(f)
+            #expect(f_bool == false)
+            
+            let g: PythonInterpreter.SafePythonObject = "i like turnips"
+            let g_bool = try Bool(g)
+            #expect(g_bool == true)
+            
+            let h: PythonInterpreter.SafePythonObject = ""
+            let h_bool = try Bool(h)
+            #expect(h_bool == false)
+        }
+    }
 
 }
 
@@ -2253,13 +2377,19 @@ struct ConversionsTests {
 // [2026-05-02] : B_006 : *** Test Convert Bool to SafePythonObject error handling
 // [2026-05-01] : B_002 : Test Convert SafePythonObject to Bool
 // [2026-05-01] : B_004 : Test Convert SafePythonObject to Bool error handling
+// [2026-05-02] : B_007 : Test Convert SafePythonObject to Bool for unbound cases
 
 // Strings
 
-// [          ] : Test Convert String to PythonObject
-// [          ] : Test Convert PythonObject to String
-// [          ] : Test Convert String to SafePythonObject
-// [          ] : Test Convert SafePythonObject to String
+// [2026-05-02] : ST_001 : Test Convert String to PythonObject
+// [2026-05-02] : ST_005 : *** Test Convert Bool to PythonObject error handling
+// [2026-05-02] : ST_001 : Test Convert PythonObject to String
+// [2026-05-02] : ST_003 : Test Convert PythonObject to String error handling
+// [2026-05-02] : ST_002 : Test Convert String to SafePythonObject
+// [2026-05-02] : ST_006 : *** Test Convert String to SafePythonObject error handling
+// [2026-05-02] : ST_002 : Test Convert SafePythonObject to String
+// [2026-05-02] : ST_003 : Test Convert SafePythonObject to String error handling
+// [2026-05-02] : ST_007 : Test Convert SafePythonObject to String for unbound cases
 
 // Arrays
 
