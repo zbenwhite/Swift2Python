@@ -15,7 +15,8 @@ extension PythonInterpreter {
     public func convertToPython(bool: Bool) async throws -> PythonObject {
         return try withGIL {
             guard let ptr = api.pythonBool_FromLong(bool) else {
-                throw PythonError.nullPointer("Failed to convert bool: \(bool)")
+                // PyBool_FromLong never fails.  Unknown error is fine.
+                throw PythonError.unknownPythonException
             }
             return newPythonObject(fromReturnedPointer: ptr)
         }
@@ -886,49 +887,49 @@ extension PythonInterpreter {
     // MARK: Conversions from primitives (synchronous mode)
     // Primitive type conversions in synchronous mode ----------
     
-    internal func convertToSafePython(bool val: Bool) throws -> SafePythonObject {
-        let id = try convertToSafePythonID(bool: val)
+    internal func convertToSafePython(bool: Bool) throws -> SafePythonObject {
+        let id = try convertToSafePythonID(bool: bool)
         let safeObj = SafePythonObject(interpreter: self, id: id)
         self.incrementHousekeepingRefCount(forSafeObj: safeObj)
         return safeObj
     }
     
     internal func convertToSafePythonID(bool: Bool) throws -> PythonObjectUniqueID {
-        guard let ptr = api.pythonBool_FromLong(((bool ? 1 : 0) != 0)) else {
-            throw PythonError.nullPointer("Failed to convert bool: \(bool)")
+        guard let ptr = api.pythonBool_FromLong(bool) else {
+            // PyBool_FromLong never fails.  Unknown error is fine.
+            throw PythonError.unknownPythonException
         }
-        
         let id = registerSafePythonObject(ptr)
         return id
     }
     
-    internal func convertToSafePython(double val: Double) throws -> SafePythonObject {
-        let id = try convertToSafePythonID(double: val)
+    internal func convertToSafePython(double: Double) throws -> SafePythonObject {
+        let id = try convertToSafePythonID(double: double)
         let safeObj = SafePythonObject(interpreter: self, id: id)
         self.incrementHousekeepingRefCount(forSafeObj: safeObj)
         return safeObj
     }
     
-    internal func convertToSafePythonID(double val: Double) throws -> PythonObjectUniqueID {
+    internal func convertToSafePythonID(double: Double) throws -> PythonObjectUniqueID {
         logger.trace("CPython API call in synchronous mode: PyFloat_FromDouble")
-        guard let ptr = api.PyFloat_FromDouble(val) else {
-            throw PythonError.nullPointer("Failed to convert double: \(val)")
+        guard let ptr = api.PyFloat_FromDouble(double) else {
+            throw PythonError.nullPointer("Failed to convert double: \(double)")
         }
         
         let id = registerSafePythonObject(ptr)
         return id
     }
     
-    internal func convertToSafePython(string val: String) throws -> SafePythonObject {
-        let id = try convertToSafePythonID(string: val)
+    internal func convertToSafePython(string: String) throws -> SafePythonObject {
+        let id = try convertToSafePythonID(string: string)
         let safeObj = SafePythonObject(interpreter: self, id: id)
         self.incrementHousekeepingRefCount(forSafeObj: safeObj)
         return safeObj
     }
     
-    internal func convertToSafePythonID(string val: String) throws -> PythonObjectUniqueID {
-        guard let ptr = try api.pythonUnicode_FromStringAndSize(val) else {
-            throw PythonError.nullPointer("Failed to convert string: \(val)")
+    internal func convertToSafePythonID(string: String) throws -> PythonObjectUniqueID {
+        guard let ptr = try api.pythonUnicode_FromStringAndSize(string) else {
+            throw PythonError.nullPointer("Failed to convert string: \(string)")
         }
         let id = registerSafePythonObject(ptr)
         return id

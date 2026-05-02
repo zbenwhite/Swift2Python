@@ -2035,6 +2035,10 @@ struct ConversionsTests {
             }
         }
     }
+    
+    // PyBool_FromLong never fails.  Errors don't happen.  No testing is possible.
+    // @Test("B_005: Bool to PythonObject error handling (async)")
+    // @Test("B_006: Bool to SafePythonObject error handling (synchronous)")
 
 }
 
@@ -2242,9 +2246,11 @@ struct ConversionsTests {
 // Bool
 
 // [2026-05-01] : B_001 : Test Convert Bool to PythonObject
+// [2026-05-02] : B_005 : *** Test Convert Bool to PythonObject error handling
 // [2026-05-01] : B_001 : Test Convert PythonObject to Bool
 // [2026-05-01] : B_003 : Test Convert PythonObject to Bool error handling
 // [2026-05-01] : B_002 : Test Convert Bool to SafePythonObject
+// [2026-05-02] : B_006 : *** Test Convert Bool to SafePythonObject error handling
 // [2026-05-01] : B_002 : Test Convert SafePythonObject to Bool
 // [2026-05-01] : B_004 : Test Convert SafePythonObject to Bool error handling
 
