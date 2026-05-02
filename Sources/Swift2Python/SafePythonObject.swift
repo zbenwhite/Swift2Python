@@ -147,7 +147,7 @@ extension PythonInterpreter {
         
         //
         // a[key]
-        public subscript(key: SafePythonConvertible...) -> SafePythonConvertible {
+        public subscript(key: SafePythonConvertible...) -> SafePythonObject {
             // a[key]
             get {
                 let localInterpreter = interpreter
@@ -250,8 +250,8 @@ extension PythonInterpreter {
                         let item = try pyIterator.__next__()
                         
                         // Unpack the Python tuple using subscript (already implemented)
-                        let key   = item[0] as! SafePythonObject   // or item[SafePythonObject(0)] if needed
-                        let value = item[1] as! SafePythonObject
+                        let key   = item[0]
+                        let value = item[1] 
                         
                         return (key: key, value: value)
                     } catch {

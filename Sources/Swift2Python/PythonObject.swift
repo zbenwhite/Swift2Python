@@ -76,6 +76,18 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         try await interpreter.set(object: self, attribute: attr, value: value.toPythonObject(interpreter: self.interpreter))
     }
     
+    // a.[key]
+    // (can't do actual a[key] because we need try await ...)
+    public func getItem(key: PendingPythonConvertible) async throws -> PythonObject {
+        try await interpreter.getItem(object: self, key: key.toPythonObject(interpreter: self.interpreter))
+    }
+    
+    // a.[key] = value
+    // (can't do actual a[key] = value because we need try await ...)
+    public func setItem(key: PendingPythonConvertible, newValue: PendingPythonConvertible) async throws {
+        try await interpreter.setItem(object: self, key: key.toPythonObject(interpreter: self.interpreter), newValue: newValue.toPythonObject(interpreter: self.interpreter))
+    }
+    
     //
     // a.call_a_function() can be implemented.
     public subscript(dynamicMember name: String) -> CallablePythonObject {

@@ -19,11 +19,23 @@ extension PythonInterpreter {
     
     // MARK: Async
     
+    // A new python object came from python.  Python incremented the reference count
+    // itself.  S2P starts the count at 1 so Py_DecRef gets called later
     internal func newPythonObject(fromReturnedPointer: UnsafeMutableRawPointer) -> PythonObject {
         let id = PythonObjectUniqueID(fromReturnedPointer)
         let record = PyObjectLifecycleRecord(referenceCount: 1, objectPtr: fromReturnedPointer)
         pythonObjectRegistry[id] = record
         return PythonObject(id: id, interpreter: self)
+    }
+    
+    // A borrowed python object came from python.  Python DID NOT increment the reference count.
+    // S2P needs call Py_IncRef because turning this into a PythonObject means keeping it around
+    // a while.
+    internal func borrowedPythonObject(fromReturnedPointer: UnsafeMutableRawPointer) -> PythonObject {
+        api.Py_IncRef(fromReturnedPointer)
+        // newPythonObject already starts the reference count at 1 so
+        // it can just be called here.  The code is the same.
+        return newPythonObject(fromReturnedPointer: fromReturnedPointer)
     }
     
     internal func getRegisteredPointer(forPythonObject: PythonObject) -> UnsafeMutableRawPointer? {
@@ -46,7 +58,7 @@ extension PythonInterpreter {
         try await decrementHousekeepingRefCount(forPythonObjectID: forPythonObjectID, andAlsoPythonsRefCount: (record.referenceCount <= 1), andRemoveWhenZero: true)
     }
     
-    internal func incrementHousekeepingRefCount(forPythonObjectID: PythonObjectUniqueID) {
+    internal func incrementHousekeepingRefCount(forPythonObjectID: PythonObjectUniqueID, andAlsoPythonsRefCount: Bool = false) {
         guard var record  = getRegisteredRecord(forPythonObjectID: forPythonObjectID) else { return }
         record.referenceCount += 1                           // update the housekeeping reference count
         pythonObjectRegistry[forPythonObjectID] = record     // write it back because it's a struct
@@ -54,6 +66,9 @@ extension PythonInterpreter {
     
     internal func decrementHousekeepingRefCount(forPythonObjectID: PythonObjectUniqueID, andAlsoPythonsRefCount: Bool = false, andRemoveWhenZero: Bool = false) async throws {
         guard var record  = getRegisteredRecord(forPythonObjectID: forPythonObjectID) else { return }
+        if record.referenceCount == 0 {
+            logger.warning("Decrementing a zero refernce count for PythonObject. Something's probably wrong.")
+        }
         record.referenceCount -= 1                           // update the housekeeping reference count
         pythonObjectRegistry[forPythonObjectID] = record     // write it back because it's a struct
         if andAlsoPythonsRefCount {
@@ -149,15 +164,29 @@ extension PythonInterpreter {
     
     @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
     internal func getRegisteredSafeObjectPtr(id: PythonObjectUniqueID) -> UnsafeMutableRawPointer {
-        guard let currentContext = isolatedContextStack.last, let record = currentContext.registry[id] else {
-            fatalError("Attempted to reference count a SafePythonObject that was not in the registry!")
+        // Look in the registry for local scope first, then up toward the globals.
+        // This is so globals work.  There's more-or-less never going to be grater than
+        // two levels.
+        for cxt in isolatedContextStack.reversed() {
+            if let record = cxt.registry[id] {
+                return record.objectPtr
+            }
         }
-        return record.objectPtr
+        fatalError("Failed to find a registered SafePythonObject.")
     }
     
     @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
     internal func getRegisteredPointer(forSafeObj: SafePythonObject) -> UnsafeMutableRawPointer {
         return getRegisteredSafeObjectPtr(id: forSafeObj.id)
+    }
+    
+    // Make a private version of this so I can call it
+    internal func _bind(pythonObject: PythonObject) -> PythonInterpreter.SafePythonObject {
+        let pythonObjectPtr = getRegisteredPointer(forPythonObject: pythonObject)!
+        let safeObjID = registerSafePythonObject(pythonObjectPtr)
+        let safeObj = SafePythonObject(interpreter: self, id: safeObjID)                     // SafePythonObject refCount starts at zero
+        incrementHousekeepingRefCount(forSafeObj: safeObj, andAlsoPythonsRefCount: true)     // Make it 1, incref because it's a copy
+        return safeObj
     }
     
     // Copy a PythonObject (reference) into a SafePythonObject
@@ -167,11 +196,7 @@ extension PythonInterpreter {
         // At the end of the withIsolatedContext block, Py_DecRef will be called on the object.
         // So call Py_IncRef on it here
         
-        let pythonObjectPtr = getRegisteredPointer(forPythonObject: pythonObject)!
-        let safeObjID = registerSafePythonObject(pythonObjectPtr)
-        let safeObj = SafePythonObject(interpreter: self, id: safeObjID)                     // SafePythonObject refCount starts at zero
-        incrementHousekeepingRefCount(forSafeObj: safeObj, andAlsoPythonsRefCount: true)     // Make it 1, incref because it's a copy
-        return safeObj
+        return _bind(pythonObject: pythonObject)
     }
                                            
     internal func cleanupSafePythonObjects() {
