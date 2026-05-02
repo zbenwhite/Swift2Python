@@ -1977,6 +1977,64 @@ struct ConversionsTests {
             #expect(roundTrip == value)
         }
     }
+    
+    @Test("B_003: PythonObject to bool error handling (async)")
+    func asyncBoolError() async throws {
+        // It's actually a little difficult to cause an error.
+        
+        let pythonCode = """
+        class Breakable:
+            def __bool__(self):
+                raise ValueError("Intentional Interop Error")
+
+        poison = Breakable()
+        """
+        
+        try await interpreter.runSimpleString(pythonCode: pythonCode)
+        let poisonObj = try await interpreter.getGlobals().getItem(key: "poison")  // __main__.__dict__["poison"]
+        
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await Bool(poisonObj)
+        }
+        
+        // Inspect the exact error (very useful for regression safety)
+        if case let .conversionType(_, sourceType, targetType, _) = thrownError {
+            //#expect(value == String("poison"))
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Bool")
+        } else {
+            Issue.record("Expected .conversionType, but got \(thrownError)")
+        }
+    }
+    
+    @Test("B_004: SafePythonObject to bool error handling (synchronous)")
+    func safeBoolError() async throws {
+        // It's actually a little difficult to cause an error.
+        
+        let pythonCode = """
+        class Breakable:
+            def __bool__(self):
+                raise ValueError("Intentional Interop Error")
+
+        poison = Breakable()
+        """
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            try isolatedInterpreter.runSimpleString(pythonCode: pythonCode)
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try Bool(isolatedInterpreter.globals["poison"])
+            }
+            
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionType(_, sourceType, targetType, _) = thrownError {
+                //#expect(value == String("poison"))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Bool")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+        }
+    }
 
 }
 
@@ -2180,6 +2238,15 @@ struct ConversionsTests {
 // [2026-04-19] : UI64_007 : Test Convert SafePythonObject to UInt64 error handling on overflow
 // [2026-04-19] : UI64_008 : Test Convert SafePythonObject to UInt64 negative number error handling
 // [          ] : Test Convert SafePythonObject to UInt64 for unbound cases
+
+// Bool
+
+// [2026-05-01] : B_001 : Test Convert Bool to PythonObject
+// [2026-05-01] : B_001 : Test Convert PythonObject to Bool
+// [2026-05-01] : B_003 : Test Convert PythonObject to Bool error handling
+// [2026-05-01] : B_002 : Test Convert Bool to SafePythonObject
+// [2026-05-01] : B_002 : Test Convert SafePythonObject to Bool
+// [2026-05-01] : B_004 : Test Convert SafePythonObject to Bool error handling
 
 // Strings
 

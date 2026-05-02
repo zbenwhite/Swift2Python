@@ -22,12 +22,27 @@ extension PythonInterpreter {
     }
     
     public func convertToBool(_ obj: PythonObject) async throws -> Bool {
-        return try await obj.isTrue()
+        logger.trace("convertToBool: Convert PythonObject to Bool.")
+        let boolValue: Bool
+        do {
+            boolValue = try await obj.isTrue()
+        } catch let error as PythonError {
+            let objStr = (try? await String(obj)) ?? "<unrepresentable>"
+            throw PythonError.conversionType(value: objStr, sourceType: "PythonObject", targetType: "Bool", underlying: error)
+        }
+        return boolValue
     }
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public func convertToBool(_ obj: SafePythonObject) throws -> Bool {
-        return try obj.isTrue()
+        let boolValue: Bool
+        do {
+            boolValue = try obj.isTrue()
+        } catch let error as PythonError {
+            let objStr = (try? String(obj)) ?? "<unrepresentable>"
+            throw PythonError.conversionType(value: objStr, sourceType: "SafePythonObject", targetType: "Bool", underlying: error)
+        }
+        return boolValue
     }
     
     // MARK: Double Conversions
