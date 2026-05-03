@@ -60,26 +60,44 @@ extension PythonInterpreter {
     public func convertToDouble(_ obj: PythonObject) async throws -> Double {
         let objPtr = getRegisteredPointer(forPythonObject:obj)!
         return try await withGIL {
-            let value = api.pythonFloat_AsDouble(objPtr)
-            if value == -1.0 {
-                if let _ = try api.pythonErr_Occurred() {
-                    try await throwPythonError()
+            do {
+                let value: Double = api.pythonFloat_AsDouble(objPtr)
+                if value == -1.0 {
+                    if let _ = try api.pythonErr_Occurred() {
+                        try await throwPythonError()
+                    }
+                }
+                return value
+            } catch let error as PythonError {
+                switch error {
+                case .pythonException:
+                    let objStr = (try? await String(obj)) ?? "<unrepresentable>"
+                    throw PythonError.conversionType( value: objStr, sourceType: "SafePythonObject", targetType: "Double", underlying: error )
+                default: throw error
                 }
             }
-            return Double(exactly: value)!
         }
     }
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public func convertToDouble(_ obj: SafePythonObject) throws -> Double {
         let objPtr = getRegisteredPointer(forSafeObj:obj)
-        let value = api.pythonFloat_AsDouble(objPtr)
-        if value == -1.0 {
-            if let _ = try api.pythonErr_Occurred() {
-                try throwPythonError()
+        do {
+            let value: Double = api.pythonFloat_AsDouble(objPtr)
+            if value == -1.0 {
+                if let _ = try api.pythonErr_Occurred() {
+                    try throwPythonError()
+                }
+            }
+            return value
+        } catch let error as PythonError {
+            switch error {
+            case .safePythonException:
+                let objStr = (try? String(obj)) ?? "<unrepresentable>"
+                throw PythonError.conversionType( value: objStr, sourceType: "SafePythonObject", targetType: "Double", underlying: nil )
+            default: throw error
             }
         }
-        return Double(exactly: value)!
     }
     
     // MARK: Int Conversions

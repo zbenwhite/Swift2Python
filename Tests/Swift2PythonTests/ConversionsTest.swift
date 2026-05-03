@@ -84,6 +84,45 @@ struct ConversionsTests {
         }
     }
     
+    @Test("FD_009: PythonObject (async) → Double throws on wrong type")
+    func asyncDoubleConversionWrongType() async throws {
+        
+        let s = "not an integer"
+        
+        let pyObj = try await s.toPythonObject(interpreter: interpreter)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await Double(pyObj)
+        }
+        
+        if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+            #expect(value == String(s))
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Double")
+        } else {
+            Issue.record("Expected .conversionType, but got \(thrownError)")
+        }
+    }
+    
+    @Test("FD_010: SafePythonObject (synchronous) → Double throws wrong type")
+    func safeDoubleConversionWrongType() async throws {
+        
+        let s = "not an integer"
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let safePyObj = try s.toSafePythonObject(interpreter: isolatedInterpreter)
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try Double(safePyObj)
+            }
+            
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == String(s))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Double")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+        }
+    }
+    
     @Test("FD_011: SafePythonObject to Double for unbound cases (synchronous)")
     func safeDoubleUnboundConversion() async throws {
         
@@ -124,7 +163,6 @@ struct ConversionsTests {
                 let i: PythonInterpreter.SafePythonObject = "i like turnips"
                 _ = try Double(i)
             }
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError {
                 #expect(value == "i like turnips")
                 #expect(sourceType.contains("SafePythonObject"))
@@ -137,7 +175,6 @@ struct ConversionsTests {
                 let j: PythonInterpreter.SafePythonObject = ""
                 _ = try Double(j)
             }
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError2 {
                 #expect(value == "")
                 #expect(sourceType.contains("SafePythonObject"))
@@ -194,6 +231,45 @@ struct ConversionsTests {
         }
     }
     
+    @Test("FF_009: PythonObject (async) → Double throws on wrong type")
+    func asyncFloatConversionWrongType() async throws {
+        
+        let s = "not an integer"
+        
+        let pyObj = try await s.toPythonObject(interpreter: interpreter)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await Float(pyObj)
+        }
+        
+        if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+            #expect(value == String(s))
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Float")
+        } else {
+            Issue.record("Expected .conversionType, but got \(thrownError)")
+        }
+    }
+    
+    @Test("FF_010: SafePythonObject (synchronous) → Double throws wrong type")
+    func safeFloatConversionWrongType() async throws {
+        
+        let s = "not an integer"
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let safePyObj = try s.toSafePythonObject(interpreter: isolatedInterpreter)
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try Float(safePyObj)
+            }
+            
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == String(s))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Float")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+        }
+    }
+    
     @Test("FF_011: SafePythonObject to Double for unbound cases (synchronous)")
     func safeFloatUnboundConversion() async throws {
         
@@ -234,7 +310,6 @@ struct ConversionsTests {
                 let i: PythonInterpreter.SafePythonObject = "i like turnips"
                 _ = try Float(i)
             }
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError {
                 #expect(value == "i like turnips")
                 #expect(sourceType.contains("SafePythonObject"))
@@ -247,7 +322,6 @@ struct ConversionsTests {
                 let j: PythonInterpreter.SafePythonObject = ""
                 _ = try Float(j)
             }
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError2 {
                 #expect(value == "")
                 #expect(sourceType.contains("SafePythonObject"))
@@ -304,6 +378,45 @@ struct ConversionsTests {
         }
     }
     
+    @Test("F16_009: PythonObject (async) → Double throws on wrong type")
+    func asyncFloat16ConversionWrongType() async throws {
+        
+        let s = "not an integer"
+        
+        let pyObj = try await s.toPythonObject(interpreter: interpreter)
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await Float16(pyObj)
+        }
+        
+        if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+            #expect(value == String(s))
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Float16")
+        } else {
+            Issue.record("Expected .conversionType, but got \(thrownError)")
+        }
+    }
+    
+    @Test("F16_010: SafePythonObject (synchronous) → Double throws wrong type")
+    func safeFloat16ConversionWrongType() async throws {
+        
+        let s = "not an integer"
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let safePyObj = try s.toSafePythonObject(interpreter: isolatedInterpreter)
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try Float16(safePyObj)
+            }
+            
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == String(s))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Float16")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+        }
+    }
+    
     @Test("F16_011: SafePythonObject to Double for unbound cases (synchronous)")
     func safeFloat16UnboundConversion() async throws {
         
@@ -344,7 +457,6 @@ struct ConversionsTests {
                 let i: PythonInterpreter.SafePythonObject = "i like turnips"
                 _ = try Float16(i)
             }
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError {
                 #expect(value == "i like turnips")
                 #expect(sourceType.contains("SafePythonObject"))
@@ -357,7 +469,6 @@ struct ConversionsTests {
                 let j: PythonInterpreter.SafePythonObject = ""
                 _ = try Float16(j)
             }
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError2 {
                 #expect(value == "")
                 #expect(sourceType.contains("SafePythonObject"))
@@ -424,7 +535,6 @@ struct ConversionsTests {
             _ = try await Int(pyObj) as Int
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == String(tooBigForInt64))
             #expect(sourceType.contains("PythonObject"))
@@ -444,7 +554,6 @@ struct ConversionsTests {
             _ = try await Int(pyObj) as Int
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == "-9223372036854775828")
             #expect(sourceType.contains("PythonObject"))
@@ -465,7 +574,6 @@ struct ConversionsTests {
                 _ = try Int(pyObj) as Int
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == String(tooBigForInt64))
                 #expect(sourceType.contains("PythonObject"))
@@ -488,7 +596,6 @@ struct ConversionsTests {
                 _ = try Int(pyObj) as Int
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == "-9223372036854775828")
                 #expect(sourceType.contains("SafePythonObject"))
@@ -509,7 +616,6 @@ struct ConversionsTests {
             _ = try await Int(pyObj) as Int
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionType(value, sourceType, targetType, _) = thrownError {
             #expect(value == String(s))
             #expect(sourceType.contains("PythonObject"))
@@ -529,7 +635,6 @@ struct ConversionsTests {
                 _ = try Int(safePyObj) as Int
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError {
                 #expect(value == String(s))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -580,7 +685,6 @@ struct ConversionsTests {
                 let i: PythonInterpreter.SafePythonObject = "i like turnips"
                 _ = try Int(i)
             }
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError {
                 #expect(value == "i like turnips")
                 #expect(sourceType.contains("SafePythonObject"))
@@ -593,7 +697,6 @@ struct ConversionsTests {
                 let j: PythonInterpreter.SafePythonObject = ""
                 _ = try Int(j)
             }
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError2 {
                 #expect(value == "")
                 #expect(sourceType.contains("SafePythonObject"))
@@ -607,7 +710,6 @@ struct ConversionsTests {
                 let k: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: k1 + 4.0)
                 _ = try Int(k)
             }
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError3 {
                 #expect(value == String(Double(Int.max) * 4.0 + 4.0))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -620,7 +722,6 @@ struct ConversionsTests {
                 let l: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: Double.infinity)
                 _ = try Int(l)
             }
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError4 {
                 #expect(value == String(Double.infinity))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -688,7 +789,6 @@ struct ConversionsTests {
             _ = try await Int8(pyObj) as Int8
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == String(tooBigForInt8))
             #expect(sourceType.contains("PythonObject"))
@@ -709,7 +809,6 @@ struct ConversionsTests {
             _ = try await Int8(pyObj) as Int8
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == String(tooSmallForInt8))
             #expect(sourceType.contains("PythonObject"))
@@ -731,7 +830,6 @@ struct ConversionsTests {
                 _ = try Int8(pyObj) as Int8
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == String(tooBigForInt8))
                 #expect(sourceType.contains("PythonObject"))
@@ -755,7 +853,6 @@ struct ConversionsTests {
                 _ = try Int8(pyObj) as Int8
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == String(tooSmallForInt8))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -776,7 +873,6 @@ struct ConversionsTests {
             _ = try await Int8(pyObj) as Int8
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionType(value, sourceType, targetType, _) = thrownError {
             #expect(value == String(s))
             #expect(sourceType.contains("PythonObject"))
@@ -796,7 +892,6 @@ struct ConversionsTests {
                 _ = try Int8(safePyObj) as Int8
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError {
                 #expect(value == String(s))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -848,7 +943,6 @@ struct ConversionsTests {
                 let i: PythonInterpreter.SafePythonObject = "i like turnips"
                 _ = try Int8(i)
             }
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError {
                 #expect(value == "i like turnips")
                 #expect(sourceType.contains("SafePythonObject"))
@@ -861,7 +955,6 @@ struct ConversionsTests {
                 let j: PythonInterpreter.SafePythonObject = ""
                 _ = try Int8(j)
             }
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError2 {
                 #expect(value == "")
                 #expect(sourceType.contains("SafePythonObject"))
@@ -874,7 +967,6 @@ struct ConversionsTests {
                 let k: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(integerLiteral: Int(Int8.max) + 4)
                 _ = try Int8(k)
             }
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError3 {
                 #expect(value == String(Int(Int8.max) + 4))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -887,7 +979,6 @@ struct ConversionsTests {
                 let l: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: Double(Int8.min) - 4.0)
                 _ = try Int8(l)
             }
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError4 {
                 #expect(value == String(Double(Int8.min) - 4.0))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -900,7 +991,6 @@ struct ConversionsTests {
                 let m: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: Double.infinity)
                 _ = try Int8(m)
             }
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError5 {
                 #expect(value == String(Double.infinity))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -968,7 +1058,6 @@ struct ConversionsTests {
             _ = try await Int16(pyObj) as Int16
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == String(tooBigForInt16))
             #expect(sourceType.contains("PythonObject"))
@@ -989,7 +1078,6 @@ struct ConversionsTests {
             _ = try await Int16(pyObj) as Int16
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == String(tooSmallForInt16))
             #expect(sourceType.contains("PythonObject"))
@@ -1011,7 +1099,6 @@ struct ConversionsTests {
                 _ = try Int16(pyObj) as Int16
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == String(tooBigForInt16))
                 #expect(sourceType.contains("PythonObject"))
@@ -1035,7 +1122,6 @@ struct ConversionsTests {
                 _ = try Int16(pyObj) as Int16
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == String(tooSmallForInt16))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -1056,7 +1142,6 @@ struct ConversionsTests {
             _ = try await Int16(pyObj) as Int16
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionType(value, sourceType, targetType, _) = thrownError {
             #expect(value == String(s))
             #expect(sourceType.contains("PythonObject"))
@@ -1076,7 +1161,6 @@ struct ConversionsTests {
                 _ = try Int16(safePyObj) as Int16
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError {
                 #expect(value == String(s))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -1242,7 +1326,6 @@ struct ConversionsTests {
             _ = try await Int32(pyObj) as Int32
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == String(tooBigForInt32))
             #expect(sourceType.contains("PythonObject"))
@@ -1263,7 +1346,6 @@ struct ConversionsTests {
             _ = try await Int32(pyObj) as Int32
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == String(tooSmallForInt32))
             #expect(sourceType.contains("PythonObject"))
@@ -1285,7 +1367,6 @@ struct ConversionsTests {
                 _ = try Int32(pyObj) as Int32
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == String(tooBigForInt32))
                 #expect(sourceType.contains("PythonObject"))
@@ -1309,7 +1390,6 @@ struct ConversionsTests {
                 _ = try Int32(pyObj) as Int32
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == String(tooSmallForInt32))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -1330,7 +1410,6 @@ struct ConversionsTests {
             _ = try await Int32(pyObj) as Int32
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionType(value, sourceType, targetType, _) = thrownError {
             #expect(value == String(s))
             #expect(sourceType.contains("PythonObject"))
@@ -1350,7 +1429,6 @@ struct ConversionsTests {
                 _ = try Int32(safePyObj) as Int32
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError {
                 #expect(value == String(s))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -1515,7 +1593,6 @@ struct ConversionsTests {
             _ = try await Int64(pyObj) as Int64
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == String(tooBigForInt64))
             #expect(sourceType.contains("PythonObject"))
@@ -1535,7 +1612,6 @@ struct ConversionsTests {
             _ = try await Int64(pyObj) as Int64
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == "-9223372036854775828")
             #expect(sourceType.contains("PythonObject"))
@@ -1556,7 +1632,6 @@ struct ConversionsTests {
                 _ = try Int64(pyObj) as Int64
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == String(tooBigForInt64))
                 #expect(sourceType.contains("PythonObject"))
@@ -1579,7 +1654,6 @@ struct ConversionsTests {
                 _ = try Int64(pyObj) as Int64
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == "-9223372036854775828")
                 #expect(sourceType.contains("SafePythonObject"))
@@ -1600,7 +1674,6 @@ struct ConversionsTests {
             _ = try await Int64(pyObj) as Int64
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionType(value, sourceType, targetType, _) = thrownError {
             #expect(value == String(s))
             #expect(sourceType.contains("PythonObject"))
@@ -1620,7 +1693,6 @@ struct ConversionsTests {
                 _ = try Int64(safePyObj) as Int64
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError {
                 #expect(value == String(s))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -1788,7 +1860,6 @@ struct ConversionsTests {
             _ = try await UInt(pyObj) as UInt
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == "18446744073709551687")
             #expect(sourceType.contains("PythonObject"))
@@ -1809,7 +1880,6 @@ struct ConversionsTests {
             _ = try await UInt(pyObj) as UInt
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == String(negative))
             #expect(sourceType.contains("PythonObject"))
@@ -1831,7 +1901,6 @@ struct ConversionsTests {
                 _ = try UInt(safePyObj) as UInt
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == "18446744073709551687")
                 #expect(sourceType.contains("SafePythonObject"))
@@ -1855,7 +1924,6 @@ struct ConversionsTests {
                 _ = try UInt(safePyObj) as UInt
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == String(negative))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -1876,7 +1944,6 @@ struct ConversionsTests {
             _ = try await UInt(pyObj) as UInt
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionType(value, sourceType, targetType, _) = thrownError {
             #expect(value == String(s))
             #expect(sourceType.contains("PythonObject"))
@@ -1896,7 +1963,6 @@ struct ConversionsTests {
                 _ = try UInt(safePyObj) as UInt
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError {
                 #expect(value == String(s))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -2075,7 +2141,6 @@ struct ConversionsTests {
             _ = try await UInt8(pyObj) as UInt8
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == String(tooBigForUInt8))
             #expect(sourceType.contains("PythonObject"))
@@ -2096,7 +2161,6 @@ struct ConversionsTests {
             _ = try await UInt8(pyObj) as UInt8
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == String(negative))
             #expect(sourceType.contains("PythonObject"))
@@ -2119,7 +2183,6 @@ struct ConversionsTests {
                 _ = try UInt8(safePyObj) as UInt8
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == String(tooBigForUInt8))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -2143,7 +2206,6 @@ struct ConversionsTests {
                 _ = try UInt8(safePyObj) as UInt8
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == String(negative))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -2164,7 +2226,6 @@ struct ConversionsTests {
             _ = try await UInt8(pyObj) as UInt8
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionType(value, sourceType, targetType, _) = thrownError {
             #expect(value == String(s))
             #expect(sourceType.contains("PythonObject"))
@@ -2184,7 +2245,6 @@ struct ConversionsTests {
                 _ = try UInt8(safePyObj) as UInt8
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError {
                 #expect(value == String(s))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -2362,7 +2422,6 @@ struct ConversionsTests {
             _ = try await UInt16(pyObj) as UInt16
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == String(tooBigForUInt16))
             #expect(sourceType.contains("PythonObject"))
@@ -2383,7 +2442,6 @@ struct ConversionsTests {
             _ = try await UInt16(pyObj) as UInt16
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == String(negative))
             #expect(sourceType.contains("PythonObject"))
@@ -2405,7 +2463,6 @@ struct ConversionsTests {
                 _ = try UInt16(safePyObj) as UInt16
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == String(tooBigForUInt16))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -2428,7 +2485,6 @@ struct ConversionsTests {
                 _ = try UInt16(safePyObj) as UInt16
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == String(negative))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -2449,7 +2505,6 @@ struct ConversionsTests {
             _ = try await UInt16(pyObj) as UInt16
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionType(value, sourceType, targetType, _) = thrownError {
             #expect(value == String(s))
             #expect(sourceType.contains("PythonObject"))
@@ -2469,7 +2524,6 @@ struct ConversionsTests {
                 _ = try UInt16(safePyObj) as UInt16
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError {
                 #expect(value == String(s))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -2647,7 +2701,6 @@ struct ConversionsTests {
             _ = try await UInt32(pyObj) as UInt32
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == String(tooBigForUInt32))
             #expect(sourceType.contains("PythonObject"))
@@ -2668,7 +2721,6 @@ struct ConversionsTests {
             _ = try await UInt32(pyObj) as UInt32
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == String(negative))
             #expect(sourceType.contains("PythonObject"))
@@ -2690,7 +2742,6 @@ struct ConversionsTests {
                 _ = try UInt32(safePyObj) as UInt32
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == String(tooBigForUInt32))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -2713,7 +2764,6 @@ struct ConversionsTests {
                 _ = try UInt32(safePyObj) as UInt32
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == String(negative))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -2734,7 +2784,6 @@ struct ConversionsTests {
             _ = try await UInt32(pyObj) as UInt32
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionType(value, sourceType, targetType, _) = thrownError {
             #expect(value == String(s))
             #expect(sourceType.contains("PythonObject"))
@@ -2754,7 +2803,6 @@ struct ConversionsTests {
                 _ = try UInt32(safePyObj) as UInt32
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError {
                 #expect(value == String(s))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -2932,7 +2980,6 @@ struct ConversionsTests {
             _ = try await UInt64(pyObj) as UInt64
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == "18446744073709551687")
             #expect(sourceType.contains("PythonObject"))
@@ -2953,7 +3000,6 @@ struct ConversionsTests {
             _ = try await UInt64(pyObj) as UInt64
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
             #expect(value == String(negative))
             #expect(sourceType.contains("PythonObject"))
@@ -2975,7 +3021,6 @@ struct ConversionsTests {
                 _ = try UInt64(safePyObj) as UInt64
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == "18446744073709551687")
                 #expect(sourceType.contains("SafePythonObject"))
@@ -2998,7 +3043,6 @@ struct ConversionsTests {
                 _ = try UInt64(safePyObj) as UInt64
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionOverflow(value, sourceType, targetType) = thrownError {
                 #expect(value == String(negative))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -3019,7 +3063,6 @@ struct ConversionsTests {
             _ = try await UInt64(pyObj) as UInt64
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionType(value, sourceType, targetType, _) = thrownError {
             #expect(value == String(s))
             #expect(sourceType.contains("PythonObject"))
@@ -3039,7 +3082,6 @@ struct ConversionsTests {
                 _ = try UInt64(safePyObj) as UInt64
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(value, sourceType, targetType, _) = thrownError {
                 #expect(value == String(s))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -3318,7 +3360,6 @@ struct ConversionsTests {
             _ = try await Bool(poisonObj)
         }
         
-        // Inspect the exact error (very useful for regression safety)
         if case let .conversionType(_, sourceType, targetType, _) = thrownError {
             //#expect(value == String("poison"))
             #expect(sourceType.contains("PythonObject"))
@@ -3346,7 +3387,6 @@ struct ConversionsTests {
                 _ = try Bool(isolatedInterpreter.globals["poisonB_004"])
             }
             
-            // Inspect the exact error (very useful for regression safety)
             if case let .conversionType(_, sourceType, targetType, _) = thrownError {
                 //#expect(value == String("poison"))
                 #expect(sourceType.contains("SafePythonObject"))
@@ -3413,35 +3453,37 @@ struct ConversionsTests {
 // [2026-04-06] : FD_002 : Test Convert Double to PythonObject special -1.0
 // [2026-04-06] : FD_001 : Test Convert PythonObject to Double
 // [2026-04-06] : FD_002 : Test Convert PythonObject to Double special -1.0
-// [          ] : Test Convert PythonObject to Double error handling when it's not a numeric value
+// [2026-05-03] : FD_009 : Test Convert PythonObject to Double error handling when it's not a numeric value
 // [2026-04-09] : FD_003 : Test Convert Double to SafePythonObject
 // [2026-04-09] : FD_004 : Test Convert Double to SafePythonObject special -1.0
 // [2026-04-09] : FD_003 : Test Convert SafePythonObject to Double
 // [2026-04-09] : FD_004 : Test Convert SafePythonObject to Double special -1.0
-// [          ] : Test Convert SafePythonObject to Double error handling when it's not a numeric value
+// [2026-05-03] : FD_010 : Test Convert SafePythonObject to Double error handling when it's not a numeric value
 // [2026-05-03] : FD_011 : Test Convert SafePythonObject to Double for unbound cases
 
 // [2026-04-10] : FF_001 : Test Convert Float to PythonObject
 // [2026-04-10] : FF_002 : Test Convert Float to PythonObject special -1.0
 // [2026-04-10] : FF_001 : Test Convert PythonObject to Float
 // [2026-04-10] : FF_002 : Test Convert PythonObject to Float special -1.0
-// [          ] : Test Convert PythonObject to Float error handling when it's not a numeric value
+// [2026-05-03] : FF_009 : Test Convert PythonObject to Float error handling when it's not a numeric value
 // [2026-04-10] : FF_003 : Test Convert Float to SafePythonObject
 // [2026-04-10] : FF_004 : Test Convert Float to SafePythonObject special -1.0
 // [2026-04-10] : FF_003 : Test Convert SafePythonObject to Float
 // [2026-04-10] : FF_004 : Test Convert SafePythonObject to Float special -1.0
-// [2026-05-03] : Test Convert SafePythonObject to Float error handling when it's not a numeric value
+// [2026-05-03] : FF_010 : Test Convert SafePythonObject to Float error handling when it's not a numeric value
+// [2026-05-03] : FF_011 : Test Convert SafePythonObject to Float for unbound cases
 
 // [2026-04-10] : F16_001 : Test Convert Float16 to PythonObject
 // [2026-04-10] : F16_002 : Test Convert Float16 to PythonObject special -1.0
 // [2026-04-10] : F16_001 : Test Convert PythonObject to Float16
 // [2026-04-10] : F16_002 : Test Convert PythonObject to Float16 special -1.0
-// [          ] : Test Convert PythonObject to Float16 error handling when it's not a numeric value
+// [2026-05-03] : F16_009 : Test Convert PythonObject to Float16 error handling when it's not a numeric value
 // [2026-04-10] : F16_003 : Test Convert Float16 to SafePythonObject
 // [2026-04-10] : F16_004 : Test Convert Float16 to SafePythonObject special -1.0
 // [2026-04-10] : F16_003 : Test Convert SafePythonObject to Float16
 // [2026-04-10] : F16_004 : Test Convert SafePythonObject to Float16 special -1.0
-// [2026-05-03] : Test Convert SafePythonObject to Float16 error handling when it's not a numeric value
+// [2026-05-03] : F16_010 : Test Convert SafePythonObject to Float16 error handling when it's not a numeric value
+// [2026-05-03] : F16_011 : Test Convert SafePythonObject to Float16 for unbound cases
 
 // Signed Integers
 

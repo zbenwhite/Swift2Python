@@ -57,7 +57,7 @@ extension PythonInterpreter.SafePythonObject {
             return Float(try convertToDouble())
         } catch let error as PythonError {
             switch error {
-            case .conversionType(let value, let sourceType, let targetType, let underlying):
+            case .conversionType(let value, let sourceType, _, let underlying):
                 throw PythonError.conversionType( value: value, sourceType: sourceType, targetType: "Float", underlying: underlying )
             default:
                 throw error
@@ -70,7 +70,7 @@ extension PythonInterpreter.SafePythonObject {
             return Float16(try convertToDouble())
         } catch let error as PythonError {
             switch error {
-            case .conversionType(let value, let sourceType, let targetType, let underlying):
+            case .conversionType(let value, let sourceType, _, let underlying):
                 throw PythonError.conversionType( value: value, sourceType: sourceType, targetType: "Float16", underlying: underlying )
             default:
                 throw error

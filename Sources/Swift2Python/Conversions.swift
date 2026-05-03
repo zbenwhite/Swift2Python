@@ -75,7 +75,7 @@ extension Float: PendingPythonConvertible {
 
 extension Float {
     public init(_ pythonObject: PythonObject) async throws {
-        self = try await Float(pythonObject.convertToDouble())
+        self = try await pythonObject.convertToFloat()
     }
 }
 
@@ -91,7 +91,7 @@ extension Float16: PendingPythonConvertible {
 
 extension Float16 {
     public init(_ pythonObject: PythonObject) async throws {
-        self = try await Float16(pythonObject.convertToDouble())
+        self = try await pythonObject.convertToFloat16()
     }
 }
 

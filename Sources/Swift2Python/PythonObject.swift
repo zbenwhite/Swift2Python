@@ -156,6 +156,32 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         return try await interpreter.convertToDouble(self)
     }
     
+    public func convertToFloat() async throws -> Float {
+        do {
+            return Float(try await convertToDouble())
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, _, let underlying):
+                throw PythonError.conversionType( value: value, sourceType: sourceType, targetType: "Float", underlying: underlying )
+            default:
+                throw error
+            }
+        }
+    }
+    
+    public func convertToFloat16() async throws -> Float16 {
+        do {
+            return Float16(try await convertToDouble())
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, _, let underlying):
+                throw PythonError.conversionType( value: value, sourceType: sourceType, targetType: "Float16", underlying: underlying )
+            default:
+                throw error
+            }
+        }
+    }
+    
     public func convertToInt() async throws -> Int {
         return try await interpreter.convertToInt(self)
     }
