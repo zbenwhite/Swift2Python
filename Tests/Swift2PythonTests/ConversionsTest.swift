@@ -307,7 +307,7 @@ struct ConversionsTests {
         }
     }
     
-    @Test("I_009: PythonObject (async) → UInt throws on wrong type")
+    @Test("I_009: PythonObject (async) → Int throws on wrong type")
     func asyncIntConversionWrongType() async throws {
         
         let s = "not an integer"
@@ -327,7 +327,7 @@ struct ConversionsTests {
         }
     }
     
-    @Test("I_010: SafePythonObject (synchronous) → UInt throws wrong type")
+    @Test("I_010: SafePythonObject (synchronous) → Int throws wrong type")
     func safeIntConversionWrongType() async throws {
         
         let s = "not an integer"
@@ -344,6 +344,97 @@ struct ConversionsTests {
                 #expect(targetType == "Int")
             } else {
                 Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("I_011: SafePythonObject to Int for unbound cases (synchronous)")
+    func safeIntUnboundConversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let a: PythonInterpreter.SafePythonObject = true
+            let a_int = try Int(a)
+            #expect(a_int == 1)
+            
+            let b: PythonInterpreter.SafePythonObject = false
+            let b_int = try Int(b)
+            #expect(b_int == 0)
+            
+            let c: PythonInterpreter.SafePythonObject = 5
+            let c_int = try Int(c)
+            #expect(c_int == 5)
+            
+            let d: PythonInterpreter.SafePythonObject = 0
+            let d_int = try Int(d)
+            #expect(d_int == 0)
+            
+            let e: PythonInterpreter.SafePythonObject = -74.6
+            let e_int = try Int(e)
+            #expect(e_int == -74)
+            
+            let f: PythonInterpreter.SafePythonObject = 0.0
+            let f_int = try Int(f)
+            #expect(f_int == 0)
+            
+            let g: PythonInterpreter.SafePythonObject = "17"
+            let g_int = try Int(g)
+            #expect(g_int == 17)
+            
+            let h: PythonInterpreter.SafePythonObject = "-817"
+            let h_int = try Int(h)
+            #expect(h_int == -817)
+            
+            let thrownError = #expect(throws: PythonError.self) {
+                let i: PythonInterpreter.SafePythonObject = "i like turnips"
+                _ = try Int(i)
+            }
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == "i like turnips")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+            
+            let thrownError2 = #expect(throws: PythonError.self) {
+                let j: PythonInterpreter.SafePythonObject = ""
+                _ = try Int(j)
+            }
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError2 {
+                #expect(value == "")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError2)")
+            }
+            
+            let thrownError3 = #expect(throws: PythonError.self) {
+                let k1 = Double(Int.max) * 4.0
+                let k: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: k1 + 4.0)
+                _ = try Int(k)
+            }
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError3 {
+                #expect(value == String(Double(Int.max) * 4.0 + 4.0))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError3)")
+            }
+            
+            let thrownError4 = #expect(throws: PythonError.self) {
+                let l: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: Double.infinity)
+                _ = try Int(l)
+            }
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError4 {
+                #expect(value == String(Double.infinity))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError4)")
             }
         }
     }
@@ -524,6 +615,110 @@ struct ConversionsTests {
         }
     }
     
+    
+    @Test("I8_011: SafePythonObject to Int8 for unbound cases (synchronous)")
+    func safeInt8UnboundConversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let a: PythonInterpreter.SafePythonObject = true
+            let a_int = try Int8(a)
+            #expect(a_int == 1)
+            
+            let b: PythonInterpreter.SafePythonObject = false
+            let b_int = try Int8(b)
+            #expect(b_int == 0)
+            
+            let c: PythonInterpreter.SafePythonObject = 5
+            let c_int = try Int8(c)
+            #expect(c_int == 5)
+            
+            let d: PythonInterpreter.SafePythonObject = 0
+            let d_int = try Int8(d)
+            #expect(d_int == 0)
+            
+            let e: PythonInterpreter.SafePythonObject = -74.6
+            let e_int = try Int8(e)
+            #expect(e_int == -74)
+            
+            let f: PythonInterpreter.SafePythonObject = 0.0
+            let f_int = try Int8(f)
+            #expect(f_int == 0)
+            
+            let g: PythonInterpreter.SafePythonObject = "17"
+            let g_int = try Int8(g)
+            #expect(g_int == 17)
+            
+            let h: PythonInterpreter.SafePythonObject = "-117"
+            let h_int = try Int8(h)
+            #expect(h_int == -117)
+            
+            let thrownError = #expect(throws: PythonError.self) {
+                let i: PythonInterpreter.SafePythonObject = "i like turnips"
+                _ = try Int8(i)
+            }
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == "i like turnips")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int8")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+            
+            let thrownError2 = #expect(throws: PythonError.self) {
+                let j: PythonInterpreter.SafePythonObject = ""
+                _ = try Int8(j)
+            }
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError2 {
+                #expect(value == "")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int8")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError2)")
+            }
+            
+            let thrownError3 = #expect(throws: PythonError.self) {
+                let k: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(integerLiteral: Int(Int8.max) + 4)
+                _ = try Int8(k)
+            }
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError3 {
+                #expect(value == String(Int(Int8.max) + 4))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int8")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError3)")
+            }
+            
+            let thrownError4 = #expect(throws: PythonError.self) {
+                let l: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: Double(Int8.min) - 4.0)
+                _ = try Int8(l)
+            }
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError4 {
+                #expect(value == String(Double(Int8.min) - 4.0))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int8")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError4)")
+            }
+            
+            let thrownError5 = #expect(throws: PythonError.self) {
+                let m: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: Double.infinity)
+                _ = try Int8(m)
+            }
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError5 {
+                #expect(value == String(Double.infinity))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int8")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError5)")
+            }
+        }
+    }
+    
     // MARK: I16_xxx Int16
     
     @Test("I16_001: Int16 → PythonObject (async)")
@@ -696,6 +891,104 @@ struct ConversionsTests {
                 #expect(targetType == "Int16")
             } else {
                 Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("I16_011: SafePythonObject to Int16 for unbound cases (synchronous)")
+    func safeInt16UnboundConversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let a: PythonInterpreter.SafePythonObject = true
+            let a_int = try Int16(a)
+            #expect(a_int == 1)
+            
+            let b: PythonInterpreter.SafePythonObject = false
+            let b_int = try Int16(b)
+            #expect(b_int == 0)
+            
+            let c: PythonInterpreter.SafePythonObject = 5
+            let c_int = try Int16(c)
+            #expect(c_int == 5)
+            
+            let d: PythonInterpreter.SafePythonObject = 0
+            let d_int = try Int16(d)
+            #expect(d_int == 0)
+            
+            let e: PythonInterpreter.SafePythonObject = -74.6
+            let e_int = try Int16(e)
+            #expect(e_int == -74)
+            
+            let f: PythonInterpreter.SafePythonObject = 0.0
+            let f_int = try Int16(f)
+            #expect(f_int == 0)
+            
+            let g: PythonInterpreter.SafePythonObject = "17"
+            let g_int = try Int16(g)
+            #expect(g_int == 17)
+            
+            let h: PythonInterpreter.SafePythonObject = "-817"
+            let h_int = try Int16(h)
+            #expect(h_int == -817)
+            
+            let thrownError = #expect(throws: PythonError.self) {
+                let i: PythonInterpreter.SafePythonObject = "i like turnips"
+                _ = try Int16(i)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == "i like turnips")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int16")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+            
+            let thrownError2 = #expect(throws: PythonError.self) {
+                let j: PythonInterpreter.SafePythonObject = ""
+                _ = try Int16(j)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError2 {
+                #expect(value == "")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int16")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError2)")
+            }
+            
+            let thrownError3 = #expect(throws: PythonError.self) {
+                let k: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(integerLiteral: Int(Int16.max) + 4)
+                _ = try Int16(k)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError3 {
+                #expect(value == String(Int(Int16.max) + 4))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int16")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError3)")
+            }
+            
+            let thrownError4 = #expect(throws: PythonError.self) {
+                let l: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: Double(Int16.min) - 4.0)
+                _ = try Int16(l)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError4 {
+                #expect(value == String(Double(Int16.min) - 4.0))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int16")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError4)")
+            }
+            
+            let thrownError5 = #expect(throws: PythonError.self) {
+                let m: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: Double.infinity)
+                _ = try Int16(m)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError5 {
+                #expect(value == String(Double.infinity))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int16")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError5)")
             }
         }
     }
@@ -876,6 +1169,104 @@ struct ConversionsTests {
         }
     }
     
+    @Test("I32_011: SafePythonObject to Int32 for unbound cases (synchronous)")
+    func safeInt32UnboundConversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let a: PythonInterpreter.SafePythonObject = true
+            let a_int = try Int32(a)
+            #expect(a_int == 1)
+            
+            let b: PythonInterpreter.SafePythonObject = false
+            let b_int = try Int32(b)
+            #expect(b_int == 0)
+            
+            let c: PythonInterpreter.SafePythonObject = 5
+            let c_int = try Int32(c)
+            #expect(c_int == 5)
+            
+            let d: PythonInterpreter.SafePythonObject = 0
+            let d_int = try Int32(d)
+            #expect(d_int == 0)
+            
+            let e: PythonInterpreter.SafePythonObject = -74.6
+            let e_int = try Int32(e)
+            #expect(e_int == -74)
+            
+            let f: PythonInterpreter.SafePythonObject = 0.0
+            let f_int = try Int32(f)
+            #expect(f_int == 0)
+            
+            let g: PythonInterpreter.SafePythonObject = "17"
+            let g_int = try Int32(g)
+            #expect(g_int == 17)
+            
+            let h: PythonInterpreter.SafePythonObject = "-817"
+            let h_int = try Int32(h)
+            #expect(h_int == -817)
+            
+            let thrownError = #expect(throws: PythonError.self) {
+                let i: PythonInterpreter.SafePythonObject = "i like turnips"
+                _ = try Int32(i)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == "i like turnips")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int32")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+            
+            let thrownError2 = #expect(throws: PythonError.self) {
+                let j: PythonInterpreter.SafePythonObject = ""
+                _ = try Int32(j)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError2 {
+                #expect(value == "")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int32")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError2)")
+            }
+            
+            let thrownError3 = #expect(throws: PythonError.self) {
+                let k: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(integerLiteral: Int(Int32.max) + 4)
+                _ = try Int32(k)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError3 {
+                #expect(value == String(Int(Int32.max) + 4))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int32")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError3)")
+            }
+            
+            let thrownError4 = #expect(throws: PythonError.self) {
+                let l: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: Double(Int32.min) - 4.0)
+                _ = try Int32(l)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError4 {
+                #expect(value == String(Double(Int32.min) - 4.0))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int32")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError4)")
+            }
+            
+            let thrownError5 = #expect(throws: PythonError.self) {
+                let m: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: Double.infinity)
+                _ = try Int32(m)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError5 {
+                #expect(value == String(Double.infinity))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int32")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError5)")
+            }
+        }
+    }
+    
     // MARK: I64_xxx Int64
     
     @Test("I64_001: Int64 → PythonObject (async)")
@@ -1044,6 +1435,106 @@ struct ConversionsTests {
                 #expect(targetType == "Int64")
             } else {
                 Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("I64_011: SafePythonObject to Int64 for unbound cases (synchronous)")
+    func safeInt64UnboundConversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let a: PythonInterpreter.SafePythonObject = true
+            let a_int = try Int64(a)
+            #expect(a_int == 1)
+            
+            let b: PythonInterpreter.SafePythonObject = false
+            let b_int = try Int64(b)
+            #expect(b_int == 0)
+            
+            let c: PythonInterpreter.SafePythonObject = 5
+            let c_int = try Int64(c)
+            #expect(c_int == 5)
+            
+            let d: PythonInterpreter.SafePythonObject = 0
+            let d_int = try Int64(d)
+            #expect(d_int == 0)
+            
+            let e: PythonInterpreter.SafePythonObject = -74.6
+            let e_int = try Int64(e)
+            #expect(e_int == -74)
+            
+            let f: PythonInterpreter.SafePythonObject = 0.0
+            let f_int = try Int64(f)
+            #expect(f_int == 0)
+            
+            let g: PythonInterpreter.SafePythonObject = "17"
+            let g_int = try Int64(g)
+            #expect(g_int == 17)
+            
+            let h: PythonInterpreter.SafePythonObject = "-817"
+            let h_int = try Int64(h)
+            #expect(h_int == -817)
+            
+            let thrownError = #expect(throws: PythonError.self) {
+                let i: PythonInterpreter.SafePythonObject = "i like turnips"
+                _ = try Int64(i)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == "i like turnips")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int64")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+            
+            let thrownError2 = #expect(throws: PythonError.self) {
+                let j: PythonInterpreter.SafePythonObject = ""
+                _ = try Int64(j)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError2 {
+                #expect(value == "")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int64")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError2)")
+            }
+            
+            let thrownError3 = #expect(throws: PythonError.self) {
+                let k1 = Double(Int64.max) * 4.0
+                let k: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: k1 + 4.0)
+                _ = try Int64(k)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError3 {
+                #expect(value == String(Double(Int64.max) * 4.0 + 4.0))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int64")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError3)")
+            }
+            
+            let thrownError4 = #expect(throws: PythonError.self) {
+                let l1 = Double(Int64.min) * 4.0
+                let l: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: l1 - 4.0)
+                _ = try Int64(l)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError4 {
+                #expect(value == String(Double(Int64.min) * 4.0 - 4.0))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int64")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError4)")
+            }
+            
+            let thrownError5 = #expect(throws: PythonError.self) {
+                let m: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: Double.infinity)
+                _ = try Int64(m)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError5 {
+                #expect(value == String(Double.infinity))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int64")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError5)")
             }
         }
     }
@@ -1220,6 +1711,117 @@ struct ConversionsTests {
                 #expect(targetType == "UInt")
             } else {
                 Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("UI_011: SafePythonObject to UInt for unbound cases (synchronous)")
+    func safeUIntUnboundConversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let a: PythonInterpreter.SafePythonObject = true
+            let a_uint = try UInt(a)
+            #expect(a_uint == 1)
+            
+            let b: PythonInterpreter.SafePythonObject = false
+            let b_uint = try UInt(b)
+            #expect(b_uint == 0)
+            
+            let c: PythonInterpreter.SafePythonObject = 5
+            let c_uint = try UInt(c)
+            #expect(c_uint == 5)
+            
+            let d: PythonInterpreter.SafePythonObject = 0
+            let d_uint = try UInt(d)
+            #expect(d_uint == 0)
+            
+            let e: PythonInterpreter.SafePythonObject = 74.6
+            let e_uint = try UInt(e)
+            #expect(e_uint == 74)
+            
+            let f: PythonInterpreter.SafePythonObject = 0.0
+            let f_uint = try UInt(f)
+            #expect(f_uint == 0)
+            
+            let g: PythonInterpreter.SafePythonObject = "17"
+            let g_uint = try UInt(g)
+            #expect(g_uint == 17)
+            
+            let h: PythonInterpreter.SafePythonObject = "817"
+            let h_uint = try UInt(h)
+            #expect(h_uint == 817)
+            
+            let thrownError = #expect(throws: PythonError.self) {
+                let i: PythonInterpreter.SafePythonObject = "i like turnips"
+                _ = try UInt(i)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == "i like turnips")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+            
+            let thrownError2 = #expect(throws: PythonError.self) {
+                let j: PythonInterpreter.SafePythonObject = ""
+                _ = try UInt(j)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError2 {
+                #expect(value == "")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError2)")
+            }
+            
+            let thrownError3 = #expect(throws: PythonError.self) {
+                let k: PythonInterpreter.SafePythonObject = -7
+                _ = try UInt(k)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError3 {
+                #expect(value == "-7")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError3)")
+            }
+            
+            let thrownError4 = #expect(throws: PythonError.self) {
+                let l: PythonInterpreter.SafePythonObject = -74.6
+                _ = try UInt(l)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError4 {
+                #expect(value == "-74.6")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError4)")
+            }
+            
+            let thrownError5 = #expect(throws: PythonError.self) {
+                let m1 = Double(UInt.max) * 4.0
+                let m: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: m1 + 4.0)
+                _ = try UInt(m)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError5 {
+                #expect(value == String(Double(UInt.max) * 4.0 + 4.0))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError5)")
+            }
+            
+            let thrownError6 = #expect(throws: PythonError.self) {
+                let n: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: Double.infinity)
+                _ = try UInt(n)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError6 {
+                #expect(value == String(Double.infinity))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError6)")
             }
         }
     }
@@ -1401,6 +2003,116 @@ struct ConversionsTests {
         }
     }
     
+    @Test("UI8_011: SafePythonObject to UInt8 for unbound cases (synchronous)")
+    func safeUInt8UnboundConversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let a: PythonInterpreter.SafePythonObject = true
+            let a_uint = try UInt8(a)
+            #expect(a_uint == 1)
+            
+            let b: PythonInterpreter.SafePythonObject = false
+            let b_uint = try UInt8(b)
+            #expect(b_uint == 0)
+            
+            let c: PythonInterpreter.SafePythonObject = 5
+            let c_uint = try UInt8(c)
+            #expect(c_uint == 5)
+            
+            let d: PythonInterpreter.SafePythonObject = 0
+            let d_uint = try UInt8(d)
+            #expect(d_uint == 0)
+            
+            let e: PythonInterpreter.SafePythonObject = 74.6
+            let e_uint = try UInt8(e)
+            #expect(e_uint == 74)
+            
+            let f: PythonInterpreter.SafePythonObject = 0.0
+            let f_uint = try UInt8(f)
+            #expect(f_uint == 0)
+            
+            let g: PythonInterpreter.SafePythonObject = "17"
+            let g_uint = try UInt8(g)
+            #expect(g_uint == 17)
+            
+            let h: PythonInterpreter.SafePythonObject = "117"
+            let h_uint = try UInt8(h)
+            #expect(h_uint == 117)
+            
+            let thrownError = #expect(throws: PythonError.self) {
+                let i: PythonInterpreter.SafePythonObject = "i like turnips"
+                _ = try UInt8(i)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == "i like turnips")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt8")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+            
+            let thrownError2 = #expect(throws: PythonError.self) {
+                let j: PythonInterpreter.SafePythonObject = ""
+                _ = try UInt8(j)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError2 {
+                #expect(value == "")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt8")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError2)")
+            }
+            
+            let thrownError3 = #expect(throws: PythonError.self) {
+                let k: PythonInterpreter.SafePythonObject = -7
+                _ = try UInt8(k)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError3 {
+                #expect(value == "-7")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt8")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError3)")
+            }
+            
+            let thrownError4 = #expect(throws: PythonError.self) {
+                let l: PythonInterpreter.SafePythonObject = -74.6
+                _ = try UInt8(l)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError4 {
+                #expect(value == "-74.6")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt8")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError4)")
+            }
+            
+            let thrownError5 = #expect(throws: PythonError.self) {
+                let m: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(integerLiteral: Int(UInt8.max) + 4)
+                _ = try UInt8(m)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError5 {
+                #expect(value == String(Int(UInt8.max) + 4))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt8")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError5)")
+            }
+            
+            let thrownError6 = #expect(throws: PythonError.self) {
+                let n: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: Double.infinity)
+                _ = try UInt8(n)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError6 {
+                #expect(value == String(Double.infinity))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt8")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError6)")
+            }
+        }
+    }
+    
     // MARK: UI16_xxx UInt16
     
     @Test("UI16_001: UInt16 → PythonObject (async)")
@@ -1572,6 +2284,116 @@ struct ConversionsTests {
                 #expect(targetType == "UInt16")
             } else {
                 Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("UI16_011: SafePythonObject to UInt16 for unbound cases (synchronous)")
+    func safeUInt16UnboundConversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let a: PythonInterpreter.SafePythonObject = true
+            let a_uint = try UInt16(a)
+            #expect(a_uint == 1)
+            
+            let b: PythonInterpreter.SafePythonObject = false
+            let b_uint = try UInt16(b)
+            #expect(b_uint == 0)
+            
+            let c: PythonInterpreter.SafePythonObject = 5
+            let c_uint = try UInt16(c)
+            #expect(c_uint == 5)
+            
+            let d: PythonInterpreter.SafePythonObject = 0
+            let d_uint = try UInt16(d)
+            #expect(d_uint == 0)
+            
+            let e: PythonInterpreter.SafePythonObject = 74.6
+            let e_uint = try UInt16(e)
+            #expect(e_uint == 74)
+            
+            let f: PythonInterpreter.SafePythonObject = 0.0
+            let f_uint = try UInt16(f)
+            #expect(f_uint == 0)
+            
+            let g: PythonInterpreter.SafePythonObject = "17"
+            let g_uint = try UInt16(g)
+            #expect(g_uint == 17)
+            
+            let h: PythonInterpreter.SafePythonObject = "817"
+            let h_uint = try UInt16(h)
+            #expect(h_uint == 817)
+            
+            let thrownError = #expect(throws: PythonError.self) {
+                let i: PythonInterpreter.SafePythonObject = "i like turnips"
+                _ = try UInt16(i)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == "i like turnips")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt16")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+            
+            let thrownError2 = #expect(throws: PythonError.self) {
+                let j: PythonInterpreter.SafePythonObject = ""
+                _ = try UInt16(j)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError2 {
+                #expect(value == "")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt16")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError2)")
+            }
+            
+            let thrownError3 = #expect(throws: PythonError.self) {
+                let k: PythonInterpreter.SafePythonObject = -7
+                _ = try UInt16(k)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError3 {
+                #expect(value == "-7")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt16")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError3)")
+            }
+            
+            let thrownError4 = #expect(throws: PythonError.self) {
+                let l: PythonInterpreter.SafePythonObject = -74.6
+                _ = try UInt16(l)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError4 {
+                #expect(value == "-74.6")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt16")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError4)")
+            }
+            
+            let thrownError5 = #expect(throws: PythonError.self) {
+                let m: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(integerLiteral: Int(UInt16.max) + 4)
+                _ = try UInt16(m)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError5 {
+                #expect(value == String(Int(UInt16.max) + 4))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt16")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError5)")
+            }
+            
+            let thrownError6 = #expect(throws: PythonError.self) {
+                let n: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: Double.infinity)
+                _ = try UInt16(n)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError6 {
+                #expect(value == String(Double.infinity))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt16")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError6)")
             }
         }
     }
@@ -1751,6 +2573,116 @@ struct ConversionsTests {
         }
     }
     
+    @Test("UI32_011: SafePythonObject to UInt32 for unbound cases (synchronous)")
+    func safeUInt32UnboundConversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let a: PythonInterpreter.SafePythonObject = true
+            let a_uint = try UInt32(a)
+            #expect(a_uint == 1)
+            
+            let b: PythonInterpreter.SafePythonObject = false
+            let b_uint = try UInt32(b)
+            #expect(b_uint == 0)
+            
+            let c: PythonInterpreter.SafePythonObject = 5
+            let c_uint = try UInt32(c)
+            #expect(c_uint == 5)
+            
+            let d: PythonInterpreter.SafePythonObject = 0
+            let d_uint = try UInt32(d)
+            #expect(d_uint == 0)
+            
+            let e: PythonInterpreter.SafePythonObject = 74.6
+            let e_uint = try UInt32(e)
+            #expect(e_uint == 74)
+            
+            let f: PythonInterpreter.SafePythonObject = 0.0
+            let f_uint = try UInt32(f)
+            #expect(f_uint == 0)
+            
+            let g: PythonInterpreter.SafePythonObject = "17"
+            let g_uint = try UInt32(g)
+            #expect(g_uint == 17)
+            
+            let h: PythonInterpreter.SafePythonObject = "817"
+            let h_uint = try UInt32(h)
+            #expect(h_uint == 817)
+            
+            let thrownError = #expect(throws: PythonError.self) {
+                let i: PythonInterpreter.SafePythonObject = "i like turnips"
+                _ = try UInt32(i)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == "i like turnips")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt32")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+            
+            let thrownError2 = #expect(throws: PythonError.self) {
+                let j: PythonInterpreter.SafePythonObject = ""
+                _ = try UInt32(j)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError2 {
+                #expect(value == "")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt32")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError2)")
+            }
+            
+            let thrownError3 = #expect(throws: PythonError.self) {
+                let k: PythonInterpreter.SafePythonObject = -7
+                _ = try UInt32(k)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError3 {
+                #expect(value == "-7")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt32")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError3)")
+            }
+            
+            let thrownError4 = #expect(throws: PythonError.self) {
+                let l: PythonInterpreter.SafePythonObject = -74.6
+                _ = try UInt32(l)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError4 {
+                #expect(value == "-74.6")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt32")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError4)")
+            }
+            
+            let thrownError5 = #expect(throws: PythonError.self) {
+                let m: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(integerLiteral: Int(UInt32.max) + 4)
+                _ = try UInt32(m)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError5 {
+                #expect(value == String(Int(UInt32.max) + 4))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt32")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError5)")
+            }
+            
+            let thrownError6 = #expect(throws: PythonError.self) {
+                let n: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: Double.infinity)
+                _ = try UInt32(n)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError6 {
+                #expect(value == String(Double.infinity))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt32")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError6)")
+            }
+        }
+    }
+    
     // MARK: UI64_xxx UInt64
     
     @Test("UI64_001: UInt64 → PythonObject (async)")
@@ -1922,6 +2854,117 @@ struct ConversionsTests {
                 #expect(targetType == "UInt64")
             } else {
                 Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("UI64_011: SafePythonObject to UInt64 for unbound cases (synchronous)")
+    func safeUInt64UnboundConversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let a: PythonInterpreter.SafePythonObject = true
+            let a_uint = try UInt64(a)
+            #expect(a_uint == 1)
+            
+            let b: PythonInterpreter.SafePythonObject = false
+            let b_uint = try UInt64(b)
+            #expect(b_uint == 0)
+            
+            let c: PythonInterpreter.SafePythonObject = 5
+            let c_uint = try UInt64(c)
+            #expect(c_uint == 5)
+            
+            let d: PythonInterpreter.SafePythonObject = 0
+            let d_uint = try UInt64(d)
+            #expect(d_uint == 0)
+            
+            let e: PythonInterpreter.SafePythonObject = 74.6
+            let e_uint = try UInt64(e)
+            #expect(e_uint == 74)
+            
+            let f: PythonInterpreter.SafePythonObject = 0.0
+            let f_uint = try UInt64(f)
+            #expect(f_uint == 0)
+            
+            let g: PythonInterpreter.SafePythonObject = "17"
+            let g_uint = try UInt64(g)
+            #expect(g_uint == 17)
+            
+            let h: PythonInterpreter.SafePythonObject = "817"
+            let h_uint = try UInt64(h)
+            #expect(h_uint == 817)
+            
+            let thrownError = #expect(throws: PythonError.self) {
+                let i: PythonInterpreter.SafePythonObject = "i like turnips"
+                _ = try UInt64(i)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == "i like turnips")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt64")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+            
+            let thrownError2 = #expect(throws: PythonError.self) {
+                let j: PythonInterpreter.SafePythonObject = ""
+                _ = try UInt64(j)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError2 {
+                #expect(value == "")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt64")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError2)")
+            }
+            
+            let thrownError3 = #expect(throws: PythonError.self) {
+                let k: PythonInterpreter.SafePythonObject = -7
+                _ = try UInt64(k)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError3 {
+                #expect(value == "-7")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt64")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError3)")
+            }
+            
+            let thrownError4 = #expect(throws: PythonError.self) {
+                let l: PythonInterpreter.SafePythonObject = -74.6
+                _ = try UInt64(l)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError4 {
+                #expect(value == "-74.6")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt64")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError4)")
+            }
+            
+            let thrownError5 = #expect(throws: PythonError.self) {
+                let m1 = Double(UInt64.max) * 4.0
+                let m: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: m1 + 4.0)
+                _ = try UInt64(m)
+            }
+            if case let .conversionOverflow(value, sourceType, targetType) = thrownError5 {
+                #expect(value == String(Double(UInt64.max) * 4.0 + 4.0))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt64")
+            } else {
+                Issue.record("Expected .conversionOverflow, but got \(thrownError5)")
+            }
+            
+            let thrownError6 = #expect(throws: PythonError.self) {
+                let n: PythonInterpreter.SafePythonObject = PythonInterpreter.SafePythonObject(floatLiteral: Double.infinity)
+                _ = try UInt64(n)
+            }
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError6 {
+                #expect(value == String(Double.infinity))
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt64")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError6)")
             }
         }
     }
@@ -2223,6 +3266,7 @@ struct ConversionsTests {
 // [2026-04-21] : I_010 : Test Convert SafePythonObject to Int error handling when it's not a numeric value
 // [2026-04-21] : I_007 : Test Convert SafePythonObject to Int error handling when it's a huge number that won't fit in an Int
 // [2026-04-21] : I_008 : Test Convert SafePythonObject to Int error handling when it's a huge negative number that won't fit in an Int
+// [2026-05-02] : I_011 : Test Convert unbound SafePythonObject to Int
 
 // [2026-04-11] : I8_001 : Test Convert Int8 to PythonObject
 // [2026-04-11] : I8_002 : Test Convert Int8 to PythonObject special value -1
@@ -2238,6 +3282,7 @@ struct ConversionsTests {
 // [2026-04-21] : I8_010 : Test Convert SafePythonObject to Int8 error handling when it's not a numeric value
 // [2026-04-21] : I8_007 : Test Convert SafePythonObject to Int8 error handling overflow
 // [2026-04-21] : I8_008 : Test Convert SafePythonObject to Int8 error handling underflow
+// [          ] : I8_011 : Test Convert unbound SafePythonObject to Int8
 
 // [2026-04-11] : I16_001 : Test Convert Int16 to PythonObject
 // [2026-04-11] : I16_002 : Test Convert Int16 to PythonObject special value -1
@@ -2253,6 +3298,7 @@ struct ConversionsTests {
 // [2026-04-21] : I16_010 : Test Convert SafePythonObject to Int16 error handling when it's not a numeric value
 // [2026-04-21] : I16_007 : Test Convert SafePythonObject to Int16 error handling overflow
 // [2026-04-21] : I16_008 : Test Convert SafePythonObject to Int16 error handling underflow
+// [          ] : I16_011 : Test Convert unbound SafePythonObject to Int16
 
 // [2026-04-11] : I32_001 : Test Convert Int32 to PythonObject
 // [2026-04-11] : I32_002 : Test Convert Int32 to PythonObject special value -1
@@ -2268,6 +3314,7 @@ struct ConversionsTests {
 // [2026-04-21] : I32_010 : Test Convert SafePythonObject to Int32 error handling when it's not a numeric value
 // [2026-04-21] : I32_007 : Test Convert SafePythonObject to Int32 error handling overflow
 // [2026-04-21] : I32_008 : Test Convert SafePythonObject to Int32 error handling underflow
+// [          ] : I32_011 : Test Convert unbound SafePythonObject to Int32
 
 // [2026-04-11] : I64_001 : Test Convert Int64 to PythonObject
 // [2026-04-11] : I64_002 : Test Convert Int64 to PythonObject special value -1
@@ -2283,6 +3330,7 @@ struct ConversionsTests {
 // [2026-04-21] : I64_010 : Test Convert SafePythonObject to Int64 error handling when it's not a numeric value
 // [2026-04-21] : I64_007 : Test Convert SafePythonObject to Int64 error handling overflow
 // [2026-04-21] : I64_008 : Test Convert SafePythonObject to Int64 error handling underflow
+// [          ] : I64_011 : Test Convert unbound SafePythonObject to Int64
 
 // Unsigned Integers
 

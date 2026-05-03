@@ -21,7 +21,11 @@ extension PythonInterpreter.SafePythonObject {
         case .deferredInt(let val):
             return val == 0 ? false : true
         case .deferredString(let val):
-            return val == "" ? false : true
+            let trimmed = val.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty || trimmed == "0" || trimmed.lowercased() == "false" {
+                return false
+            }
+            return true
         case .deferredBool(let val):
             return val
         }
@@ -31,21 +35,16 @@ extension PythonInterpreter.SafePythonObject {
         switch state {
         case .bound:
             let localInterpreter = interpreter
-            return localInterpreter.assumeIsolated {
-                do {
-                    return try $0.convertToDouble(self)
-                } catch {
-                    fatalError("Failed to get attribute: \(error)")
-                }
+            return try localInterpreter.assumeIsolated {
+                return try $0.convertToDouble(self)
             }
         case .deferredDouble(let val):
             return val
         case .deferredInt(let val):
             return Double(val)
         case .deferredString(let val):
-            // mimic python string conversion to Double
             guard let double = Double(val) else {
-                fatalError("placeholder")
+                throw PythonError.conversionType( value: val, sourceType: "SafePythonObject", targetType: "Double", underlying: nil )
             }
             return double
         case .deferredBool(let val):
@@ -56,32 +55,34 @@ extension PythonInterpreter.SafePythonObject {
     public func convertToInt() throws -> Int {
         switch state {
         case .bound:
+            // Use Python to convert python object to Int
             let localInterpreter = interpreter
             return try localInterpreter.assumeIsolated {
                 return try $0.convertToInt(self)
             }
         case .deferredDouble(let val):
-            if let i = Int(exactly:val) {
-                return i
+            // Double
+            //    Fails for Nan or infinity -- conversionType
+            //    Fails for overflow -- conversionOverflow
+            //    converts for exact match
+            //    otherwise rounds toward zero
+            guard val.isFinite else {
+                throw PythonError.conversionType( value: String(val), sourceType: "SafePythonObject", targetType: "Int", underlying: nil)
             }
-            else {
-                fatalError("placeholder")
+            if let exact = Int(exactly: val) {
+                return exact
             }
+            if val > Double(Int.max) || val < Double(Int.min) {
+                throw PythonError.conversionOverflow( value: String(val), sourceType: "SafePythonObject", targetType: "Int" )
+            }
+            return Int(val.rounded(.towardZero))
         case .deferredInt(let val):
             return val
         case .deferredString(let val):
-            // Mimic Python's int("...")
-            // Python accepts decimal strings, but does NOT accept floats like "3.14"
-            // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
-            // For full fidelity you can later add radix support.
-            guard let intValue = Int(val) else {   // Swift Int(String) is close but slightly stricter than Python on some edge cases
-                // Optional improvement: try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
-                if let double = Double(val), double.isFinite {
-                    return Int(double)             // this would make int("3.14") == 3 (more forgiving)
-                }
-                fatalError("placeholder")
+            if let intValue = Int(val) {
+                return intValue
             }
-            return intValue
+            throw PythonError.conversionType( value: val, sourceType: "SafePythonObject", targetType: "Int", underlying: nil)
         case .deferredBool(let val):
             return val ? 1 : 0
         }
@@ -95,39 +96,34 @@ extension PythonInterpreter.SafePythonObject {
                 return try $0.convertToInt8(self)
             }
         case .deferredDouble(let val):
-            if let i = Int8(exactly:val) {
-                return i
+            // Double
+            //    Fails for Nan or infinity -- conversionType
+            //    Fails for overflow -- conversionOverflow
+            //    converts for exact match
+            //    otherwise rounds toward zero
+            guard val.isFinite else {
+                throw PythonError.conversionType( value: String(val), sourceType: "SafePythonObject", targetType: "Int8", underlying: nil)
             }
-            else {
-                fatalError("placeholder")  // overflow
+            if let exact = Int8(exactly: val) {
+                return exact
             }
+            if val > Double(Int8.max) || val < Double(Int8.min) {
+                throw PythonError.conversionOverflow( value: String(val), sourceType: "SafePythonObject", targetType: "Int8" )
+            }
+            return Int8(val.rounded(.towardZero))
         case .deferredInt(let val):
-            if let i = Int8(exactly:val) {
-                return i
+            if val > Int(Int8.max) || val < Int(Int8.min) {
+                throw PythonError.conversionOverflow( value: String(val), sourceType: "SafePythonObject", targetType: "Int8" )
             }
-            else {
-                fatalError("placeholder")
+            if let intValue = Int8(exactly:val) {
+                return intValue
             }
+            throw PythonError.conversionType( value: String(val), sourceType: "SafePythonObject", targetType: "Int8", underlying: nil)
         case .deferredString(let val):
-            // Mimic Python's int("...")
-            // Python accepts decimal strings, but does NOT accept floats like "3.14"
-            // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
-            // For full fidelity you can later add radix support.
-            let iVal: Int
-            if let intValue = Int(val) {
-                iVal = intValue
-            } else if let double = Double(val), double.isFinite {
-                // try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
-                iVal = Int(double)
-            } else {
-                fatalError("placeholder")  // can't convert to a number
+            if let intValue = Int8(val) {
+                return intValue
             }
-            if let i = Int8(exactly:iVal) {
-                return i
-            }
-            else {
-                fatalError("placeholder")  // overflow
-            }
+            throw PythonError.conversionType( value: val, sourceType: "SafePythonObject", targetType: "Int8", underlying: nil)
         case .deferredBool(let val):
             return val ? 1 : 0
         }
@@ -141,39 +137,34 @@ extension PythonInterpreter.SafePythonObject {
                 return try $0.convertToInt16(self)
             }
         case .deferredDouble(let val):
-            if let i = Int16(exactly:val) {
-                return i
+            // Double
+            //    Fails for Nan or infinity -- conversionType
+            //    Fails for overflow -- conversionOverflow
+            //    converts for exact match
+            //    otherwise rounds toward zero
+            guard val.isFinite else {
+                throw PythonError.conversionType( value: String(val), sourceType: "SafePythonObject", targetType: "Int16", underlying: nil)
             }
-            else {
-                fatalError("placeholder")  // overflow
+            if let exact = Int16(exactly: val) {
+                return exact
             }
+            if val > Double(Int16.max) || val < Double(Int16.min) {
+                throw PythonError.conversionOverflow( value: String(val), sourceType: "SafePythonObject", targetType: "Int16" )
+            }
+            return Int16(val.rounded(.towardZero))
         case .deferredInt(let val):
-            if let i = Int16(exactly:val) {
-                return i
+            if val > Int(Int16.max) || val < Int(Int16.min) {
+                throw PythonError.conversionOverflow( value: String(val), sourceType: "SafePythonObject", targetType: "Int16" )
             }
-            else {
-                fatalError("placeholder")
+            if let intValue = Int16(exactly:val) {
+                return intValue
             }
+            throw PythonError.conversionType( value: String(val), sourceType: "SafePythonObject", targetType: "Int16", underlying: nil)
         case .deferredString(let val):
-            // Mimic Python's int("...")
-            // Python accepts decimal strings, but does NOT accept floats like "3.14"
-            // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
-            // For full fidelity you can later add radix support.
-            let iVal: Int
-            if let intValue = Int(val) {
-                iVal = intValue
-            } else if let double = Double(val), double.isFinite {
-                // try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
-                iVal = Int(double)
-            } else {
-                fatalError("placeholder")  // can't convert to a number
+            if let intValue = Int16(val) {
+                return intValue
             }
-            if let i = Int16(exactly:iVal) {
-                return i
-            }
-            else {
-                fatalError("placeholder")  // overflow
-            }
+            throw PythonError.conversionType( value: val, sourceType: "SafePythonObject", targetType: "Int16", underlying: nil)
         case .deferredBool(let val):
             return val ? 1 : 0
         }
@@ -187,39 +178,34 @@ extension PythonInterpreter.SafePythonObject {
                 return try $0.convertToInt32(self)
             }
         case .deferredDouble(let val):
-            if let i = Int32(exactly:val) {
-                return i
+            // Double
+            //    Fails for Nan or infinity -- conversionType
+            //    Fails for overflow -- conversionOverflow
+            //    converts for exact match
+            //    otherwise rounds toward zero
+            guard val.isFinite else {
+                throw PythonError.conversionType( value: String(val), sourceType: "SafePythonObject", targetType: "Int32", underlying: nil)
             }
-            else {
-                fatalError("placeholder")  // overflow
+            if let exact = Int32(exactly: val) {
+                return exact
             }
+            if val > Double(Int32.max) || val < Double(Int32.min) {
+                throw PythonError.conversionOverflow( value: String(val), sourceType: "SafePythonObject", targetType: "Int32" )
+            }
+            return Int32(val.rounded(.towardZero))
         case .deferredInt(let val):
-            if let i = Int32(exactly:val) {
-                return i
+            if val > Int(Int32.max) || val < Int(Int32.min) {
+                throw PythonError.conversionOverflow( value: String(val), sourceType: "SafePythonObject", targetType: "Int32" )
             }
-            else {
-                fatalError("placeholder")
+            if let intValue = Int32(exactly:val) {
+                return intValue
             }
+            throw PythonError.conversionType( value: String(val), sourceType: "SafePythonObject", targetType: "Int32", underlying: nil)
         case .deferredString(let val):
-            // Mimic Python's int("...")
-            // Python accepts decimal strings, but does NOT accept floats like "3.14"
-            // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
-            // For full fidelity you can later add radix support.
-            let iVal: Int
-            if let intValue = Int(val) {
-                iVal = intValue
-            } else if let double = Double(val), double.isFinite {
-                // try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
-                iVal = Int(double)
-            } else {
-                fatalError("placeholder")  // can't convert to a number
+            if let intValue = Int32(val) {
+                return intValue
             }
-            if let i = Int32(exactly:iVal) {
-                return i
-            }
-            else {
-                fatalError("placeholder")  // overflow
-            }
+            throw PythonError.conversionType( value: val, sourceType: "SafePythonObject", targetType: "Int32", underlying: nil)
         case .deferredBool(let val):
             return val ? 1 : 0
         }
@@ -233,37 +219,31 @@ extension PythonInterpreter.SafePythonObject {
                 return try $0.convertToInt64(self)
             }
         case .deferredDouble(let val):
-            if let i = Int64(exactly:val) {
-                return i
+            // Double
+            //    Fails for Nan or infinity -- conversionType
+            //    Fails for overflow -- conversionOverflow
+            //    converts for exact match
+            //    otherwise rounds toward zero
+            guard val.isFinite else {
+                throw PythonError.conversionType( value: String(val), sourceType: "SafePythonObject", targetType: "Int64", underlying: nil)
             }
-            else {
-                fatalError("placeholder")  // overflow
+            if let exact = Int64(exactly: val) {
+                return exact
             }
+            if val > Double(Int64.max) || val < Double(Int64.min) {
+                throw PythonError.conversionOverflow( value: String(val), sourceType: "SafePythonObject", targetType: "Int64" )
+            }
+            return Int64(val.rounded(.towardZero))
         case .deferredInt(let val):
-            if let i = Int64(exactly:val) {
-                return i
+            if let intValue = Int64(exactly:val) {
+                return intValue
             }
-            else {
-                fatalError("placeholder")
-            }
+            throw PythonError.conversionType( value: String(val), sourceType: "SafePythonObject", targetType: "Int64", underlying: nil)
         case .deferredString(let val):
-            // Mimic Python's int("...")
-            // Python accepts decimal strings, but does NOT accept floats like "3.14"
-            // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
-            // For full fidelity you can later add radix support.
             if let intValue = Int64(val) {
-               return intValue
-            } else if let double = Double(val), double.isFinite {
-                // try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
-                if let intValue = Int64(exactly:double) {
-                    return intValue
-                }
-                else {
-                    fatalError("placeholder")  // out of range
-                }
-            } else {
-                fatalError("placeholder")  // can't convert to a number
+                return intValue
             }
+            throw PythonError.conversionType( value: val, sourceType: "SafePythonObject", targetType: "Int64", underlying: nil)
         case .deferredBool(let val):
             return val ? 1 : 0
         }
@@ -277,37 +257,34 @@ extension PythonInterpreter.SafePythonObject {
                 try $0.convertToUInt(self)
             }
         case .deferredDouble(let val):
-            if let i = UInt(exactly:val) {
-                return i
+            // Double
+            //    Fails for Nan or infinity -- conversionType
+            //    Fails for overflow -- conversionOverflow
+            //    converts for exact match
+            //    otherwise rounds toward zero
+            guard val.isFinite else {
+                throw PythonError.conversionType( value: String(val), sourceType: "SafePythonObject", targetType: "UInt", underlying: nil)
             }
-            else {
-                fatalError("placeholder")  // overflow
+            if let exact = UInt(exactly: val) {
+                return exact
             }
+            if val > Double(UInt.max) || val < 0.0 {
+                throw PythonError.conversionOverflow( value: String(val), sourceType: "SafePythonObject", targetType: "UInt" )
+            }
+            return UInt(val.rounded(.towardZero))
         case .deferredInt(let val):
-            if let i = UInt(exactly:val) {
-                return i
+            if val < 0 {
+                throw PythonError.conversionOverflow( value: String(val), sourceType: "SafePythonObject", targetType: "UInt" )
             }
-            else {
-                fatalError("placeholder")
+            if let intValue = UInt(exactly:val) {
+                return intValue
             }
+            throw PythonError.conversionType( value: String(val), sourceType: "SafePythonObject", targetType: "UInt", underlying: nil)
         case .deferredString(let val):
-            // Mimic Python's int("...")
-            // Python accepts decimal strings, but does NOT accept floats like "3.14"
-            // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
-            // For full fidelity you can later add radix support.
             if let intValue = UInt(val) {
-               return intValue
-            } else if let double = Double(val), double.isFinite {
-                // try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
-                if let intValue = UInt(exactly:double) {
-                    return intValue
-                }
-                else {
-                    fatalError("placeholder")  // out of range
-                }
-            } else {
-                fatalError("placeholder")  // can't convert to a number
+                return intValue
             }
+            throw PythonError.conversionType( value: val, sourceType: "SafePythonObject", targetType: "UInt", underlying: nil)
         case .deferredBool(let val):
             return val ? 1 : 0
         }
@@ -321,37 +298,34 @@ extension PythonInterpreter.SafePythonObject {
                 try $0.convertToUInt8(self)
             }
         case .deferredDouble(let val):
-            if let i = UInt8(exactly:val) {
-                return i
+            // Double
+            //    Fails for Nan or infinity -- conversionType
+            //    Fails for overflow -- conversionOverflow
+            //    converts for exact match
+            //    otherwise rounds toward zero
+            guard val.isFinite else {
+                throw PythonError.conversionType( value: String(val), sourceType: "SafePythonObject", targetType: "UInt8", underlying: nil)
             }
-            else {
-                fatalError("placeholder")  // overflow
+            if let exact = UInt8(exactly: val) {
+                return exact
             }
+            if val > Double(UInt8.max) || val < 0.0 {
+                throw PythonError.conversionOverflow( value: String(val), sourceType: "SafePythonObject", targetType: "UInt8" )
+            }
+            return UInt8(val.rounded(.towardZero))
         case .deferredInt(let val):
-            if let i = UInt8(exactly:val) {
-                return i
+            if val > Int(UInt8.max) || val < 0 {
+                throw PythonError.conversionOverflow( value: String(val), sourceType: "SafePythonObject", targetType: "UInt8" )
             }
-            else {
-                fatalError("placeholder")
+            if let intValue = UInt8(exactly:val) {
+                return intValue
             }
+            throw PythonError.conversionType( value: String(val), sourceType: "SafePythonObject", targetType: "UInt8", underlying: nil)
         case .deferredString(let val):
-            // Mimic Python's int("...")
-            // Python accepts decimal strings, but does NOT accept floats like "3.14"
-            // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
-            // For full fidelity you can later add radix support.
             if let intValue = UInt8(val) {
-               return intValue
-            } else if let double = Double(val), double.isFinite {
-                // try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
-                if let intValue = UInt8(exactly:double) {
-                    return intValue
-                }
-                else {
-                    fatalError("placeholder")  // out of range
-                }
-            } else {
-                fatalError("placeholder")  // can't convert to a number
+                return intValue
             }
+            throw PythonError.conversionType( value: val, sourceType: "SafePythonObject", targetType: "UInt8", underlying: nil)
         case .deferredBool(let val):
             return val ? 1 : 0
         }
@@ -365,37 +339,34 @@ extension PythonInterpreter.SafePythonObject {
                 try $0.convertToUInt16(self)
             }
         case .deferredDouble(let val):
-            if let i = UInt16(exactly:val) {
-                return i
+            // Double
+            //    Fails for Nan or infinity -- conversionType
+            //    Fails for overflow -- conversionOverflow
+            //    converts for exact match
+            //    otherwise rounds toward zero
+            guard val.isFinite else {
+                throw PythonError.conversionType( value: String(val), sourceType: "SafePythonObject", targetType: "UInt16", underlying: nil)
             }
-            else {
-                fatalError("placeholder")  // overflow
+            if let exact = UInt16(exactly: val) {
+                return exact
             }
+            if val > Double(UInt16.max) || val < 0.0 {
+                throw PythonError.conversionOverflow( value: String(val), sourceType: "SafePythonObject", targetType: "UInt16" )
+            }
+            return UInt16(val.rounded(.towardZero))
         case .deferredInt(let val):
-            if let i = UInt16(exactly:val) {
-                return i
+            if val > Int(UInt16.max) || val < 0 {
+                throw PythonError.conversionOverflow( value: String(val), sourceType: "SafePythonObject", targetType: "UInt16" )
             }
-            else {
-                fatalError("placeholder")
+            if let intValue = UInt16(exactly:val) {
+                return intValue
             }
+            throw PythonError.conversionType( value: String(val), sourceType: "SafePythonObject", targetType: "UInt16", underlying: nil)
         case .deferredString(let val):
-            // Mimic Python's int("...")
-            // Python accepts decimal strings, but does NOT accept floats like "3.14"
-            // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
-            // For full fidelity you can later add radix support.
             if let intValue = UInt16(val) {
-               return intValue
-            } else if let double = Double(val), double.isFinite {
-                // try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
-                if let intValue = UInt16(exactly:double) {
-                    return intValue
-                }
-                else {
-                    fatalError("placeholder")  // out of range
-                }
-            } else {
-                fatalError("placeholder")  // can't convert to a number
+                return intValue
             }
+            throw PythonError.conversionType( value: val, sourceType: "SafePythonObject", targetType: "UInt16", underlying: nil)
         case .deferredBool(let val):
             return val ? 1 : 0
         }
@@ -409,37 +380,34 @@ extension PythonInterpreter.SafePythonObject {
                 try $0.convertToUInt32(self)
             }
         case .deferredDouble(let val):
-            if let i = UInt32(exactly:val) {
-                return i
+            // Double
+            //    Fails for Nan or infinity -- conversionType
+            //    Fails for overflow -- conversionOverflow
+            //    converts for exact match
+            //    otherwise rounds toward zero
+            guard val.isFinite else {
+                throw PythonError.conversionType( value: String(val), sourceType: "SafePythonObject", targetType: "UInt32", underlying: nil)
             }
-            else {
-                fatalError("placeholder")  // overflow
+            if let exact = UInt32(exactly: val) {
+                return exact
             }
+            if val > Double(UInt32.max) || val < 0.0 {
+                throw PythonError.conversionOverflow( value: String(val), sourceType: "SafePythonObject", targetType: "UInt32" )
+            }
+            return UInt32(val.rounded(.towardZero))
         case .deferredInt(let val):
-            if let i = UInt32(exactly:val) {
-                return i
+            if val > Int(UInt32.max) || val < 0 {
+                throw PythonError.conversionOverflow( value: String(val), sourceType: "SafePythonObject", targetType: "UInt32" )
             }
-            else {
-                fatalError("placeholder")
+            if let intValue = UInt32(exactly:val) {
+                return intValue
             }
+            throw PythonError.conversionType( value: String(val), sourceType: "SafePythonObject", targetType: "UInt32", underlying: nil)
         case .deferredString(let val):
-            // Mimic Python's int("...")
-            // Python accepts decimal strings, but does NOT accept floats like "3.14"
-            // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
-            // For full fidelity you can later add radix support.
             if let intValue = UInt32(val) {
-               return intValue
-            } else if let double = Double(val), double.isFinite {
-                // try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
-                if let intValue = UInt32(exactly:double) {
-                    return intValue
-                }
-                else {
-                    fatalError("placeholder")  // out of range
-                }
-            } else {
-                fatalError("placeholder")  // can't convert to a number
+                return intValue
             }
+            throw PythonError.conversionType( value: val, sourceType: "SafePythonObject", targetType: "UInt32", underlying: nil)
         case .deferredBool(let val):
             return val ? 1 : 0
         }
@@ -453,37 +421,34 @@ extension PythonInterpreter.SafePythonObject {
                 try $0.convertToUInt64(self)
             }
         case .deferredDouble(let val):
-            if let i = UInt64(exactly:val) {
-                return i
+            // Double
+            //    Fails for Nan or infinity -- conversionType
+            //    Fails for overflow -- conversionOverflow
+            //    converts for exact match
+            //    otherwise rounds toward zero
+            guard val.isFinite else {
+                throw PythonError.conversionType( value: String(val), sourceType: "SafePythonObject", targetType: "UInt64", underlying: nil)
             }
-            else {
-                fatalError("placeholder")  // overflow
+            if let exact = UInt64(exactly: val) {
+                return exact
             }
+            if val > Double(UInt64.max) || val < 0.0 {
+                throw PythonError.conversionOverflow( value: String(val), sourceType: "SafePythonObject", targetType: "UInt64" )
+            }
+            return UInt64(val.rounded(.towardZero))
         case .deferredInt(let val):
-            if let i = UInt64(exactly:val) {
-                return i
+            if val < 0 {
+                throw PythonError.conversionOverflow( value: String(val), sourceType: "SafePythonObject", targetType: "UInt64" )
             }
-            else {
-                fatalError("placeholder")
+            if let intValue = UInt64(exactly:val) {
+                return intValue
             }
+            throw PythonError.conversionType( value: String(val), sourceType: "SafePythonObject", targetType: "UInt64", underlying: nil)
         case .deferredString(let val):
-            // Mimic Python's int("...")
-            // Python accepts decimal strings, but does NOT accept floats like "3.14"
-            // It also supports base prefixes (0x, 0o, 0b) but we can start simple.
-            // For full fidelity you can later add radix support.
             if let intValue = UInt64(val) {
-               return intValue
-            } else if let double = Double(val), double.isFinite {
-                // try via Double first then truncate (Python allows int("3.14") to fail, but some users expect leniency)
-                if let intValue = UInt64(exactly:double) {
-                    return intValue
-                }
-                else {
-                    fatalError("placeholder")  // out of range
-                }
-            } else {
-                fatalError("placeholder")  // can't convert to a number
+                return intValue
             }
+            throw PythonError.conversionType( value: val, sourceType: "SafePythonObject", targetType: "UInt64", underlying: nil)
         case .deferredBool(let val):
             return val ? 1 : 0
         }
