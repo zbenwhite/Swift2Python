@@ -84,6 +84,70 @@ struct ConversionsTests {
         }
     }
     
+    @Test("FD_011: SafePythonObject to Double for unbound cases (synchronous)")
+    func safeDoubleUnboundConversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let a: PythonInterpreter.SafePythonObject = true
+            let a_int = try Double(a)
+            #expect(a_int == 1.0)
+            
+            let b: PythonInterpreter.SafePythonObject = false
+            let b_int = try Double(b)
+            #expect(b_int == 0.0)
+            
+            let c: PythonInterpreter.SafePythonObject = 5
+            let c_int = try Double(c)
+            #expect(c_int == 5.0)
+            
+            let d: PythonInterpreter.SafePythonObject = 0
+            let d_int = try Double(d)
+            #expect(d_int == 0.0)
+            
+            let e: PythonInterpreter.SafePythonObject = -74.6
+            let e_int = try Double(e)
+            #expect(e_int == -74.6)
+            
+            let f: PythonInterpreter.SafePythonObject = 0.0
+            let f_int = try Double(f)
+            #expect(f_int == 0.0)
+            
+            let g: PythonInterpreter.SafePythonObject = "17"
+            let g_int = try Double(g)
+            #expect(g_int == 17.0)
+            
+            let h: PythonInterpreter.SafePythonObject = "-817"
+            let h_int = try Double(h)
+            #expect(h_int == -817.0)
+            
+            let thrownError = #expect(throws: PythonError.self) {
+                let i: PythonInterpreter.SafePythonObject = "i like turnips"
+                _ = try Double(i)
+            }
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == "i like turnips")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Double")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+            
+            let thrownError2 = #expect(throws: PythonError.self) {
+                let j: PythonInterpreter.SafePythonObject = ""
+                _ = try Double(j)
+            }
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError2 {
+                #expect(value == "")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Double")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError2)")
+            }
+        }
+    }
+    
     // MARK: FF_xxx Floating Point Float
     
     @Test("FF_001: Float → PythonObject (async)")
@@ -130,6 +194,70 @@ struct ConversionsTests {
         }
     }
     
+    @Test("FF_011: SafePythonObject to Double for unbound cases (synchronous)")
+    func safeFloatUnboundConversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let a: PythonInterpreter.SafePythonObject = true
+            let a_int = try Float(a)
+            #expect(a_int == 1.0)
+            
+            let b: PythonInterpreter.SafePythonObject = false
+            let b_int = try Float(b)
+            #expect(b_int == 0.0)
+            
+            let c: PythonInterpreter.SafePythonObject = 5
+            let c_int = try Float(c)
+            #expect(c_int == 5.0)
+            
+            let d: PythonInterpreter.SafePythonObject = 0
+            let d_int = try Float(d)
+            #expect(d_int == 0.0)
+            
+            let e: PythonInterpreter.SafePythonObject = -74.6
+            let e_int = try Float(e)
+            #expect(e_int == -74.6)
+            
+            let f: PythonInterpreter.SafePythonObject = 0.0
+            let f_int = try Float(f)
+            #expect(f_int == 0.0)
+            
+            let g: PythonInterpreter.SafePythonObject = "17"
+            let g_int = try Float(g)
+            #expect(g_int == 17.0)
+            
+            let h: PythonInterpreter.SafePythonObject = "-817"
+            let h_int = try Float(h)
+            #expect(h_int == -817.0)
+            
+            let thrownError = #expect(throws: PythonError.self) {
+                let i: PythonInterpreter.SafePythonObject = "i like turnips"
+                _ = try Float(i)
+            }
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == "i like turnips")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Float")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+            
+            let thrownError2 = #expect(throws: PythonError.self) {
+                let j: PythonInterpreter.SafePythonObject = ""
+                _ = try Float(j)
+            }
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError2 {
+                #expect(value == "")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Float")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError2)")
+            }
+        }
+    }
+    
     // MARK: F16_xxx Floating Point Float16
     
     @Test("F16_001: Float16 → PythonObject (async)")
@@ -173,6 +301,70 @@ struct ConversionsTests {
             
             let roundTrip = try Float16(safePyObj)
             #expect(roundTrip == value)
+        }
+    }
+    
+    @Test("F16_011: SafePythonObject to Double for unbound cases (synchronous)")
+    func safeFloat16UnboundConversion() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let a: PythonInterpreter.SafePythonObject = true
+            let a_int = try Float16(a)
+            #expect(a_int == 1.0)
+            
+            let b: PythonInterpreter.SafePythonObject = false
+            let b_int = try Float16(b)
+            #expect(b_int == 0.0)
+            
+            let c: PythonInterpreter.SafePythonObject = 5
+            let c_int = try Float16(c)
+            #expect(c_int == 5.0)
+            
+            let d: PythonInterpreter.SafePythonObject = 0
+            let d_int = try Float16(d)
+            #expect(d_int == 0.0)
+            
+            let e: PythonInterpreter.SafePythonObject = -74.6
+            let e_int = try Float16(e)
+            #expect(e_int == -74.6)
+            
+            let f: PythonInterpreter.SafePythonObject = 0.0
+            let f_int = try Float16(f)
+            #expect(f_int == 0.0)
+            
+            let g: PythonInterpreter.SafePythonObject = "17"
+            let g_int = try Float16(g)
+            #expect(g_int == 17.0)
+            
+            let h: PythonInterpreter.SafePythonObject = "-817"
+            let h_int = try Float16(h)
+            #expect(h_int == -817.0)
+            
+            let thrownError = #expect(throws: PythonError.self) {
+                let i: PythonInterpreter.SafePythonObject = "i like turnips"
+                _ = try Float16(i)
+            }
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError {
+                #expect(value == "i like turnips")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Float16")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError)")
+            }
+            
+            let thrownError2 = #expect(throws: PythonError.self) {
+                let j: PythonInterpreter.SafePythonObject = ""
+                _ = try Float16(j)
+            }
+            // Inspect the exact error (very useful for regression safety)
+            if case let .conversionType(value, sourceType, targetType, _) = thrownError2 {
+                #expect(value == "")
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Float16")
+            } else {
+                Issue.record("Expected .conversionType, but got \(thrownError2)")
+            }
         }
     }
     
@@ -3227,6 +3419,7 @@ struct ConversionsTests {
 // [2026-04-09] : FD_003 : Test Convert SafePythonObject to Double
 // [2026-04-09] : FD_004 : Test Convert SafePythonObject to Double special -1.0
 // [          ] : Test Convert SafePythonObject to Double error handling when it's not a numeric value
+// [2026-05-03] : FD_011 : Test Convert SafePythonObject to Double for unbound cases
 
 // [2026-04-10] : FF_001 : Test Convert Float to PythonObject
 // [2026-04-10] : FF_002 : Test Convert Float to PythonObject special -1.0
@@ -3237,7 +3430,7 @@ struct ConversionsTests {
 // [2026-04-10] : FF_004 : Test Convert Float to SafePythonObject special -1.0
 // [2026-04-10] : FF_003 : Test Convert SafePythonObject to Float
 // [2026-04-10] : FF_004 : Test Convert SafePythonObject to Float special -1.0
-// [          ] : Test Convert SafePythonObject to Float error handling when it's not a numeric value
+// [2026-05-03] : Test Convert SafePythonObject to Float error handling when it's not a numeric value
 
 // [2026-04-10] : F16_001 : Test Convert Float16 to PythonObject
 // [2026-04-10] : F16_002 : Test Convert Float16 to PythonObject special -1.0
@@ -3248,7 +3441,7 @@ struct ConversionsTests {
 // [2026-04-10] : F16_004 : Test Convert Float16 to SafePythonObject special -1.0
 // [2026-04-10] : F16_003 : Test Convert SafePythonObject to Float16
 // [2026-04-10] : F16_004 : Test Convert SafePythonObject to Float16 special -1.0
-// [          ] : Test Convert SafePythonObject to Float16 error handling when it's not a numeric value
+// [2026-05-03] : Test Convert SafePythonObject to Float16 error handling when it's not a numeric value
 
 // Signed Integers
 
@@ -3282,7 +3475,7 @@ struct ConversionsTests {
 // [2026-04-21] : I8_010 : Test Convert SafePythonObject to Int8 error handling when it's not a numeric value
 // [2026-04-21] : I8_007 : Test Convert SafePythonObject to Int8 error handling overflow
 // [2026-04-21] : I8_008 : Test Convert SafePythonObject to Int8 error handling underflow
-// [          ] : I8_011 : Test Convert unbound SafePythonObject to Int8
+// [2026-05-02] : I8_011 : Test Convert unbound SafePythonObject to Int8
 
 // [2026-04-11] : I16_001 : Test Convert Int16 to PythonObject
 // [2026-04-11] : I16_002 : Test Convert Int16 to PythonObject special value -1
@@ -3298,7 +3491,7 @@ struct ConversionsTests {
 // [2026-04-21] : I16_010 : Test Convert SafePythonObject to Int16 error handling when it's not a numeric value
 // [2026-04-21] : I16_007 : Test Convert SafePythonObject to Int16 error handling overflow
 // [2026-04-21] : I16_008 : Test Convert SafePythonObject to Int16 error handling underflow
-// [          ] : I16_011 : Test Convert unbound SafePythonObject to Int16
+// [2026-05-02] : I16_011 : Test Convert unbound SafePythonObject to Int16
 
 // [2026-04-11] : I32_001 : Test Convert Int32 to PythonObject
 // [2026-04-11] : I32_002 : Test Convert Int32 to PythonObject special value -1
@@ -3314,7 +3507,7 @@ struct ConversionsTests {
 // [2026-04-21] : I32_010 : Test Convert SafePythonObject to Int32 error handling when it's not a numeric value
 // [2026-04-21] : I32_007 : Test Convert SafePythonObject to Int32 error handling overflow
 // [2026-04-21] : I32_008 : Test Convert SafePythonObject to Int32 error handling underflow
-// [          ] : I32_011 : Test Convert unbound SafePythonObject to Int32
+// [2026-05-02] : I32_011 : Test Convert unbound SafePythonObject to Int32
 
 // [2026-04-11] : I64_001 : Test Convert Int64 to PythonObject
 // [2026-04-11] : I64_002 : Test Convert Int64 to PythonObject special value -1
@@ -3330,7 +3523,7 @@ struct ConversionsTests {
 // [2026-04-21] : I64_010 : Test Convert SafePythonObject to Int64 error handling when it's not a numeric value
 // [2026-04-21] : I64_007 : Test Convert SafePythonObject to Int64 error handling overflow
 // [2026-04-21] : I64_008 : Test Convert SafePythonObject to Int64 error handling underflow
-// [          ] : I64_011 : Test Convert unbound SafePythonObject to Int64
+// [2026-05-02] : I64_011 : Test Convert unbound SafePythonObject to Int64
 
 // Unsigned Integers
 
@@ -3348,7 +3541,7 @@ struct ConversionsTests {
 // [2026-04-20] : UI_010 : Test Convert SafePythonObject to UInt error handling when it's not a numeric value
 // [2026-04-20] : UI_007 : Test Convert SafePythonObject to UInt error handling on overflow
 // [2026-04-20] : UI_008 : Test Convert SafePythonObject to UInt negative number error handling
-// [          ] : Test Convert SafePythonObject to UInt for unbound cases
+// [2026-05-02] : UI_011 : Test Convert SafePythonObject to UInt for unbound cases
 
 // [2026-04-10] : UI8_001 : Test Convert UInt8 to PythonObject
 // [2026-04-10] : UI8_002 : Test Convert UInt8 to PythonObject special value -1 equiv Self.max
@@ -3364,7 +3557,7 @@ struct ConversionsTests {
 // [2026-04-12] : UI8_010 : Test Convert SafePythonObject to UInt8 error handling when it's not a numeric value
 // [2026-04-12] : UI8_007 : Test Convert SafePythonObject to UInt8 error handling on overflow
 // [2026-04-19] : UI8_008 : Test Convert SafePythonObject to UInt8 negative number error handling
-// [          ] : Test Convert SafePythonObject to UInt8 for unbound cases
+// [2026-05-02] : UI8_011 : Test Convert SafePythonObject to UInt8 for unbound cases
 
 
 // [2026-04-10] : UI16_001 : Test Convert UInt16 to PythonObject
@@ -3381,7 +3574,7 @@ struct ConversionsTests {
 // [2026-04-19] : UI16_010 : Test Convert SafePythonObject to UInt16 error handling when it's not a numeric value
 // [2026-04-19] : UI16_007 : Test Convert SafePythonObject to UInt16 error handling on overflow
 // [2026-04-19] : UI16_008 : Test Convert SafePythonObject to UInt16 negative number error handling
-// [          ] : Test Convert SafePythonObject to UInt16 for unbound cases
+// [2026-05-02] : UI16_011 : Test Convert SafePythonObject to UInt16 for unbound cases
 
 // [2026-04-10] : UI32_001 : Test Convert UInt32 to PythonObject
 // [2026-04-10] : UI32_002 : Test Convert UInt32 to PythonObject special value -1 equiv Self.max
@@ -3397,7 +3590,7 @@ struct ConversionsTests {
 // [2026-04-19] : UI32_010 : Test Convert SafePythonObject to UInt32 error handling when it's not a numeric value
 // [2026-04-19] : UI32_007 : Test Convert SafePythonObject to UInt32 error handling on overflow
 // [2026-04-19] : UI32_008 : Test Convert SafePythonObject to UInt32 negative number error handling
-// [          ] : Test Convert SafePythonObject to UInt32 for unbound cases
+// [2026-05-02] : UI32_011 : Test Convert SafePythonObject to UInt32 for unbound cases
 
 // [2026-04-10] : UI64_001 : Test Convert UInt64 to PythonObject
 // [2026-04-10] : UI64_002 : Test Convert UInt64 to PythonObject special value -1 equiv Self.max
@@ -3413,7 +3606,7 @@ struct ConversionsTests {
 // [2026-04-19] : UI64_010 : Test Convert SafePythonObject to UInt64 error handling when it's not a numeric value
 // [2026-04-19] : UI64_007 : Test Convert SafePythonObject to UInt64 error handling on overflow
 // [2026-04-19] : UI64_008 : Test Convert SafePythonObject to UInt64 negative number error handling
-// [          ] : Test Convert SafePythonObject to UInt64 for unbound cases
+// [2026-05-02] : UI64_011 : Test Convert SafePythonObject to UInt64 for unbound cases
 
 // Bool
 
@@ -3438,24 +3631,3 @@ struct ConversionsTests {
 // [2026-05-02] : ST_002 : Test Convert SafePythonObject to String
 // [2026-05-02] : ST_003 : Test Convert SafePythonObject to String error handling
 // [2026-05-02] : ST_007 : Test Convert SafePythonObject to String for unbound cases
-
-// Arrays
-
-// [          ] : Test Convert Array to PythonObject
-// [          ] : Test Convert PythonObject to Array
-// [          ] : Test Convert Array to SafePythonObject
-// [          ] : Test Convert SafePythonObject to Array
-
-// Dictionaries
-
-// [          ] : Test Convert Dictionary to PythonObject
-// [          ] : Test Convert PythonObject to Dictionary
-// [          ] : Test Convert Dictionary to SafePythonObject
-// [          ] : Test Convert SafePythonObject to Dictionary
-
-// Tuples
-
-// [          ] : Test Convert Tuple to PythonObject
-// [          ] : Test Convert PythonObject to Tuple
-// [          ] : Test Convert Tuple to SafePythonObject
-// [          ] : Test Convert SafePythonObject to Tuple

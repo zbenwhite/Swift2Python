@@ -365,7 +365,7 @@ extension Float: SafePythonConvertible {
 extension Float {
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
-        self = try Float(safePythonObject.convertToDouble())
+        self = try safePythonObject.convertToFloat()
     }
 }
 
@@ -384,7 +384,7 @@ extension Float16: SafePythonConvertible {
 extension Float16 {
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
-        self = try Float16(safePythonObject.convertToDouble())
+        self = try safePythonObject.convertToFloat16()
     }
 }
 

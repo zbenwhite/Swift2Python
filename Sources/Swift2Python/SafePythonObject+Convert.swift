@@ -52,6 +52,32 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    public func convertToFloat() throws -> Float {
+        do {
+            return Float(try convertToDouble())
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, let targetType, let underlying):
+                throw PythonError.conversionType( value: value, sourceType: sourceType, targetType: "Float", underlying: underlying )
+            default:
+                throw error
+            }
+        }
+    }
+    
+    public func convertToFloat16() throws -> Float16 {
+        do {
+            return Float16(try convertToDouble())
+        } catch let error as PythonError {
+            switch error {
+            case .conversionType(let value, let sourceType, let targetType, let underlying):
+                throw PythonError.conversionType( value: value, sourceType: sourceType, targetType: "Float16", underlying: underlying )
+            default:
+                throw error
+            }
+        }
+    }
+    
     public func convertToInt() throws -> Int {
         switch state {
         case .bound:
