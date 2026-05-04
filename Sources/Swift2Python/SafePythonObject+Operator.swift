@@ -9,8 +9,6 @@ import Foundation
 
 extension PythonInterpreter.SafePythonObject {
     
-    
-    
     // MARK: -
     // MARK: ARITHMETIC
     
@@ -19,13 +17,111 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Addition
     
+    // The throwing addition function.  For materialized python objects, this calls PyNumber_Add
+    // using the interpreter. If only one is materialized, materialize the other and do the same.
+    // If neither are materialized (why?) then add them the way Pythong would add them:
+    // LHS     RHS      ACTION / Type
+    // -----   ------   ---------
+    // bound   any      PyNumber_Add -- preserve term order
+    // any     bound    PyNumber_Add -- preserve term order
+    // double  double   double
+    // double  int      double
+    // double  string   ERR: typeError
+    // double  bool     double
+    // int     int      int
+    // int     double   double
+    // int     string   ERR: typeError
+    // int     bool     int
+    // string  double   ERR: typeError
+    // string  int      ERR: typeError
+    // string  string   string concatenation
+    // string  bool     ERR: typeError
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    static internal func boundPythonAdd(interpreter: PythonInterpreter, lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        do {
+    public func add(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+        switch state {
+        case .bound:
             let localInterpreter = interpreter
             return try localInterpreter.assumeIsolated {
-                try $0.syncAdd(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
+                try $0.syncAdd(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
             }
+            
+        case .deferredDouble(let lhsVal):
+            switch other.state {
+            case .bound:
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncAdd(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal + rhsVal)
+            case .deferredInt(let rhsVal):
+                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal + Double(rhsVal))
+            case .deferredString:
+                throw PythonError.typeError(operation: "addition", opType1: "Double", opType2: "String")
+            case .deferredBool(let rhsVal):
+                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal + (rhsVal ? 1.0 : 0.0))
+            }
+            
+        case .deferredInt(let lhsVal):
+            switch other.state {
+            case .bound:
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncAdd(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) + rhsVal)
+            case .deferredInt(let rhsVal):
+                return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal + rhsVal)
+            case .deferredString:
+                throw PythonError.typeError(operation: "addition", opType1: "Integer", opType2: "String")
+            case .deferredBool(let rhsVal):
+                return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal + (rhsVal ? 1 : 0))
+            }
+            
+        case .deferredString(let lhsVal):
+            switch other.state {
+            case .bound:
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncAdd(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble:
+                throw PythonError.typeError(operation: "addition", opType1: "String", opType2: "Double")
+            case .deferredInt:
+                throw PythonError.typeError(operation: "addition", opType1: "String", opType2: "Integer")
+            case .deferredString(let rhsVal):
+                return PythonInterpreter.SafePythonObject(stringLiteral: lhsVal + rhsVal)
+            case .deferredBool:
+                throw PythonError.typeError(operation: "addition", opType1: "String", opType2: "Bool")
+            }
+            
+        case .deferredBool(let lhsVal):
+            switch other.state {
+            case .bound:
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncAdd(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) + rhsVal)
+            case .deferredInt(let rhsVal):
+                return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) + rhsVal)
+            case .deferredString:
+                throw PythonError.typeError(operation: "addition", opType1: "Bool", opType2: "String")
+            case .deferredBool(let rhsVal):
+                return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) + (rhsVal ? 1 : 0))
+            }
+        }
+    }
+    
+    // A static function to be used for the + operator.  The + operator does not throw, so this causes
+    // a fatal error if the types of the addition are incompatible.  Use SafePythonObject.add() for a throwing
+    // add.
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    static internal func addOperator(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            return try lhs.add(rhs)
         } catch {
             fatalError("Addition failed: \(error).  Use `SafePythonObject.add()` for addition that might throw.")
         }
@@ -40,70 +136,6 @@ extension PythonInterpreter.SafePythonObject {
             }
         } catch {
             fatalError("Failed: \(error)")
-        }
-    }
-    
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    static internal func addOperator(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        switch lhs.state {
-        case .bound:
-            return boundPythonAdd(interpreter: lhs.interpreter, lhs: lhs, rhs: rhs)
-            
-        case .deferredDouble(let lhsVal):
-            switch rhs.state {
-            case .bound:
-                return boundPythonAdd(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-            case .deferredDouble(let rhsVal):
-                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal + rhsVal)
-            case .deferredInt(let rhsVal):
-                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal + Double(rhsVal))
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let rhsVal):
-                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal + (rhsVal ? 1.0 : 0.0))
-            }
-            
-        case .deferredInt(let lhsVal):
-            switch rhs.state {
-            case .bound:
-                return boundPythonAdd(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-            case .deferredDouble(let rhsVal):
-                return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) + rhsVal)
-            case .deferredInt(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal + rhsVal)
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal + (rhsVal ? 1 : 0))
-            }
-            
-        case .deferredString(let lhsVal):
-            switch rhs.state {
-            case .bound:
-                return boundPythonAdd(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-            case .deferredDouble:
-                fatalError("Python TypeError")
-            case .deferredInt:
-                fatalError("Python TypeError")
-            case .deferredString(let rhsVal):
-                return PythonInterpreter.SafePythonObject(stringLiteral: lhsVal + rhsVal)
-            case .deferredBool:
-                fatalError("Python TypeError")
-            }
-            
-        case .deferredBool(let lhsVal):
-            switch rhs.state {
-            case .bound:
-                return boundPythonAdd(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-            case .deferredDouble(let rhsVal):
-                return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) + rhsVal)
-            case .deferredInt(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) + rhsVal)
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) + (rhsVal ? 1 : 0))
-            }
         }
     }
     

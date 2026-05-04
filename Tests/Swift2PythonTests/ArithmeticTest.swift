@@ -63,74 +63,214 @@ struct ArithmeticTests {
     }
     
     
-    // MARK: O+_xxx Addition Tests
+    // MARK: O+_xxx Addition
     
     @Test("O+_001: Plus Operator Integer")
     func plusOperatorInteger() async throws {
         try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundIntA = try 77.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundIntB = try 22.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundIntA: PythonInterpreter.SafePythonObject = 6
+            let unboundIntB: PythonInterpreter.SafePythonObject = 2
             
-            // Add integer to integer SafePythonObject
-            let value: Int = 77
-            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
-            let safePyObj2 = safePyObj + 19
-            let roundTrip = try Int(safePyObj2)
-            #expect(roundTrip == 96)
+            let boundDouble = try 19.5.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundDouble: PythonInterpreter.SafePythonObject = 2.25
             
-            // Add integer to integer SafePythonObject other order
-            let valueA: Int = 77
-            let safePyObjA = try valueA.toSafePythonObject(interpreter: isolatedInterpreter)
-            let safePyObj2A = 19 + safePyObjA
-            let roundTripA = try Int(safePyObj2A)
-            #expect(roundTripA == 96)
+            let boundTrue = try true.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundTrue: PythonInterpreter.SafePythonObject = true
             
-            // Add multiple items
-            let valueB: Int = 22
-            let safePyObjB = try valueB.toSafePythonObject(interpreter: isolatedInterpreter)
-            let safePyObj2B = 19 + safePyObjB + 2 + safePyObjA // 19 + 22 + 2 + 77 = 120
-            let roundTripB = try Int(safePyObj2B)
-            #expect(roundTripB == 120)
+            // Integer-led addition should preserve integer results for int/bool combinations
+            // regardless of whether each operand is bound to an interpreter or still deferred.
+            let intCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Int)] = [
+                ("bound int + bound int", boundIntA, boundIntB, 99),
+                ("bound int + unbound int", boundIntA, unboundIntB, 79),
+                ("unbound int + bound int", unboundIntB, boundIntA, 79),
+                ("unbound int + unbound int", unboundIntA, unboundIntB, 8),
+                ("bound int + bound bool", boundIntA, boundTrue, 78),
+                ("bound int + unbound bool", boundIntA, unboundTrue, 78),
+                ("unbound int + bound bool", unboundIntA, boundTrue, 7),
+                ("unbound int + unbound bool", unboundIntA, unboundTrue, 7)
+            ]
             
-            // Add integer SafePythonObject to integer SafePythonObject
-            let safePyObj2C = safePyObjB + safePyObjA   // 22 + 77 = 99
-            let roundTripC = try Int(safePyObj2C)
-            #expect(roundTripC == 99)
+            for (description, lhs, rhs, expected) in intCases {
+                let result = lhs + rhs
+                let roundTrip = try Int(result)
+                #expect(roundTrip == expected, Comment(rawValue: description))
+            }
+            
+            // Integer-led addition should promote to double when either side is a double,
+            // while still covering bound/unbound combinations.
+            let doubleCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Double)] = [
+                ("bound int + bound double", boundIntA, boundDouble, 96.5),
+                ("bound int + unbound double", boundIntA, unboundDouble, 79.25),
+                ("unbound int + bound double", unboundIntA, boundDouble, 25.5),
+                ("unbound int + unbound double", unboundIntA, unboundDouble, 8.25)
+            ]
+            
+            for (description, lhs, rhs, expected) in doubleCases {
+                let result = lhs + rhs
+                let roundTrip = try Double(result)
+                #expect(roundTrip.isCloseEnough(to: expected), Comment(rawValue: description))
+            }
+            
+            // Chaining verifies the operator continues to thread the correct result type and order
+            // across multiple mixed additions.
+            let chainedResult = unboundDouble + boundIntB + unboundIntB + boundIntA
+            let chainedRoundTrip = try Double(chainedResult)
+            #expect(chainedRoundTrip.isCloseEnough(to: 103.25))
         }
     }
     
     @Test("O+_002: Plus Operator Double")
     func plusOperatorDouble() async throws {
         try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundDoubleA = try (-17.4).toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundDoubleB = try 22.6.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundDoubleA: PythonInterpreter.SafePythonObject = 19.1
+            let unboundDoubleB: PythonInterpreter.SafePythonObject = 1.6
             
-            // Add double to double SafePythonObject
-            let value: Double = -17.4
-            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
-            let safePyObj2 = safePyObj + 19.9  // -17.4 + 19.9 = 2.5
-            let roundTrip = try Double(safePyObj2)
-            #expect(roundTrip == 2.5)
+            let boundInt = try 8.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundInt: PythonInterpreter.SafePythonObject = 3
             
-            // Add double to double SafePythonObject other order
-            let valueA: Double = -17.4
-            let safePyObjA = try valueA.toSafePythonObject(interpreter: isolatedInterpreter)
-            let safePyObj2A = 19.1 + safePyObjA  // -17.4 + 19.1 = 1.7
-            let roundTripA = try Double(safePyObj2A)
-            #expect(roundTripA.isCloseEnough(to: 1.7))
+            let boundTrue = try true.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundFalse: PythonInterpreter.SafePythonObject = false
             
-            // Add multiple double items
-            let valueB: Double = 22.6
-            let safePyObjB = try valueB.toSafePythonObject(interpreter: isolatedInterpreter)
-            let safePyObj2B = 19.0 + safePyObjB + 1.6 + safePyObjA // 19.0 + 22.6 + 1.6 + -17.4 = 25.8
-            let roundTripB = try Double(safePyObj2B)
-            #expect(roundTripB.isCloseEnough(to: 25.8))
+            // Double-led addition should stay in floating-point space for double/double,
+            // double/int, and double/bool combinations across bound and unbound states.
+            let doubleCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Double)] = [
+                ("bound double + bound double", boundDoubleA, boundDoubleB, 5.2),
+                ("bound double + unbound double", boundDoubleA, unboundDoubleA, 1.7),
+                ("unbound double + bound double", unboundDoubleA, boundDoubleA, 1.7),
+                ("unbound double + unbound double", unboundDoubleA, unboundDoubleB, 20.7),
+                ("bound double + bound int", boundDoubleA, boundInt, -9.4),
+                ("bound double + unbound int", boundDoubleA, unboundInt, -14.4),
+                ("unbound double + bound int", unboundDoubleA, boundInt, 27.1),
+                ("unbound double + unbound int", unboundDoubleA, unboundInt, 22.1),
+                ("bound double + bound bool", boundDoubleA, boundTrue, -16.4),
+                ("bound double + unbound bool", boundDoubleA, unboundFalse, -17.4),
+                ("unbound double + bound bool", unboundDoubleA, boundTrue, 20.1),
+                ("unbound double + unbound bool", unboundDoubleA, unboundFalse, 19.1)
+            ]
             
-            // Add double SafePythonObject to double SafePythonObject
-            let safePyObj2C = safePyObjB + safePyObjA   // 22.6 + -17.4 = 5.2
-            let roundTripC = try Double(safePyObj2C)
-            #expect(roundTripC.isCloseEnough(to: 5.2))
+            for (description, lhs, rhs, expected) in doubleCases {
+                let result = lhs + rhs
+                let roundTrip = try Double(result)
+                #expect(roundTrip.isCloseEnough(to: expected), Comment(rawValue: description))
+            }
+            
+            // Chaining keeps the left-to-right evaluation path active through repeated promotions.
+            let chainedResult = unboundDoubleA + boundDoubleB + unboundDoubleB + boundDoubleA
+            let chainedRoundTrip = try Double(chainedResult)
+            #expect(chainedRoundTrip.isCloseEnough(to: 25.9))
         }
     }
     
+    @Test("O+_003: Plus Operator String")
+    func plusOperatorString() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundStringA = try "ABC".toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundStringB = try "DEF".toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundStringA: PythonInterpreter.SafePythonObject = "PP"
+            let unboundStringB: PythonInterpreter.SafePythonObject = "QQ"
+            
+            // String addition is concatenation only, so these cases cover every successful
+            // bound/unbound pairing and confirm operand order is preserved in the output.
+            let stringCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, String)] = [
+                ("bound string + bound string", boundStringA, boundStringB, "ABCDEF"),
+                ("bound string + unbound string", boundStringA, unboundStringB, "ABCQQ"),
+                ("unbound string + bound string", unboundStringA, boundStringA, "PPABC"),
+                ("unbound string + unbound string", unboundStringA, unboundStringB, "PPQQ")
+            ]
+            
+            for (description, lhs, rhs, expected) in stringCases {
+                let result = lhs + rhs
+                let roundTrip = try String(result)
+                #expect(roundTrip == expected, Comment(rawValue: description))
+            }
+            
+            // Chaining confirms concatenation continues to respect left-to-right term order.
+            let chainedResult = unboundStringA + boundStringB + unboundStringB + boundStringA
+            let chainedRoundTrip = try String(chainedResult)
+            #expect(chainedRoundTrip == "PPDEFQQABC")
+        }
+    }
     
-    // MARK: O-_xxx Subtraction Tests
+    @Test("O+_004: Plus Operator Bool")
+    func plusOperatorBool() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundTrue = try true.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundFalse = try false.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundTrue: PythonInterpreter.SafePythonObject = true
+            let unboundFalse: PythonInterpreter.SafePythonObject = false
+            
+            let boundInt = try 9.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundInt: PythonInterpreter.SafePythonObject = 4
+            
+            let boundDouble = try 2.5.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundDouble: PythonInterpreter.SafePythonObject = 7.5
+            
+            // Bool-led addition behaves like Python numeric addition, where bool participates
+            // as 0/1. These cases cover bool/bool and bool/int paths for all success states.
+            let intCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Int)] = [
+                ("bound bool + bound bool", boundTrue, boundFalse, 1),
+                ("bound bool + unbound bool", boundTrue, unboundFalse, 1),
+                ("unbound bool + bound bool", unboundTrue, boundFalse, 1),
+                ("unbound bool + unbound bool", unboundTrue, unboundTrue, 2),
+                ("bound bool + bound int", boundTrue, boundInt, 10),
+                ("bound bool + unbound int", boundTrue, unboundInt, 5),
+                ("unbound bool + bound int", unboundTrue, boundInt, 10),
+                ("unbound bool + unbound int", unboundTrue, unboundInt, 5)
+            ]
+            
+            for (description, lhs, rhs, expected) in intCases {
+                let result = lhs + rhs
+                let roundTrip = try Int(result)
+                #expect(roundTrip == expected, Comment(rawValue: description))
+            }
+            
+            // When a bool-led addition involves a double, the result should promote to double
+            // while still treating the bool as 0/1.
+            let doubleCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Double)] = [
+                ("bound bool + bound double", boundTrue, boundDouble, 3.5),
+                ("bound bool + unbound double", boundTrue, unboundDouble, 8.5),
+                ("unbound bool + bound double", unboundTrue, boundDouble, 3.5),
+                ("unbound bool + unbound double", unboundTrue, unboundDouble, 8.5)
+            ]
+            
+            for (description, lhs, rhs, expected) in doubleCases {
+                let result = lhs + rhs
+                let roundTrip = try Double(result)
+                #expect(roundTrip.isCloseEnough(to: expected), Comment(rawValue: description))
+            }
+        }
+    }
+    
+    @Test("O+_010: safePythonObject addition error checking")
+    func safeAdditionErrors() async throws {
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let thrownError = #expect(throws: PythonError.self) {
+                let boundStringA = try "ABC".toSafePythonObject(interpreter: isolatedInterpreter)
+                let boundIntB = try 22.toSafePythonObject(interpreter: isolatedInterpreter)
+                _ = try boundStringA.add(boundIntB)
+            }
+            if case let .typeError(opType1,opType2, operation) = thrownError {
+                #expect(opType1 == "String")
+                #expect(opType2 == "Int")
+                #expect(operation == "addition")
+            } else {
+                Issue.record("Expected .typeError, but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("O+_100: Non-operator addition")
+    func nonOperatorAddition() async throws {
+        
+    }
+    
+    
+    // MARK: O-_xxx Subtraction
     
     @Test("O-_001: Minus Operator Integer")
     func minusOperatorInteger() async throws {
@@ -144,7 +284,7 @@ struct ArithmeticTests {
         }
     }
     
-    // MARK: O*_xxx Multiplication Tests
+    // MARK: O*_xxx Multiplication
     
     @Test("O*_001: Multiplication Operator Integer")
     func multiplicationOperatorInteger() async throws {
@@ -158,11 +298,11 @@ struct ArithmeticTests {
         }
     }
 
-    // MARK: O/_xxx Division Tests
+    // MARK: O/_xxx Division
     
-    // MARK: O%_xxx Division Tests
+    // MARK: O%_xxx Division
     
-    // MARK: O**_xxx Division Tests
+    // MARK: O**_xxx Division
 }
 
 
@@ -183,17 +323,19 @@ struct ArithmeticTests {
 // [          ] : O+_xxx : Add integer to double SafePythonObject
 // [2026-04-19] : O+_002 : Add double to double SafePythonObject
 // [          ] : O+_xxx : Add double to integer SafePythonObject
-// [          ] : O+_xxx : Add bool to integer SafePythonObject
+// [2026-05-03] : O+_001 : Add bool to integer SafePythonObject
 // [          ] : O+_xxx : Add bool to double SafePythonObject
-// [          ] : O+_xxx : Add string to string SafePythonObject
+// [2026-05-03] : O+_003 : Add string to string SafePythonObject
+// [2026-05-04] : O+_004 : Add bool to bool SafePythonObject
 
-// [          ] : O+_xxx : Add integer to integer SafePythonObject unbound
+// [2026-05-03] : O+_001 : Add integer to integer SafePythonObject unbound
 // [          ] : O+_xxx : Add integer to double SafePythonObject unbound
-// [          ] : O+_xxx : Add double to double SafePythonObject unbound
+// [2026-05-03] : O+_002 : Add double to double SafePythonObject unbound
 // [          ] : O+_xxx : Add double to integer SafePythonObject unbound
-// [          ] : O+_xxx : Add bool to integer SafePythonObject unbound
+// [2026-05-03] : O+_001 : Add bool to integer SafePythonObject unbound
 // [          ] : O+_xxx : Add bool to double SafePythonObject unbound
 // [          ] : O+_xxx : Add string to string SafePythonObject unbound
+// [2026-05-04] : O+_004 : Add bool to bool SafePythonObject unbound
 
 // [          ] : O+_xxx : Add string to integer SafePythonObject error handling
 // [          ] : O+_xxx : Add string to double SafePythonObject error handling
@@ -248,4 +390,3 @@ struct ArithmeticTests {
 
 
 // Exponentiation
-

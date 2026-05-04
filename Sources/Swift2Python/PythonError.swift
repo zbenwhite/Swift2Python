@@ -34,6 +34,7 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
     /// because it is out of range for the target type (e.g. 2000 → UInt8).
     case conversionOverflow(value: String, sourceType: String, targetType: String )
     indirect case conversionType( value: String, sourceType: String, targetType: String, underlying: PythonError? = nil)
+    case typeError(operation: String, opType1: String, opType2: String )
     
     
     // MARK: - CustomStringConvertible
@@ -70,6 +71,8 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
             return "Overflow error: value \(value) of type \(source) cannot be converted to \(target) (out of range)"
         case .conversionType(let value, let sourceType, let targetType, _ ):
             return "Conversion type error: value \(value) of type \(sourceType) cannot be converted to \(targetType)"
+        case .typeError(let opType1, let opType2, let operation):
+            return "Operation \(operation) is invalid between type \(opType1) and \(opType2)"
         }
     }
         
