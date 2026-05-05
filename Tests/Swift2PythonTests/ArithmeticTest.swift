@@ -245,28 +245,116 @@ struct ArithmeticTests {
         }
     }
     
-    @Test("O+_010: safePythonObject addition error checking")
-    func safeAdditionErrors() async throws {
+    @Test("O+_005: PythonObject (async) add")
+    func addPythongObject() async throws {
         
-        try await interpreter.withIsolatedContext { isolatedInterpreter in
-            let thrownError = #expect(throws: PythonError.self) {
-                let boundStringA = try "ABC".toSafePythonObject(interpreter: isolatedInterpreter)
-                let boundIntB = try 22.toSafePythonObject(interpreter: isolatedInterpreter)
-                _ = try boundStringA.add(boundIntB)
-            }
-            if case let .typeError(opType1,opType2, operation) = thrownError {
-                #expect(opType1 == "String")
-                #expect(opType2 == "Int")
-                #expect(operation == "addition")
-            } else {
-                Issue.record("Expected .typeError, but got \(thrownError)")
-            }
+        let a = try await 17.toPythonObject(interpreter: interpreter)
+        let b = try await 60.toPythonObject(interpreter: interpreter)
+        let sum = try await a.add(b)
+        let check = try await Int(sum)
+        #expect(check == 77)
+        
+        let a2 = try await 17.toPythonObject(interpreter: interpreter)
+        let sum2 = try await a2.add(59)
+        let check2 = try await Int(sum2)
+        #expect(check2 == 76)
+        
+        let a3 = try await 17.toPythonObject(interpreter: interpreter)
+        let sum3 = try await a3.add(59.7)
+        let check3 = try await Double(sum3)
+        #expect(check3 == 76.7)
+        
+        let a4 = try await "FF".toPythonObject(interpreter: interpreter)
+        let sum4 = try await a4.add("PP")
+        let check4 = try await String(sum4)
+        #expect(check4 == "FFPP")
+    }
+    
+    @Test("O+_006: PythonObject (async) add error checking")
+    func addPythongObjectError() async throws {
+        
+        let a = try await 17.toPythonObject(interpreter: interpreter)
+        let b = try await "AA".toPythonObject(interpreter: interpreter)
+    
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await a.add(b)
+        }
+        
+        if case .pythonException = thrownError {
+        } else {
+            Issue.record("Expected .pythonException for Int.add(String), but got \(thrownError)")
         }
     }
     
-    @Test("O+_100: Non-operator addition")
-    func nonOperatorAddition() async throws {
-        
+    @Test("O+_010: safePythonObject addition error checking")
+    func safeAdditionErrors() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundDouble = try 1.5.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundInt = try 2.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundString = try "abc".toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundBool = try true.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let unboundDouble: PythonInterpreter.SafePythonObject = 1.5
+            let unboundInt: PythonInterpreter.SafePythonObject = 2
+            let unboundString: PythonInterpreter.SafePythonObject = "abc"
+            let unboundBool: PythonInterpreter.SafePythonObject = true
+            
+            // Fully deferred invalid additions should throw the local typeError that matches
+            // the operand order encoded in SafePythonObject.add(_:)
+            let unboundTypeErrorCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, String, String)] = [
+                ("unbound double + unbound string", unboundDouble, unboundString, "Double", "String"),
+                ("unbound int + unbound string", unboundInt, unboundString, "Int", "String"),
+                ("unbound string + unbound double", unboundString, unboundDouble, "String", "Double"),
+                ("unbound string + unbound int", unboundString, unboundInt, "String", "Int"),
+                ("unbound string + unbound bool", unboundString, unboundBool, "String", "Bool"),
+                ("unbound bool + unbound string", unboundBool, unboundString, "Bool", "String")
+            ]
+            
+            for (description, lhs, rhs, expectedType1, expectedType2) in unboundTypeErrorCases {
+                let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                    _ = try lhs.add(rhs)
+                }
+                
+                if case let .typeError(operation, opType1, opType2) = thrownError {
+                    #expect(operation == "addition", Comment(rawValue: description))
+                    #expect(opType1 == expectedType1, Comment(rawValue: description))
+                    #expect(opType2 == expectedType2, Comment(rawValue: description))
+                } else {
+                    Issue.record("Expected .typeError for \(description), but got \(thrownError)")
+                }
+            }
+            
+            // Once either side is bound, add(_:) delegates to Python. The same invalid type pairs
+            // should therefore fail as safePythonException instead of the local typeError above.
+            let boundExceptionCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject)] = [
+                ("bound double + unbound string", boundDouble, unboundString),
+                ("unbound double + bound string", unboundDouble, boundString),
+                ("bound int + unbound string", boundInt, unboundString),
+                ("unbound int + bound string", unboundInt, boundString),
+                ("bound string + unbound double", boundString, unboundDouble),
+                ("unbound string + bound double", unboundString, boundDouble),
+                ("bound string + unbound int", boundString, unboundInt),
+                ("unbound string + bound int", unboundString, boundInt),
+                ("bound string + unbound bool", boundString, unboundBool),
+                ("unbound string + bound bool", unboundString, boundBool),
+                ("bound bool + unbound string", boundBool, unboundString),
+                ("unbound bool + bound string", unboundBool, boundString),
+                ("bound string + bound int", boundString, boundInt),
+                ("bound int + bound string", boundInt, boundString)
+            ]
+            
+            for (description, lhs, rhs) in boundExceptionCases {
+                let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                    _ = try lhs.add(rhs)
+                }
+                
+                if case .safePythonException = thrownError {
+                    // expected
+                } else {
+                    Issue.record("Expected .safePythonException for \(description), but got \(thrownError)")
+                }
+            }
+        }
     }
     
     
@@ -319,30 +407,37 @@ struct ArithmeticTests {
 
 // Addition
 
-// [2026-04-19] : O+_001 : Add integer to integer SafePythonObject
-// [          ] : O+_xxx : Add integer to double SafePythonObject
-// [2026-04-19] : O+_002 : Add double to double SafePythonObject
-// [          ] : O+_xxx : Add double to integer SafePythonObject
-// [2026-05-03] : O+_001 : Add bool to integer SafePythonObject
-// [          ] : O+_xxx : Add bool to double SafePythonObject
-// [2026-05-03] : O+_003 : Add string to string SafePythonObject
+// [2026-05-04] : O+_001 : Add integer to integer SafePythonObject
+// [2026-05-04] : O+_002 : Add integer to double SafePythonObject
+// [2026-05-04] : O+_002 : Add double to double SafePythonObject
+// [2026-05-04] : O+_002 : Add double to integer SafePythonObject
+// [2026-05-04] : O+_001 : Add bool to integer SafePythonObject
+// [2026-05-04] : O+_002 : Add bool to double SafePythonObject
+// [2026-05-04] : O+_003 : Add string to string SafePythonObject
 // [2026-05-04] : O+_004 : Add bool to bool SafePythonObject
 
-// [2026-05-03] : O+_001 : Add integer to integer SafePythonObject unbound
-// [          ] : O+_xxx : Add integer to double SafePythonObject unbound
-// [2026-05-03] : O+_002 : Add double to double SafePythonObject unbound
-// [          ] : O+_xxx : Add double to integer SafePythonObject unbound
-// [2026-05-03] : O+_001 : Add bool to integer SafePythonObject unbound
-// [          ] : O+_xxx : Add bool to double SafePythonObject unbound
-// [          ] : O+_xxx : Add string to string SafePythonObject unbound
+// [2026-05-04] : O+_001 : Add integer to integer SafePythonObject unbound
+// [2026-05-04] : O+_002 : Add integer to double SafePythonObject unbound
+// [2026-05-04] : O+_002 : Add double to double SafePythonObject unbound
+// [2026-05-04] : O+_002 : Add double to integer SafePythonObject unbound
+// [2026-05-04] : O+_001 : Add bool to integer SafePythonObject unbound
+// [2026-05-04] : O+_002 : Add bool to double SafePythonObject unbound
+// [2026-05-04] : O+_003 : Add string to string SafePythonObject unbound
 // [2026-05-04] : O+_004 : Add bool to bool SafePythonObject unbound
 
-// [          ] : O+_xxx : Add string to integer SafePythonObject error handling
-// [          ] : O+_xxx : Add string to double SafePythonObject error handling
-// [          ] : O+_xxx : Add string to bool SafePythonObject error handling
-// [          ] : O+_xxx : Add integer to string SafePythonObject error handling
-// [          ] : O+_xxx : Add double to string SafePythonObject error handling
-// [          ] : O+_xxx : Add bool to string SafePythonObject error handling
+// [2026-05-04] : O+_010 : Add string to integer SafePythonObject error handling
+// [2026-05-04] : O+_010 : Add string to double SafePythonObject error handling
+// [2026-05-04] : O+_010 : Add string to bool SafePythonObject error handling
+// [2026-05-04] : O+_010 : Add integer to string SafePythonObject error handling
+// [2026-05-04] : O+_010 : Add double to string SafePythonObject error handling
+// [2026-05-04] : O+_010 : Add bool to string SafePythonObject error handling
+
+// [2026-05-04] : O+_005 : Add PythonObject and PythongObject
+// [2026-05-04] : O+_005 : Add PythonObject and Int
+// [2026-05-04] : O+_005 : Add PythonObject and Double
+// [2026-05-04] : O+_005 : Add PythonObject and Bool
+// [2026-05-04] : O+_005 : Add PythonObject and String
+// [2026-05-04] : O+_006 : Add PythonObject error handling
 
 
 // [          ] : O+_xxx : Add in place integer to integer SafePythonObject

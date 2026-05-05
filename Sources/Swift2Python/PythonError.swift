@@ -71,7 +71,7 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
             return "Overflow error: value \(value) of type \(source) cannot be converted to \(target) (out of range)"
         case .conversionType(let value, let sourceType, let targetType, _ ):
             return "Conversion type error: value \(value) of type \(sourceType) cannot be converted to \(targetType)"
-        case .typeError(let opType1, let opType2, let operation):
+        case .typeError(let operation, let opType1, let opType2):
             return "Operation \(operation) is invalid between type \(opType1) and \(opType2)"
         }
     }

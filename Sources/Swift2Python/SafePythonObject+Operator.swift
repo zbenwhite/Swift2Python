@@ -74,7 +74,7 @@ extension PythonInterpreter.SafePythonObject {
             case .deferredInt(let rhsVal):
                 return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal + rhsVal)
             case .deferredString:
-                throw PythonError.typeError(operation: "addition", opType1: "Integer", opType2: "String")
+                throw PythonError.typeError(operation: "addition", opType1: "Int", opType2: "String")
             case .deferredBool(let rhsVal):
                 return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal + (rhsVal ? 1 : 0))
             }
@@ -89,7 +89,7 @@ extension PythonInterpreter.SafePythonObject {
             case .deferredDouble:
                 throw PythonError.typeError(operation: "addition", opType1: "String", opType2: "Double")
             case .deferredInt:
-                throw PythonError.typeError(operation: "addition", opType1: "String", opType2: "Integer")
+                throw PythonError.typeError(operation: "addition", opType1: "String", opType2: "Int")
             case .deferredString(let rhsVal):
                 return PythonInterpreter.SafePythonObject(stringLiteral: lhsVal + rhsVal)
             case .deferredBool:

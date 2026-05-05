@@ -15,7 +15,9 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in synchronous mode: PyNumber_Add")
         guard let sumPtr = api.PyNumber_Add(lhsPtr, rhsPtr) else {
-            throw PythonError.nullPointer("Python '+' failed")
+            logger.error("PyNumber_Add returned NULL.  Throwing Python error.")
+            try throwPythonErrorIfPresent()
+            throw PythonError.typeError(operation: "addition", opType1: "SafePythonObject", opType2: "SafePythonObject")
         }
         
         let sumId = registerSafePythonObject(sumPtr)
@@ -29,9 +31,11 @@ extension PythonInterpreter {
         let rhsPtr = getRegisteredPointer(forPythonObject:rhs)!
         
         logger.trace("CPython API call in async mode: PyNumber_Add")
-        return try withGIL {
+        return try await withGIL {
             guard let sumPtr = api.PyNumber_Add(lhsPtr, rhsPtr) else {
-                throw PythonError.nullPointer("Python '+' failed")
+                logger.error("PyNumber_Add returned NULL.  Throwing Python error.")
+                try await throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "addition", opType1: "PythonObject", opType2: "PythonObject")
             }
             return newPythonObject(fromReturnedPointer:sumPtr)
         }
@@ -43,6 +47,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceAdd")
         guard let sumPtr = api.PyNumber_InPlaceAdd(sumendPtr, addendPtr) else {
+            logger.error("PyNumber_InPlaceAdd returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '+=' failed")
         }
         
@@ -57,9 +62,11 @@ extension PythonInterpreter {
         let rhsPtr = getRegisteredPointer(forPythonObject:rhs)!
         
         logger.trace("CPython API call in async mode: PyNumber_InPlaceAdd")
-        return try withGIL {
+        return try await withGIL {
             guard let sumPtr = api.PyNumber_InPlaceAdd(lhsPtr, rhsPtr) else {
-                throw PythonError.nullPointer("Python '+=' failed")
+                logger.error("PyNumber_InPlaceAdd returned NULL.  Throwing Python error.")
+                try await throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "in place addition", opType1: "PythonObject", opType2: "PythonObject")
             }
             
             return newPythonObject(fromReturnedPointer: sumPtr)
@@ -74,6 +81,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in synchronous mode: PyNumber_Subtract")
         guard let differencePtr = api.PyNumber_Subtract(minuendPtr, subtrahendPtr) else {
+            logger.error("PyNumber_Subtract returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '-' failed")
         }
         
@@ -88,9 +96,11 @@ extension PythonInterpreter {
         let subtrahendPtr = getRegisteredPointer(forPythonObject:subtrahend)!
         
         logger.trace("CPython API call in async mode: PyNumber_Subtract")
-        return try withGIL {
+        return try await withGIL {
             guard let differencePtr = api.PyNumber_Subtract(minuendPtr, subtrahendPtr) else {
-                throw PythonError.nullPointer("Python '-' failed")
+                logger.error("PyNumber_Subtract returned NULL.  Throwing Python error.")
+                try await throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "subtraction", opType1: "PythonObject", opType2: "PythonObject")
             }
             return newPythonObject(fromReturnedPointer:differencePtr)
         }
@@ -102,6 +112,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceSubtract")
         guard let differencePtr = api.PyNumber_InPlaceSubtract(diffendPtr, subtrahendPtr) else {
+            logger.error("PyNumber_InPlaceSubtract returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '-=' failed")
         }
         
@@ -116,9 +127,11 @@ extension PythonInterpreter {
         let subtrahendPtr = getRegisteredPointer(forPythonObject:subtrahend)!
         
         logger.trace("CPython API call in async mode: PyNumber_InPlaceAddSubtract")
-        return try withGIL {
-            guard let differencePtr = api.PyNumber_InPlaceAdd(minuendPtr, subtrahendPtr) else {
-                throw PythonError.nullPointer("Python '-=' failed")
+        return try await withGIL {
+            guard let differencePtr = api.PyNumber_InPlaceSubtract(minuendPtr, subtrahendPtr) else {
+                logger.error("PyNumber_InPlaceSubtract returned NULL.  Throwing Python error.")
+                try await throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "in place subtraction", opType1: "PythonObject", opType2: "PythonObject")
             }
             return newPythonObject(fromReturnedPointer: differencePtr)
         }
@@ -132,6 +145,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in synchronous mode: PyNumber_Multiply")
         guard let productPtr = api.PyNumber_Multiply(lhsPtr, rhsPtr) else {
+            logger.error("PyNumber_Multiply returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '*' failed")
         }
         
@@ -146,9 +160,11 @@ extension PythonInterpreter {
         let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
         
         logger.trace("CPython API call in async mode: PyNumber_Multiply")
-        return try withGIL {
+        return try await withGIL {
             guard let productPtr = api.PyNumber_Multiply(lhsPtr, rhsPtr) else {
-                throw PythonError.nullPointer("Python '*' failed")
+                logger.error("PyNumber_Multiply returned NULL.  Throwing Python error.")
+                try await throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "multiplication", opType1: "PythonObject", opType2: "PythonObject")
             }
             return newPythonObject(fromReturnedPointer: productPtr)
         }
@@ -160,6 +176,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceMultiply")
         guard let productPtr = api.PyNumber_InPlaceMultiply(productandPtr, multiplicandPtr) else {
+            logger.error("PyNumber_InPlaceMultiply returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '*=' failed")
         }
         
@@ -174,9 +191,11 @@ extension PythonInterpreter {
         let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
         
         logger.trace("CPython API call in async mode: PyNumber_InPlaceMultiply")
-        return try withGIL {
+        return try await withGIL {
             guard let productPtr = api.PyNumber_InPlaceMultiply(lhsPtr, rhsPtr) else {
-                throw PythonError.nullPointer("Python '*=' failed")
+                logger.error("PyNumber_InPlaceMultiply returned NULL.  Throwing Python error.")
+                try await throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "in place multiplication", opType1: "PythonObject", opType2: "PythonObject")
             }
             return newPythonObject(fromReturnedPointer: productPtr)
         }
@@ -190,6 +209,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in synchronous mode: PyNumber_TrueDivide")
         guard let quotientPtr = api.PyNumber_TrueDivide(dividendPtr, divisorPtr) else {
+            logger.error("PyNumber_TrueDivide returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '/' failed")
         }
         
@@ -204,9 +224,11 @@ extension PythonInterpreter {
         let divisorPtr = getRegisteredPointer(forPythonObject: divisor)!
         
         logger.trace("CPython API call in async mode: PyNumber_TrueDivide")
-        return try withGIL {
+        return try await withGIL {
             guard let quotientPtr = api.PyNumber_TrueDivide(dividendPtr, divisorPtr) else {
-                throw PythonError.nullPointer("Python '/' failed")
+                logger.error("PyNumber_TrueDivide returned NULL.  Throwing Python error.")
+                try await throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "division", opType1: "PythonObject", opType2: "PythonObject")
             }
             return newPythonObject(fromReturnedPointer: quotientPtr)
         }
@@ -218,6 +240,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceTrueDivide")
         guard let quotientPtr = api.PyNumber_InPlaceTrueDivide(quotientandPtr, divisorPtr) else {
+            logger.error("PyNumber_InPlaceTrueDivide returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '/=' failed")
         }
         
@@ -231,10 +254,12 @@ extension PythonInterpreter {
         let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
         let divisorPtr = getRegisteredPointer(forPythonObject: divisor)!
         
-        logger.trace("CPython API call in async mode: PyNumber_TrueDivide")
-        return try withGIL {
-            guard let quotientPtr = api.PyNumber_TrueDivide(lhsPtr, divisorPtr) else {
-                throw PythonError.nullPointer("Python '/' failed")
+        logger.trace("CPython API call in async mode: PyNumber_InPlaceTrueDivide")
+        return try await withGIL {
+            guard let quotientPtr = api.PyNumber_InPlaceTrueDivide(lhsPtr, divisorPtr) else {
+                logger.error("PyNumber_InPlaceTrueDivide returned NULL.  Throwing Python error.")
+                try await throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "in place division", opType1: "PythonObject", opType2: "PythonObject")
             }
             return newPythonObject(fromReturnedPointer: quotientPtr)
         }
@@ -248,6 +273,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in synchronous mode: PyNumber_TrueDivide")
         guard let remainderPtr = api.PyNumber_Remainder(dividendPtr, divisorPtr) else {
+            logger.error("PyNumber_Remainder returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '%' failed")
         }
         
@@ -263,6 +289,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceRemainder")
         guard let remainderPtr = api.PyNumber_InPlaceRemainder(quotientandPtr, divisorPtr) else {
+            logger.error("PyNumber_InPlaceRemainder returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '%=' failed")
         }
         
@@ -280,6 +307,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in synchronous mode: PyNumber_Power")
         guard let resultPtr = try api.pythonNumber_Power(basePtr, exponentPtr) else {
+            logger.error("pythonNumber_Power returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '**' failed")
         }
         
@@ -295,6 +323,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in synchronous mode: PyNumber_InPlacePower")
         guard let resultPtr = try api.pythonNumber_InPlacePower(lhsPtr, exponentPtr) else {
+            logger.error("pythonNumber_InPlacePower returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '**=' failed")
         }
         
@@ -312,6 +341,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in synchronous mode: PyNumber_And")
         guard let resultPtr = api.PyNumber_And(lhsPtr, rhsPtr) else {
+            logger.error("PyNumber_And returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '&' failed")
         }
         
@@ -327,6 +357,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceAnd")
         guard let resultPtr = api.PyNumber_InPlaceAnd(lhsPtr, rhsPtr) else {
+            logger.error("PyNumber_InPlaceAnd returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '&=' failed")
         }
         
@@ -344,6 +375,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in synchronous mode: PyNumber_Or")
         guard let resultPtr = api.PyNumber_Or(lhsPtr, rhsPtr) else {
+            logger.error("PyNumber_Or returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '|' failed")
         }
         
@@ -359,6 +391,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceOr")
         guard let resultPtr = api.PyNumber_InPlaceOr(lhsPtr, rhsPtr) else {
+            logger.error("PyNumber_InPlaceOr returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '|=' failed")
         }
         
@@ -376,6 +409,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in synchronous mode: PyNumber_Xor")
         guard let resultPtr = api.PyNumber_Xor(lhsPtr, rhsPtr) else {
+            logger.error("PyNumber_Xor returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '^' failed")
         }
         
@@ -391,6 +425,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceXor")
         guard let resultPtr = api.PyNumber_InPlaceXor(lhsPtr, rhsPtr) else {
+            logger.error("PyNumber_InPlaceXor returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '^=' failed")
         }
         
@@ -407,6 +442,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in synchronous mode: PyNumber_Invert")
         guard let resultPtr = api.PyNumber_Invert(operandPtr) else {
+            logger.error("PyNumber_Invert returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '~' failed")
         }
         
