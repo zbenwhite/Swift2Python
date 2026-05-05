@@ -13,7 +13,7 @@ extension PythonInterpreter {
     // MARK: Bool Conversions
     
     public func convertToPython(bool: Bool) async throws -> PythonObject {
-        return try withGIL {
+        return try await withGIL {
             guard let ptr = api.pythonBool_FromLong(bool) else {
                 // PyBool_FromLong never fails.  Unknown error is fine.
                 throw PythonError.unknownPythonException
@@ -49,7 +49,7 @@ extension PythonInterpreter {
     // MARK: Double Conversions
     
     public func convertToPython(double: Double) async throws -> PythonObject {
-        return try withGIL {
+        return try await withGIL {
             guard let ptr =  try api.pythonFloat_FromDouble(double) else {
                 throw PythonError.nullPointer("Failed to convert double: \(double)")
             }
@@ -104,7 +104,7 @@ extension PythonInterpreter {
     
     public func convertToPython(int val: Int64) async throws -> PythonObject {
         logger.trace("convertToPython: Convert Int64 to PythonObject.")
-        return try withGIL {
+        return try await withGIL {
             guard let ptr = api.pythonLong_FromLongLong(val) else {
                 throw PythonError.nullPointer("Failed to convert int: \(val)")
             }
@@ -464,7 +464,7 @@ extension PythonInterpreter {
     // MARK: UInt Conversions
     
     public func convertToPython(uint val: UInt64) async throws -> PythonObject {
-        return try withGIL {
+        return try await withGIL {
             guard let ptr = try api.pythonLong_FromUnsignedLongLong(UInt64(val)) else {
                 throw PythonError.nullPointer("Failed to convert int: \(val)")
             }
@@ -826,7 +826,7 @@ extension PythonInterpreter {
     // MARK: String Conversions
     
     public func convertToPython(string: String) async throws -> PythonObject {
-        return try withGIL {
+        return try await withGIL {
             guard let ptr = try api.pythonUnicode_FromStringAndSize(string) else {
                 throw PythonError.nullPointer("Failed to convert string: \(string)")
             }

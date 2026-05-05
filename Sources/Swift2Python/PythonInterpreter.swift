@@ -94,7 +94,7 @@ public actor PythonInterpreter {
     /// Standard import using PyImport_ImportModule
     private func importStandard(_ name: String) async throws -> PythonObject {
         logger.trace("import \(name) called for PythonObject (async)")
-        return try withGIL {
+        return try await withGIL {
             guard let ptr = try api.pythonImport_ImportModule(name) else {
                 throw PythonError.nullPointer("Failed to import module: \(name)")
             }
@@ -126,7 +126,7 @@ public actor PythonInterpreter {
     
     public func addModule(_ name: String) async throws -> PythonObject {
         logger.trace("addModule(\(name)) called for PythonObject (async)")
-        return try withGIL {
+        return try await withGIL {
             guard let ptr = try api.pythonImport_AddModule(name) else {
                 throw PythonError.nullPointer("Could not access __main__")
             }
@@ -166,7 +166,7 @@ public actor PythonInterpreter {
     
     public func runSimpleString(pythonCode: String) async throws {
         logger.trace("runSimpleString called (async)")
-        try withGIL {
+        try await withGIL {
             let result = try api.pythonRun_SimpleString(pythonCode)
             guard result == 0 else {
                 throw PythonError.stringConversionFailed("Python execution failed for: \(pythonCode)")
@@ -180,7 +180,7 @@ public actor PythonInterpreter {
         logger.trace("get: 'object.attribute' called for PythonObject (async)")
         let objPtr = getRegisteredPointer(forPythonObject: object)!
         
-        return try withGIL {
+        return try await withGIL {
             let valuePtr = try api.pythonObject_GetAttrString(objPtr, attribute)!
             return newPythonObject(fromReturnedPointer: valuePtr)
         }
@@ -191,7 +191,7 @@ public actor PythonInterpreter {
         let objPtr = getRegisteredPointer(forPythonObject: object)!
         let valuePtr = getRegisteredPointer(forPythonObject: value)!
         
-        try withGIL {
+        try await withGIL {
             _ = try api.pythonObject_SetAttrString(objPtr, attribute, valuePtr)
         }
     }
@@ -203,7 +203,7 @@ public actor PythonInterpreter {
         let keyPtr = getRegisteredPointer(forPythonObject: key)!
         let objPtr = getRegisteredPointer(forPythonObject: object)!
         
-        return try withGIL {
+        return try await withGIL {
             guard let resultPtr = try api.pythonObject_GetItem(objPtr, keyPtr) else {
                 throw PythonError.nullPointer("Python subscript get failed")
             }
@@ -217,7 +217,7 @@ public actor PythonInterpreter {
         let newValuePtr = getRegisteredPointer(forPythonObject: newValue)!
         let objPtr = getRegisteredPointer(forPythonObject: object)!
         
-        try withGIL {
+        try await withGIL {
             _ = try api.pythonObject_SetItem(objPtr, keyPtr, newValuePtr)
         }
     }
@@ -384,7 +384,7 @@ public actor PythonInterpreter {
         logger.trace("withIsolatedContext called")
         do {
             try await readyGlobalSetups()
-            return try withGIL {
+            return try withGILSynchronous {
                 setupSafePythonObjectRegistry()
                 try setupGlobals()
                 defer {
@@ -409,7 +409,7 @@ public actor PythonInterpreter {
     }
     
     // A GIL handler for synchronous mode
-    public func withGIL<Result>(_ body: () throws -> Result) throws -> Result {
+    public func withGILSynchronous<Result>(_ body: () throws -> Result) throws -> Result {
         
         // Manage the GIL
         let gstate = api.pythonGILState_Ensure()

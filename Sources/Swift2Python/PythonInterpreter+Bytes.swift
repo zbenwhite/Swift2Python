@@ -62,20 +62,20 @@ extension PythonInterpreter {
         guard let objPtr = getRegisteredPointer(forPythonObject: obj) else {
             throw PythonError.nullPointer("Object pointer not found")
         }
-        return try withGIL { try Int(api.pythonBytes_Size(objPtr)) }
+        return try await withGIL { try Int(api.pythonBytes_Size(objPtr)) }
     }
     
     public func bytesArrayObjectSize(_ obj: PythonObject) async throws -> Int {
         guard let objPtr = getRegisteredPointer(forPythonObject: obj) else {
             throw PythonError.nullPointer("Object pointer not found")
         }
-        return try withGIL { try api.pythonByteArray_Size(objPtr) }
+        return try await withGIL { try api.pythonByteArray_Size(objPtr) }
     }
     
     // REMOVED DUPLICATE async withUnsafeBytes that manually handled bytes and bytearray here
     
     public func withUnsafeBytes<R>(_ obj: PythonObject, body: @Sendable (UnsafeBufferPointer<UInt8>) throws -> R) async throws -> R {
-        try withGIL {
+        try await withGIL {
             let objPtr = getRegisteredPointer(forPythonObject: obj)!
             
             var view = Py_buffer()

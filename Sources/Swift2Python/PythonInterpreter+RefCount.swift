@@ -72,7 +72,7 @@ extension PythonInterpreter {
         record.referenceCount -= 1                           // update the housekeeping reference count
         pythonObjectRegistry[forPythonObjectID] = record     // write it back because it's a struct
         if andAlsoPythonsRefCount {
-            try withGIL {
+            try await withGIL {
                 api.Py_DecRef(record.objectPtr)
             }
         }
@@ -88,7 +88,7 @@ extension PythonInterpreter {
     }
     
     internal func getRefCount(forHandle: ReferenceCountTestHandle) async throws -> Int {
-        return try self.withGIL {
+        return try await self.withGIL {
             return try Int(api.pythonReferenceCount(forHandle.handle))
         }
     }
@@ -100,7 +100,7 @@ extension PythonInterpreter {
     }
     
     internal func getRefCount(forPythonObj: PythonObject) async throws -> Int {
-        return try self.withGIL {
+        return try await self.withGIL {
             let objPtr = getRegisteredPointer(forPythonObject:forPythonObj)!
             return try Int(api.pythonReferenceCount(objPtr))
         }
