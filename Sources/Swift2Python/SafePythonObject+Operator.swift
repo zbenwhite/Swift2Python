@@ -36,6 +36,10 @@ extension PythonInterpreter.SafePythonObject {
     // string  int      ERR: typeError
     // string  string   string concatenation
     // string  bool     ERR: typeError
+    // bool    double   double
+    // bool    int      int
+    // bool    string   ERR: typeError
+    // bool    bool     int
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public func add(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
         switch state {
@@ -141,13 +145,115 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Subtraction
     
+    
+    // The throwing subtraction function.  For materialized python objects, this calls PyNumber_Subtract
+    // using the interpreter. If only one is materialized, materialize the other and do the same.
+    // If neither are materialized (why?) then add them the way Python would add them:
+    // LHS     RHS      ACTION / Type
+    // -----   ------   ---------
+    // bound   any      PyNumber_Subtract
+    // any     bound    PyNumber_Subtract -- preserve term order
+    // double  double   double
+    // double  int      double
+    // double  string   ERR: typeError
+    // double  bool     double
+    // int     int      int
+    // int     double   double
+    // int     string   ERR: typeError
+    // int     bool     int
+    // string  double   ERR: typeError
+    // string  int      ERR: typeError
+    // string  string   ERR: typeError
+    // string  bool     ERR: typeError
+    // bool    double   double
+    // bool    int      int
+    // bool    string   ERR: typeError
+    // bool    bool     int
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    static internal func boundPythonSubtract(interpreter: PythonInterpreter, minuend: PythonInterpreter.SafePythonObject, subtrahend: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        do {
+    public func subtract(subtrahend: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+        switch state {
+            
+        case .bound:
             let localInterpreter = interpreter
             return try localInterpreter.assumeIsolated {
-                try $0.syncSubtract(minuend: minuend.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
+                try $0.syncSubtract(minuend: self.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
             }
+            
+        case .deferredDouble(let lhsVal):
+            switch subtrahend.state {
+            case .bound:
+                let localInterpreter = subtrahend.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncSubtract(minuend: self.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal - rhsVal)
+            case .deferredInt(let rhsVal):
+                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal - Double(rhsVal))
+            case .deferredString:
+                throw PythonError.typeError(operation: "subtraction", opType1: "Double", opType2: "String")
+            case .deferredBool(let rhsVal):
+                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal - (rhsVal ? 1.0 : 0.0))
+            }
+            
+        case .deferredInt(let lhsVal):
+            switch subtrahend.state {
+            case .bound:
+                let localInterpreter = subtrahend.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncSubtract(minuend: self.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) - rhsVal)
+            case .deferredInt(let rhsVal):
+                return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal - rhsVal)
+            case .deferredString:
+                throw PythonError.typeError(operation: "subtraction", opType1: "Int", opType2: "String")
+            case .deferredBool(let rhsVal):
+                return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal - (rhsVal ? 1 : 0))
+            }
+        
+        case .deferredString:
+            switch subtrahend.state {
+            case .bound:
+                let localInterpreter = subtrahend.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncSubtract(minuend: self.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble:
+                throw PythonError.typeError(operation: "subtraction", opType1: "String", opType2: "Double")
+            case .deferredInt:
+                throw PythonError.typeError(operation: "subtraction", opType1: "String", opType2: "Int")
+            case .deferredString(let rhsVal):
+                throw PythonError.typeError(operation: "subtraction", opType1: "String", opType2: "String")
+            case .deferredBool:
+                throw PythonError.typeError(operation: "subtraction", opType1: "String", opType2: "Bool")
+            }
+            
+        case .deferredBool(let lhsVal):
+            switch subtrahend.state {
+            case .bound:
+                let localInterpreter = subtrahend.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncSubtract(minuend: self.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) - rhsVal)
+            case .deferredInt(let rhsVal):
+                return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) - rhsVal)
+            case .deferredString:
+                throw PythonError.typeError(operation: "subtraction", opType1: "Bool", opType2: "String")
+            case .deferredBool(let rhsVal):
+                return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) - (rhsVal ? 1 : 0))
+            }
+        }
+    }
+    
+    
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    static internal func subtractOperator(minuend: PythonInterpreter.SafePythonObject, subtrahend: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            return try minuend.subtract(subtrahend:subtrahend)
         } catch {
             fatalError("Subtraction failed: \(error).  Use `SafePythonObject.subtract()` for subtraction that might throw.")
         }
@@ -162,70 +268,6 @@ extension PythonInterpreter.SafePythonObject {
             }
         } catch {
             fatalError("Failed: \(error)")
-        }
-    }
-    
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    static internal func subtractOperator(minuend: PythonInterpreter.SafePythonObject, subtrahend: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        switch minuend.state {
-        case .bound:
-            return boundPythonSubtract(interpreter: minuend.interpreter, minuend: minuend, subtrahend: subtrahend)
-            
-        case .deferredDouble(let lhsVal):
-            switch subtrahend.state {
-            case .bound:
-                return boundPythonSubtract(interpreter: subtrahend.interpreter, minuend: minuend, subtrahend: subtrahend)
-            case .deferredDouble(let rhsVal):
-                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal - rhsVal)
-            case .deferredInt(let rhsVal):
-                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal - Double(rhsVal))
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let rhsVal):
-                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal - (rhsVal ? 1.0 : 0.0))
-            }
-            
-        case .deferredInt(let lhsVal):
-            switch subtrahend.state {
-            case .bound:
-                return boundPythonSubtract(interpreter: subtrahend.interpreter, minuend: minuend, subtrahend: subtrahend)
-            case .deferredDouble(let rhsVal):
-                return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) - rhsVal)
-            case .deferredInt(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal - rhsVal)
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal - (rhsVal ? 1 : 0))
-            }
-            
-        case .deferredString:
-            switch subtrahend.state {
-            case .bound:
-                return boundPythonSubtract(interpreter: subtrahend.interpreter, minuend: minuend, subtrahend: subtrahend)
-            case .deferredDouble:
-                fatalError("Python TypeError")
-            case .deferredInt:
-                fatalError("Python TypeError")
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool:
-                fatalError("Python TypeError")
-            }
-            
-        case .deferredBool(let lhsVal):
-            switch subtrahend.state {
-            case .bound:
-                return boundPythonSubtract(interpreter: subtrahend.interpreter, minuend: minuend, subtrahend: subtrahend)
-            case .deferredDouble(let rhsVal):
-                return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) - rhsVal)
-            case .deferredInt(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) - rhsVal)
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) - (rhsVal ? 1 : 0))
-            }
         }
     }
     
