@@ -8,13 +8,13 @@
 extension PythonInterpreter {
     
     // This function assumes you already have the GIL.
-    internal func throwPythonErrorIfPresent() async throws {
+    internal func throwPythonErrorIfPresent() throws {
         guard try api.pythonErr_Occurred() != nil else { return }
-        try await throwPythonError()
+        try throwPythonError()
     }
     
     // This function assumes you already have the GIL.
-    internal func throwPythonError() async throws -> Never {
+    internal func throwPythonError() throws -> Never {
         if let pyGetRaisedException = api.PyErr_GetRaisedException {
             // Do it the new Python 3.12 way
             logger.trace("CPython API Call: PyErr_GetRaisedException")
@@ -49,13 +49,13 @@ extension PythonInterpreter {
     }
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    internal func throwPythonErrorIfPresent() throws {
+    internal func throwSafePythonErrorIfPresent() throws {
         guard try api.pythonErr_Occurred() != nil else { return }
-        try throwPythonError()
+        try throwSafePythonError()
     }
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    internal func throwPythonError() throws -> Never {
+    internal func throwSafePythonError() throws -> Never {
         logger.trace("throwPythonError (synchronous)")
         if let pyGetRaisedException = api.PyErr_GetRaisedException {
             // Do it the new Python 3.12 way

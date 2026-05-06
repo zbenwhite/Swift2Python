@@ -59,22 +59,22 @@ extension PythonInterpreter {
     
     public func convertToDouble(_ obj: PythonObject) async throws -> Double {
         let objPtr = getRegisteredPointer(forPythonObject:obj)!
-        return try await withGIL {
-            do {
+        do {
+            return try await withGIL {
                 let value: Double = api.pythonFloat_AsDouble(objPtr)
                 if value == -1.0 {
                     if let _ = try api.pythonErr_Occurred() {
-                        try await throwPythonError()
+                        try throwPythonError()
                     }
                 }
                 return value
-            } catch let error as PythonError {
-                switch error {
-                case .pythonException:
-                    let objStr = (try? await String(obj)) ?? "<unrepresentable>"
-                    throw PythonError.conversionType( value: objStr, sourceType: "SafePythonObject", targetType: "Double", underlying: error )
-                default: throw error
-                }
+            }
+        } catch let error as PythonError {
+            switch error {
+            case .pythonException:
+                let objStr = (try? await String(obj)) ?? "<unrepresentable>"
+                throw PythonError.conversionType( value: objStr, sourceType: "PythonObject", targetType: "Double", underlying: error )
+            default: throw error
             }
         }
     }
@@ -86,7 +86,7 @@ extension PythonInterpreter {
             let value: Double = api.pythonFloat_AsDouble(objPtr)
             if value == -1.0 {
                 if let _ = try api.pythonErr_Occurred() {
-                    try throwPythonError()
+                    try throwSafePythonError()
                 }
             }
             return value
@@ -370,7 +370,7 @@ extension PythonInterpreter {
                 let value = try api.pythonLong_AsLongLong(objPtr)
                 if value == -1 {
                     if let _ = try api.pythonErr_Occurred() {
-                        try await throwPythonError()
+                        try throwPythonError()
                     }
                 }
                 return value
@@ -443,7 +443,7 @@ extension PythonInterpreter {
         if value == -1 {
             if let _ = try api.pythonErr_Occurred() {
                 do {
-                    try throwPythonError()
+                    try throwSafePythonError()
                 } catch let error as PythonError {
                     switch error {
                     case .safePythonException:
@@ -735,7 +735,7 @@ extension PythonInterpreter {
                 let value = try api.pythonLong_AsUnsignedLongLong(objPtr)
                 if value == UInt64.max {              // (unsigned long long)-1 on error
                     if let _ = try api.pythonErr_Occurred() {
-                        try await throwPythonError()
+                        try throwPythonError()
                     }
                 }
                 return value
@@ -805,7 +805,7 @@ extension PythonInterpreter {
         if value == UInt64.max {              // (unsigned long long)-1 on error
             if let _ = try api.pythonErr_Occurred() {
                 do {
-                    try throwPythonError()
+                    try throwSafePythonError()
                 } catch let error as PythonError {
                     switch error {
                     case .safePythonException:
@@ -848,11 +848,11 @@ extension PythonInterpreter {
                     if let s = try api.pythonUnicode_AsUTF8AndSize(pyStr) {
                         return s
                     } else {
-                        try await throwPythonError()
+                        try throwPythonError()
                     }
                 }
                 else {
-                    try await throwPythonError()
+                    try throwPythonError()
                 }
             } catch let error as PythonError {
                 throw PythonError.conversionType( value: "<unrepresentable>", sourceType: "PythonObject", targetType: "String", underlying: error )
@@ -866,7 +866,7 @@ extension PythonInterpreter {
             let objPtr = getRegisteredPointer(forSafeObj:obj)
             // Call __string__ so this works on more-or-less any object
             guard let pyStr = api.pythonObject_Str(objPtr) else {
-                try throwPythonError()
+                try throwSafePythonError()
             }
             // pythonObject_Str creates an object.  The easiest way to deal with
             // reference counting is to register it and set it up for normal collection later,
@@ -879,7 +879,7 @@ extension PythonInterpreter {
             if let s = try api.pythonUnicode_AsUTF8AndSize(pyStr) {
                 return s
             } else {
-                try throwPythonError()
+                try throwSafePythonError()
             }
         } catch let error as PythonError {
             throw PythonError.conversionType( value: "<unrepresentable>", sourceType: "SafePythonObject", targetType: "String", underlying: error )

@@ -16,7 +16,7 @@ extension PythonInterpreter {
         logger.trace("CPython API call in synchronous mode: PyNumber_Add")
         guard let sumPtr = api.PyNumber_Add(lhsPtr, rhsPtr) else {
             logger.error("PyNumber_Add returned NULL.  Throwing Python error.")
-            try throwPythonErrorIfPresent()
+            try throwSafePythonErrorIfPresent()
             throw PythonError.typeError(operation: "addition", opType1: "SafePythonObject", opType2: "SafePythonObject")
         }
         return newSafePythonObject(fromReturnedPointer: sumPtr)
@@ -30,7 +30,7 @@ extension PythonInterpreter {
         return try await withGIL {
             guard let sumPtr = api.PyNumber_Add(lhsPtr, rhsPtr) else {
                 logger.error("PyNumber_Add returned NULL.  Throwing Python error.")
-                try await throwPythonErrorIfPresent()
+                try throwPythonErrorIfPresent()
                 throw PythonError.typeError(operation: "addition", opType1: "PythonObject", opType2: "PythonObject")
             }
             return newPythonObject(fromReturnedPointer:sumPtr)
@@ -57,7 +57,7 @@ extension PythonInterpreter {
         return try await withGIL {
             guard let sumPtr = api.PyNumber_InPlaceAdd(lhsPtr, rhsPtr) else {
                 logger.error("PyNumber_InPlaceAdd returned NULL.  Throwing Python error.")
-                try await throwPythonErrorIfPresent()
+                try throwPythonErrorIfPresent()
                 throw PythonError.typeError(operation: "in place addition", opType1: "PythonObject", opType2: "PythonObject")
             }
             return newPythonObject(fromReturnedPointer: sumPtr)
@@ -73,7 +73,7 @@ extension PythonInterpreter {
         logger.trace("CPython API call in synchronous mode: PyNumber_Subtract")
         guard let differencePtr = api.PyNumber_Subtract(minuendPtr, subtrahendPtr) else {
             logger.error("PyNumber_Subtract returned NULL.  Throwing Python error.")
-            try throwPythonErrorIfPresent()
+            try throwSafePythonErrorIfPresent()
             throw PythonError.typeError(operation: "subtraction", opType1: "SafePythonObject", opType2: "SafePythonObject")
         }
         return newSafePythonObject(fromReturnedPointer: differencePtr)
@@ -87,7 +87,7 @@ extension PythonInterpreter {
         return try await withGIL {
             guard let differencePtr = api.PyNumber_Subtract(minuendPtr, subtrahendPtr) else {
                 logger.error("PyNumber_Subtract returned NULL.  Throwing Python error.")
-                try await throwPythonErrorIfPresent()
+                try throwPythonErrorIfPresent()
                 throw PythonError.typeError(operation: "subtraction", opType1: "PythonObject", opType2: "PythonObject")
             }
             return newPythonObject(fromReturnedPointer:differencePtr)
@@ -114,7 +114,7 @@ extension PythonInterpreter {
         return try await withGIL {
             guard let differencePtr = api.PyNumber_InPlaceSubtract(minuendPtr, subtrahendPtr) else {
                 logger.error("PyNumber_InPlaceSubtract returned NULL.  Throwing Python error.")
-                try await throwPythonErrorIfPresent()
+                try throwPythonErrorIfPresent()
                 throw PythonError.typeError(operation: "in place subtraction", opType1: "PythonObject", opType2: "PythonObject")
             }
             return newPythonObject(fromReturnedPointer: differencePtr)
@@ -147,7 +147,7 @@ extension PythonInterpreter {
         return try await withGIL {
             guard let productPtr = api.PyNumber_Multiply(lhsPtr, rhsPtr) else {
                 logger.error("PyNumber_Multiply returned NULL.  Throwing Python error.")
-                try await throwPythonErrorIfPresent()
+                try throwPythonErrorIfPresent()
                 throw PythonError.typeError(operation: "multiplication", opType1: "PythonObject", opType2: "PythonObject")
             }
             return newPythonObject(fromReturnedPointer: productPtr)
@@ -178,7 +178,7 @@ extension PythonInterpreter {
         return try await withGIL {
             guard let productPtr = api.PyNumber_InPlaceMultiply(lhsPtr, rhsPtr) else {
                 logger.error("PyNumber_InPlaceMultiply returned NULL.  Throwing Python error.")
-                try await throwPythonErrorIfPresent()
+                try throwPythonErrorIfPresent()
                 throw PythonError.typeError(operation: "in place multiplication", opType1: "PythonObject", opType2: "PythonObject")
             }
             return newPythonObject(fromReturnedPointer: productPtr)
@@ -211,7 +211,7 @@ extension PythonInterpreter {
         return try await withGIL {
             guard let quotientPtr = api.PyNumber_TrueDivide(dividendPtr, divisorPtr) else {
                 logger.error("PyNumber_TrueDivide returned NULL.  Throwing Python error.")
-                try await throwPythonErrorIfPresent()
+                try throwPythonErrorIfPresent()
                 throw PythonError.typeError(operation: "division", opType1: "PythonObject", opType2: "PythonObject")
             }
             return newPythonObject(fromReturnedPointer: quotientPtr)
@@ -242,7 +242,7 @@ extension PythonInterpreter {
         return try await withGIL {
             guard let quotientPtr = api.PyNumber_InPlaceTrueDivide(lhsPtr, divisorPtr) else {
                 logger.error("PyNumber_InPlaceTrueDivide returned NULL.  Throwing Python error.")
-                try await throwPythonErrorIfPresent()
+                try throwPythonErrorIfPresent()
                 throw PythonError.typeError(operation: "in place division", opType1: "PythonObject", opType2: "PythonObject")
             }
             return newPythonObject(fromReturnedPointer: quotientPtr)
@@ -462,7 +462,7 @@ extension PythonInterpreter {
         switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.equal.rawValue) {
         case 0: return false
         case 1: return true
-        default: try throwPythonError()
+        default: try throwSafePythonError()
         }
     }
     
@@ -492,7 +492,7 @@ extension PythonInterpreter {
         switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.notEqual.rawValue) {
         case 0: return false
         case 1: return true
-        default: try throwPythonError()
+        default: try throwSafePythonError()
         }
     }
     
@@ -522,7 +522,7 @@ extension PythonInterpreter {
         switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.greaterThan.rawValue) {
         case 0: return false
         case 1: return true
-        default: try throwPythonError()
+        default: try throwSafePythonError()
         }
     }
     
@@ -552,7 +552,7 @@ extension PythonInterpreter {
         switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.greaterThanOrEqual.rawValue) {
         case 0: return false
         case 1: return true
-        default: try throwPythonError()
+        default: try throwSafePythonError()
         }
     }
     
@@ -582,7 +582,7 @@ extension PythonInterpreter {
         switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.lessThan.rawValue) {
         case 0: return false
         case 1: return true
-        default: try throwPythonError()
+        default: try throwSafePythonError()
         }
     }
     
@@ -612,7 +612,7 @@ extension PythonInterpreter {
         switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.lessThanOrEqual.rawValue) {
         case 0: return false
         case 1: return true
-        default: try throwPythonError()
+        default: try throwSafePythonError()
         }
     }
     

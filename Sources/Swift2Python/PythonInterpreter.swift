@@ -79,14 +79,14 @@ public actor PythonInterpreter {
     // MARK: GIL handling (async mode)
     
     // A GIL handler for async mode
-    public func withGIL<Result>(_ body: () async throws -> Result) async throws -> Result {
+    public func withGIL<Result>(_ body: () throws -> Result) async throws -> Result {
         
         // Manage the GIL
         let gstate = api.pythonGILState_Ensure()
         defer { api.pythonGILState_Release(gstate) }
         
         // All Python C API usage is now safe here.
-        return try await body()
+        return try body()
     }
     
     // MARK: Import support (async mode)
@@ -234,7 +234,7 @@ public actor PythonInterpreter {
             switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.equal.rawValue) {
             case 0: return false
             case 1: return true
-            default: try await throwPythonError()
+            default: try throwPythonError()
             }
         }
     }
@@ -249,7 +249,7 @@ public actor PythonInterpreter {
             switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.notEqual.rawValue) {
             case 0: return false
             case 1: return true
-            default: try await throwPythonError()
+            default: try throwPythonError()
             }
         }
     }
@@ -264,7 +264,7 @@ public actor PythonInterpreter {
             switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.lessThan.rawValue) {
             case 0: return false
             case 1: return true
-            default: try await throwPythonError()
+            default: try throwPythonError()
             }
         }
     }
@@ -279,7 +279,7 @@ public actor PythonInterpreter {
             switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.lessThanOrEqual.rawValue) {
             case 0: return false
             case 1: return true
-            default: try await throwPythonError()
+            default: try throwPythonError()
             }
         }
     }
@@ -293,7 +293,7 @@ public actor PythonInterpreter {
             switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.greaterThan.rawValue) {
             case 0: return false
             case 1: return true
-            default: try await throwPythonError()
+            default: try throwPythonError()
             }
         }
     }
@@ -308,7 +308,7 @@ public actor PythonInterpreter {
             switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.greaterThanOrEqual.rawValue) {
             case 0: return false
             case 1: return true
-            default: try await throwPythonError()
+            default: try throwPythonError()
             }
         }
     }

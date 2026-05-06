@@ -17,7 +17,7 @@ extension PythonInterpreter {
         let value = try api.pythonObject_IsTrue(safePtr)
         if value == -1 {
             if let _ = try api.pythonErr_Occurred() {
-                try throwPythonError()
+                try throwSafePythonError()
             }
         }
         return value == 1
@@ -30,7 +30,7 @@ extension PythonInterpreter {
         let value = try api.pythonObject_Not(safePtr)
         if value == -1 {
             if let _ = try api.pythonErr_Occurred() {
-                try throwPythonError()
+                try throwSafePythonError()
             }
         }
         return value == 1
@@ -42,7 +42,7 @@ extension PythonInterpreter {
             let value = try api.pythonObject_IsTrue(objPtr)
             if value == -1 {
                 if let _ = try api.pythonErr_Occurred() {
-                    try await throwPythonError()
+                    try throwPythonError()
                 }
             }
             return value == 1
@@ -55,7 +55,7 @@ extension PythonInterpreter {
             let value = try api.pythonObject_Not(objPtr)
             if value == -1 {
                 if let _ = try api.pythonErr_Occurred() {
-                    try await throwPythonError()
+                    try throwPythonError()
                 }
             }
             return value == 1

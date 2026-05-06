@@ -15,18 +15,18 @@ extension PythonInterpreter {
     internal func callPythonCallable(_ callable: PythonObject,
                                     args: [any PendingPythonConvertible],
                                     kwargs: [String: PendingPythonConvertible]) async throws -> PythonObject {
+
+        // Build args tuple
+        let argTuplePtr: UnsafeMutableRawPointer? = try await createArgsTupleAsync(args)
+        // Build kwargs dict (if any)
+        let kwDictPtr: UnsafeMutableRawPointer? = kwargs.isEmpty
+        ? nil
+        : try await createKwargsDictAsync(kwargs)
+        
+        guard let callablePtr = getRegisteredPointer(forPythonObject:callable) else {
+            throw PythonError.nullPointer("Callable pointer not found")
+        }
         return try await withGIL {
-            // Build args tuple
-            let argTuplePtr: UnsafeMutableRawPointer? = try await createArgsTupleAsync(args)
-            // Build kwargs dict (if any)
-            let kwDictPtr: UnsafeMutableRawPointer? = kwargs.isEmpty
-            ? nil
-            : try await createKwargsDictAsync(kwargs)
-            
-            guard let callablePtr = getRegisteredPointer(forPythonObject:callable) else {
-                throw PythonError.nullPointer("Callable pointer not found")
-            }
-            
             // Use PyObject_Call (most flexible)
             guard let resultPtr = try api.pythonObject_Call(callablePtr, argTuplePtr!, kwDictPtr) else {
                 throw PythonError.nullPointer("Python call returned NULL")
@@ -36,8 +36,10 @@ extension PythonInterpreter {
     }
     
     internal func createArgsTupleAsync(_ args: [any PendingPythonConvertible]) async throws -> UnsafeMutableRawPointer {
-        guard let tuplePtr = try api.pythonTuple_New(args.count) else {
-            throw PythonError.nullPointer("Failed to create argument tuple")
+        let tuplePtr = try await withGIL {
+            try api.pythonTuple_New(args.count) ?? {
+                throw PythonError.nullPointer("Failed to create argument tuple")
+            } ()
         }
         
         for (index, element) in args.enumerated() {
@@ -45,14 +47,16 @@ extension PythonInterpreter {
             guard let itemPtr = getRegisteredPointer(forPythonObject:pyObj) else {
                 throw PythonError.nullPointer("Argument conversion failed")
             }
-            _ = try api.pythonTuple_SetItem(tuplePtr, index, itemPtr)
+            _ = try await withGIL { try api.pythonTuple_SetItem(tuplePtr, index, itemPtr) }
         }
         return tuplePtr
     }
     
     internal func createKwargsDictAsync(_ kwargs: [String: PendingPythonConvertible]) async throws -> UnsafeMutableRawPointer {
-        guard let dictPtr = try api.pythonDict_New() else {
-            throw PythonError.nullPointer("Failed to create kwargs dict")
+        let dictPtr = try await withGIL {
+            try api.pythonDict_New() ?? {
+                throw PythonError.nullPointer("Failed to create kwargs dict")
+            } ()
         }
         
         for (key, value) in kwargs {
@@ -63,7 +67,7 @@ extension PythonInterpreter {
                   let valuePtr = getRegisteredPointer(forPythonObject:valueObj) else {
                 throw PythonError.nullPointer("Kwargs conversion failed")
             }
-            _ = try api.pythonDict_SetItem(dictPtr, keyPtr, valuePtr)
+            _ = try await withGIL { try api.pythonDict_SetItem(dictPtr, keyPtr, valuePtr) }
         }
         return dictPtr
     }
