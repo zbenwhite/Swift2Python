@@ -112,6 +112,15 @@ extension PythonInterpreter {
         
     }
     
+    // A new safePythonObject came from python.  Register it and increment the reference count 0 -> 1.
+    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    internal func newSafePythonObject(fromReturnedPointer: UnsafeMutableRawPointer) -> SafePythonObject {
+        let id = registerSafePythonObject(fromReturnedPointer)
+        let safeObj = SafePythonObject(interpreter: self, id: id)
+        self.incrementHousekeepingRefCount(forSafeObj: safeObj)
+        return safeObj
+    }
+    
     @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
     internal func incrementHousekeepingRefCount(forSafeObj: SafePythonObject, andAlsoPythonsRefCount: Bool = false) {
         guard let currentContext = isolatedContextStack.last, var record = currentContext.registry[forSafeObj.id] else {

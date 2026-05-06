@@ -19,11 +19,7 @@ extension PythonInterpreter {
             try throwPythonErrorIfPresent()
             throw PythonError.typeError(operation: "addition", opType1: "SafePythonObject", opType2: "SafePythonObject")
         }
-        
-        let sumId = registerSafePythonObject(sumPtr)
-        let sumObj = SafePythonObject(interpreter: self, id: sumId)
-        self.incrementHousekeepingRefCount(forSafeObj: sumObj)
-        return sumObj
+        return newSafePythonObject(fromReturnedPointer: sumPtr)
     }
     
     internal func add(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
@@ -50,11 +46,7 @@ extension PythonInterpreter {
             logger.error("PyNumber_InPlaceAdd returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '+=' failed")
         }
-        
-        let sumId = registerSafePythonObject(sumPtr)
-        let sumObj = SafePythonObject(interpreter: self, id: sumId)
-        self.incrementHousekeepingRefCount(forSafeObj: sumObj)
-        return sumObj
+        return newSafePythonObject(fromReturnedPointer: sumPtr)
     }
     
     internal func addInPlace(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
@@ -68,7 +60,6 @@ extension PythonInterpreter {
                 try await throwPythonErrorIfPresent()
                 throw PythonError.typeError(operation: "in place addition", opType1: "PythonObject", opType2: "PythonObject")
             }
-            
             return newPythonObject(fromReturnedPointer: sumPtr)
         }
     }
@@ -82,13 +73,10 @@ extension PythonInterpreter {
         logger.trace("CPython API call in synchronous mode: PyNumber_Subtract")
         guard let differencePtr = api.PyNumber_Subtract(minuendPtr, subtrahendPtr) else {
             logger.error("PyNumber_Subtract returned NULL.  Throwing Python error.")
-            throw PythonError.nullPointer("Python '-' failed")
+            try throwPythonErrorIfPresent()
+            throw PythonError.typeError(operation: "subtraction", opType1: "SafePythonObject", opType2: "SafePythonObject")
         }
-        
-        let differenceId = registerSafePythonObject(differencePtr)
-        let differenceObj = SafePythonObject(interpreter: self, id: differenceId)
-        self.incrementHousekeepingRefCount(forSafeObj: differenceObj)
-        return differenceObj
+        return newSafePythonObject(fromReturnedPointer: differencePtr)
     }
     
     internal func subtract(minuend: PythonObject, subtrahend: PythonObject) async throws -> PythonObject {
@@ -115,11 +103,7 @@ extension PythonInterpreter {
             logger.error("PyNumber_InPlaceSubtract returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '-=' failed")
         }
-        
-        let differenceId = registerSafePythonObject(differencePtr)
-        let differenceObj = SafePythonObject(interpreter: self, id: differenceId)
-        self.incrementHousekeepingRefCount(forSafeObj: differenceObj)
-        return differenceObj
+        return newSafePythonObject(fromReturnedPointer: differencePtr)
     }
     
     internal func subtractInPlace(minuend: PythonObject, subtrahend: PythonObject) async throws -> PythonObject {
