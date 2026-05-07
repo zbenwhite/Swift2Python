@@ -61,37 +61,6 @@ struct ArithmeticTests {
     init() async throws {
         self.interpreter = try await Self.sharedInterpreterTask.value
     }
-    
-    
-    
-    // MARK: O-_xxx Subtraction
-    
-    
-    // MARK: O*_xxx Multiplication
-    
-    @Test("O*_001: Multiplication Operator Integer")
-    func multiplicationOperatorInteger() async throws {
-        
-        try await interpreter.withIsolatedContext { isolatedInterpreter in
-            let value: Int = 77
-            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
-            let safePyObj2 = safePyObj * 3
-            let roundTrip = try Int(safePyObj2)
-            #expect(roundTrip == 231)
-        }
-    }
 }
 
 
-
-
-// Multiplication
-
-
-// Division
-
-
-// Modulus
-
-
-// Exponentiation

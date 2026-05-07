@@ -14,7 +14,6 @@ extension PythonInterpreter.SafePythonObject {
     
     
     
-    
     // MARK: Addition
     
     // The throwing addition function.  For materialized python objects, this calls PyNumber_Add
@@ -145,14 +144,13 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Subtraction
     
-    
     // The throwing subtraction function.  For materialized python objects, this calls PyNumber_Subtract
     // using the interpreter. If only one is materialized, materialize the other and do the same.
-    // If neither are materialized (why?) then add them the way Python would add them:
+    // If neither are materialized (why?) then subtract them the way Python would subtract them:
     // LHS     RHS      ACTION / Type
     // -----   ------   ---------
     // bound   any      PyNumber_Subtract
-    // any     bound    PyNumber_Subtract -- preserve term order
+    // any     bound    PyNumber_Subtract
     // double  double   double
     // double  int      double
     // double  string   ERR: typeError
@@ -224,7 +222,7 @@ extension PythonInterpreter.SafePythonObject {
                 throw PythonError.typeError(operation: "subtraction", opType1: "String", opType2: "Double")
             case .deferredInt:
                 throw PythonError.typeError(operation: "subtraction", opType1: "String", opType2: "Int")
-            case .deferredString(let rhsVal):
+            case .deferredString:
                 throw PythonError.typeError(operation: "subtraction", opType1: "String", opType2: "String")
             case .deferredBool:
                 throw PythonError.typeError(operation: "subtraction", opType1: "String", opType2: "Bool")
@@ -249,7 +247,6 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     static internal func subtractOperator(minuend: PythonInterpreter.SafePythonObject, subtrahend: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
@@ -273,15 +270,115 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Multiplication
     
+    // The throwing multiplication function.  For materialized python objects, this calls PyNumber_Multiply
+    // using the interpreter. If only one is materialized, materialize the other and do the same.
+    // If neither are materialized (why?) then multiply them the way Python would multiply them:
+    // LHS     RHS      ACTION / Type
+    // -----   ------   ---------
+    // bound   any      PyNumber_Multiply -- preserve term order
+    // any     bound    PyNumber_Multiply -- preserve term order
+    // double  double   double
+    // double  int      double
+    // double  string   ERR: typeError
+    // double  bool     double
+    // int     int      int
+    // int     double   double
+    // int     string   string
+    // int     bool     int
+    // string  double   ERR: typeError
+    // string  int      string
+    // string  string   ERR: typeError
+    // string  bool     string
+    // bool    double   double
+    // bool    int      int
+    // bool    string   string
+    // bool    bool     int
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    static internal func boundPythonMultiply(interpreter: PythonInterpreter, lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        do {
+    public func multiply(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+        switch self.state {
+            
+        case .bound:
             let localInterpreter = interpreter
             return try localInterpreter.assumeIsolated {
-                try $0.syncMultiply(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
+                try $0.syncMultiply(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
             }
+            
+        case .deferredDouble(let lhsVal):
+            switch other.state {
+            case .bound:
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncMultiply(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal * rhsVal)
+            case .deferredInt(let rhsVal):
+                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal * Double(rhsVal))
+            case .deferredString:
+                throw PythonError.typeError(operation: "multiplication", opType1: "Double", opType2: "String")
+            case .deferredBool(let rhsVal):
+                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal * (rhsVal ? 1.0 : 0.0))
+            }
+            
+        case .deferredInt(let lhsVal):
+            switch other.state {
+            case .bound:
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncMultiply(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) * rhsVal)
+            case .deferredInt(let rhsVal):
+                return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal * rhsVal)
+            case .deferredString(let rhsVal):
+                return (lhsVal < 1) ? PythonInterpreter.SafePythonObject(stringLiteral: "") : PythonInterpreter.SafePythonObject(stringLiteral: String(repeating: rhsVal, count: lhsVal))
+            case .deferredBool(let rhsVal):
+                return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal * (rhsVal ? 1 : 0))
+            }
+            
+        case .deferredString(let lhsVal):
+            switch other.state {
+            case .bound:
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncMultiply(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble:
+                throw PythonError.typeError(operation: "multiplication", opType1: "String", opType2: "Double")
+            case .deferredInt(let rhsVal):
+                return (rhsVal < 1) ? PythonInterpreter.SafePythonObject(stringLiteral: "") : PythonInterpreter.SafePythonObject(stringLiteral: String(repeating: lhsVal, count: rhsVal))
+            case .deferredString:
+                throw PythonError.typeError(operation: "multiplication", opType1: "String", opType2: "String")
+            case .deferredBool(let rhsVal):
+                return rhsVal ? PythonInterpreter.SafePythonObject(stringLiteral: lhsVal) : PythonInterpreter.SafePythonObject(stringLiteral: "")
+            }
+            
+        case .deferredBool(let lhsVal):
+            switch other.state {
+            case .bound:
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncMultiply(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) * rhsVal)
+            case .deferredInt(let rhsVal):
+                return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) * rhsVal)
+            case .deferredString(let rhsVal):
+                return lhsVal ? PythonInterpreter.SafePythonObject(stringLiteral: rhsVal) : PythonInterpreter.SafePythonObject(stringLiteral: "")
+            case .deferredBool(let rhsVal):
+                return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) * (rhsVal ? 1 : 0))
+            }
+        }
+    }
+    
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    static internal func multiplyOperator(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            return try lhs.multiply(rhs)
         } catch {
-            fatalError("Multiplication failed: \(error).  Use `SafePythonObject.multiply()` for multiplication that might throw.")
+            fatalError("Multiplication failed: \(error).  Use `SafePythonObject.multiply()` for subtraction that might throw.")
         }
     }
     
@@ -297,78 +394,127 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    // MARK: Division
+    
+    // The throwing division function.  For materialized python objects, this calls PyNumber_TrueDivide
+    // using the interpreter. If only one is materialized, materialize the other and do the same.
+    // If neither are materialized (why?) then divide them the way Python would divide them.
+    // Dizision by zero results in PythonError.divideByZero
+    // LHS     RHS      ACTION / Type
+    // -----   ------   ---------
+    // bound   any      PyNumber_TrueDivide
+    // any     bound    PyNumber_TrueDivide
+    // double  double   double
+    // double  int      double
+    // double  string   ERR: typeError
+    // double  bool     double
+    // int     int      double
+    // int     double   double
+    // int     string   string
+    // int     bool     double
+    // string  double   ERR: typeError
+    // string  int      ERR: typeError
+    // string  string   ERR: typeError
+    // string  bool     ERR: typeError
+    // bool    double   double
+    // bool    int      double
+    // bool    string   ERR: typeError
+    // bool    bool     double
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    static internal func multiplyOperator(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        switch lhs.state {
+    public func divide(divisor: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+        switch self.state {
+            
         case .bound:
-            return boundPythonMultiply(interpreter: lhs.interpreter, lhs: lhs, rhs: rhs)
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                try $0.syncDivide(dividend: self.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+            }
             
         case .deferredDouble(let lhsVal):
-            switch rhs.state {
+            switch divisor.state {
             case .bound:
-                return boundPythonMultiply(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
+                let localInterpreter = divisor.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncDivide(dividend: self.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+                }
             case .deferredDouble(let rhsVal):
-                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal * rhsVal)
+                guard rhsVal != 0.0 else { throw PythonError.divideByZero }
+                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal / rhsVal)
             case .deferredInt(let rhsVal):
-                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal * Double(rhsVal))
+                guard rhsVal != 0 else { throw PythonError.divideByZero }
+                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal / Double(rhsVal))
             case .deferredString:
-                fatalError("Python TypeError")
+                throw PythonError.typeError(operation: "division", opType1: "Double", opType2: "String")
             case .deferredBool(let rhsVal):
-                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal * (rhsVal ? 1.0 : 0.0))
+                guard rhsVal else { throw PythonError.divideByZero }
+                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal) // n / 1 == n
             }
+            
         case .deferredInt(let lhsVal):
-            switch rhs.state {
+            switch divisor.state {
             case .bound:
-                return boundPythonMultiply(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
+                let localInterpreter = divisor.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncDivide(dividend: self.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+                }
             case .deferredDouble(let rhsVal):
-                return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) * rhsVal)
+                guard rhsVal != 0.0 else { throw PythonError.divideByZero }
+                return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) / rhsVal)
             case .deferredInt(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal * rhsVal)
-            case .deferredString(let rhsVal):
-                return (lhsVal < 1) ? PythonInterpreter.SafePythonObject(stringLiteral: "") : PythonInterpreter.SafePythonObject(stringLiteral: String(repeating: rhsVal, count: lhsVal))
-            case .deferredBool(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal * (rhsVal ? 1 : 0))
-            }
-        case .deferredString(let lhsVal):
-            switch rhs.state {
-            case .bound:
-                return boundPythonMultiply(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
-            case .deferredDouble:
-                fatalError("Python TypeError")
-            case .deferredInt(let rhsVal):
-                return (rhsVal < 1) ? PythonInterpreter.SafePythonObject(stringLiteral: "") : PythonInterpreter.SafePythonObject(stringLiteral: String(repeating: lhsVal, count: rhsVal))
+                guard rhsVal != 0 else { throw PythonError.divideByZero }
+                return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) / Double(rhsVal))   // Python division always return floating point
             case .deferredString:
-                fatalError("Python TypeError")
+                throw PythonError.typeError(operation: "division", opType1: "Int", opType2: "String")
             case .deferredBool(let rhsVal):
-                return rhsVal ? PythonInterpreter.SafePythonObject(stringLiteral: lhsVal) : PythonInterpreter.SafePythonObject(stringLiteral: "")
+                guard rhsVal else { throw PythonError.divideByZero }
+                return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal)) // n / 1 == n
             }
-        case .deferredBool(let lhsVal):
-            switch rhs.state {
+            
+        case .deferredString(let lhsVal):
+            switch divisor.state {
             case .bound:
-                return boundPythonMultiply(interpreter: rhs.interpreter, lhs: lhs, rhs: rhs)
+                let localInterpreter = divisor.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncDivide(dividend: self.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble:
+                throw PythonError.typeError(operation: "division", opType1: "String", opType2: "Double")
+            case .deferredInt:
+                throw PythonError.typeError(operation: "division", opType1: "String", opType2: "Int")
+            case .deferredString:
+                throw PythonError.typeError(operation: "division", opType1: "String", opType2: "String")
+            case .deferredBool:
+                throw PythonError.typeError(operation: "division", opType1: "String", opType2: "Bool")
+            }
+            
+        case .deferredBool(let lhsVal):
+            switch divisor.state {
+            case .bound:
+                let localInterpreter = divisor.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncDivide(dividend: self.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+                }
             case .deferredDouble(let rhsVal):
-                return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) * rhsVal)
+                guard rhsVal != 0.0 else { throw PythonError.divideByZero }
+                return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) / rhsVal)
             case .deferredInt(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) * rhsVal)
-            case .deferredString(let rhsVal):
-                return lhsVal ? PythonInterpreter.SafePythonObject(stringLiteral: rhsVal) : PythonInterpreter.SafePythonObject(stringLiteral: "")
+                guard rhsVal != 0 else { throw PythonError.divideByZero }
+                return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) / Double(rhsVal))    // Python division always return floating point
+            case .deferredString:
+                throw PythonError.typeError(operation: "division", opType1: "Bool", opType2: "String")
             case .deferredBool(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) * (rhsVal ? 1 : 0))
+                guard rhsVal else { throw PythonError.divideByZero }
+                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal ? 1.0 : 0.0) // n / 1 == n
             }
         }
     }
     
-    // MARK: Division
-    
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    static internal func boundPythonDivide(interpreter: PythonInterpreter, dividend: PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+    static internal func divideOperator(dividend: PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
-            let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                try $0.syncDivide(dividend: dividend.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
-            }
+            return try dividend.divide(divisor: divisor)
         } catch {
-            fatalError("Subtraction failed: \(error).  Use `SafePythonObject.subtract()` for subtraction that might throw.")
+            fatalError("Division failed: \(error).  Use `SafePythonObject.divide()` for division that might throw.")
         }
     }
     
@@ -384,80 +530,8 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    static internal func divideOperator(dividend: PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        switch dividend.state {
-        case .bound:
-            return boundPythonDivide(interpreter: dividend.interpreter, dividend: dividend, divisor: divisor)
-            
-        case .deferredDouble(let lhsVal):
-            switch divisor.state {
-            case .bound:
-                return boundPythonDivide(interpreter: divisor.interpreter, dividend: dividend, divisor: divisor)
-            case .deferredDouble(let rhsVal):
-                guard rhsVal != 0.0 else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal / rhsVal)
-            case .deferredInt(let rhsVal):
-                guard rhsVal != 0 else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal / Double(rhsVal))
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let rhsVal):
-                guard rhsVal else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal) // n / 1 == n
-            }
-            
-        case .deferredInt(let lhsVal):
-            switch divisor.state {
-            case .bound:
-                return boundPythonDivide(interpreter: divisor.interpreter, dividend: dividend, divisor: divisor)
-            case .deferredDouble(let rhsVal):
-                guard rhsVal != 0.0 else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) / rhsVal)
-            case .deferredInt(let rhsVal):
-                guard rhsVal != 0 else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) / Double(rhsVal))   // Python division always return floating point
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let rhsVal):
-                guard rhsVal else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal)) // n / 1 == n
-            }
-            
-        case .deferredString:
-            switch divisor.state {
-            case .bound:
-                return boundPythonDivide(interpreter: divisor.interpreter, dividend: dividend, divisor: divisor)
-            case .deferredDouble:
-                fatalError("Python TypeError")
-            case .deferredInt:
-                fatalError("Python TypeError")
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool:
-                fatalError("Python TypeError")
-            }
-            
-        case .deferredBool(let lhsVal):
-            switch divisor.state {
-            case .bound:
-                return boundPythonDivide(interpreter: divisor.interpreter, dividend: dividend, divisor: divisor)
-            case .deferredDouble(let rhsVal):
-                guard rhsVal != 0.0 else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) / rhsVal)
-            case .deferredInt(let rhsVal):
-                guard rhsVal != 0 else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) / Double(rhsVal))    // Python division always return floating point
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let rhsVal):
-                guard rhsVal else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal ? 1.0 : 0.0) // n / 1 == n
-            }
-        }
-    }
-    
     // MARK: Modulus
+    
     
     private static func pythonModulus(lhs: Double, rhs: Double) -> Double {
         lhs - rhs * floor(lhs / rhs)
@@ -471,13 +545,123 @@ extension PythonInterpreter.SafePythonObject {
         return remainder
     }
     
+    // The throwing modulus function.  For materialized python objects, this calls PyNumber_Remainder
+    // using the interpreter. If only one is materialized, materialize the other and do the same.
+    // If neither are materialized (why?) then do the operation python would do.
+    // Dizision by zero results in PythonError.divideByZero
+    // LHS     RHS      ACTION / Type
+    // -----   ------   ---------
+    // bound   any      PyNumber_TrueDivide
+    // any     bound    PyNumber_TrueDivide
+    // double  double   double
+    // double  int      double
+    // double  string   ERR: typeError
+    // double  bool     double
+    // int     int      double
+    // int     double   double
+    // int     string   string
+    // int     bool     double
+    // string  double   ERR: typeError
+    // string  int      ERR: typeError
+    // string  string   ERR: typeError
+    // string  bool     ERR: typeError
+    // bool    double   double
+    // bool    int      double
+    // bool    string   ERR: typeError
+    // bool    bool     double
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    static internal func boundPythonModulus(interpreter: PythonInterpreter, dividend: PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        do {
+    public func modulus(divisor: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+        switch self.state {
+            
+        case .bound:
             let localInterpreter = interpreter
             return try localInterpreter.assumeIsolated {
-                try $0.syncModulus(dividend: dividend.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+                try $0.syncModulus(dividend: self.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
             }
+            
+        case .deferredDouble(let lhsVal):
+            switch divisor.state {
+            case .bound:
+                let localInterpreter = divisor.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncModulus(dividend: self.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                guard rhsVal != 0.0 else { throw PythonError.divideByZero }
+                return PythonInterpreter.SafePythonObject(floatLiteral: Self.pythonModulus(lhs: lhsVal, rhs: rhsVal))
+            case .deferredInt(let rhsVal):
+                guard rhsVal != 0 else { throw PythonError.divideByZero }
+                return PythonInterpreter.SafePythonObject(floatLiteral: Self.pythonModulus(lhs: lhsVal, rhs: Double(rhsVal)))
+            case .deferredString:
+                throw PythonError.typeError(operation: "modulus", opType1: "Double", opType2: "String")
+            case .deferredBool(let rhsVal):
+                guard rhsVal else { throw PythonError.divideByZero }
+                return PythonInterpreter.SafePythonObject(floatLiteral: Self.pythonModulus(lhs: lhsVal, rhs: 1.0))
+            }
+            
+        case .deferredInt(let lhsVal):
+            switch divisor.state {
+            case .bound:
+                let localInterpreter = divisor.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncModulus(dividend: self.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                guard rhsVal != 0.0 else { throw PythonError.divideByZero }
+                return PythonInterpreter.SafePythonObject(floatLiteral: Self.pythonModulus(lhs: Double(lhsVal), rhs: rhsVal))
+            case .deferredInt(let rhsVal):
+                guard rhsVal != 0 else { throw PythonError.divideByZero }
+                return PythonInterpreter.SafePythonObject(integerLiteral: Self.pythonIntegerModulus(lhs: lhsVal, rhs: rhsVal))
+            case .deferredString:
+                throw PythonError.typeError(operation: "modulus", opType1: "Int", opType2: "String")
+            case .deferredBool(let rhsVal):
+                guard rhsVal else { throw PythonError.divideByZero }
+                return PythonInterpreter.SafePythonObject(integerLiteral: Self.pythonIntegerModulus(lhs: lhsVal, rhs: 1))
+            }
+            
+        case .deferredString:
+            switch divisor.state {
+            case .bound:
+                let localInterpreter = divisor.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncModulus(dividend: self.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble:
+                throw PythonError.typeError(operation: "modulus", opType1: "String", opType2: "Double")
+            case .deferredInt:
+                throw PythonError.typeError(operation: "modulus", opType1: "String", opType2: "Int")
+            case .deferredString:
+                throw PythonError.typeError(operation: "modulus", opType1: "String", opType2: "String")
+            case .deferredBool:
+                throw PythonError.typeError(operation: "modulus", opType1: "String", opType2: "Bool")
+            }
+            
+        case .deferredBool(let lhsVal):
+            switch divisor.state {
+            case .bound:
+                let localInterpreter = divisor.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncModulus(dividend: self.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                guard rhsVal != 0.0 else { throw PythonError.divideByZero }
+                return PythonInterpreter.SafePythonObject(floatLiteral: Self.pythonModulus(lhs: lhsVal ? 1.0 : 0.0, rhs: rhsVal))
+            case .deferredInt(let rhsVal):
+                guard rhsVal != 0 else { throw PythonError.divideByZero }
+                return PythonInterpreter.SafePythonObject(integerLiteral: Self.pythonIntegerModulus(lhs: lhsVal ? 1 : 0, rhs: rhsVal))
+            case .deferredString:
+                fatalError("Python TypeError")
+            case .deferredBool(let rhsVal):
+                guard rhsVal else { throw PythonError.divideByZero }
+                return PythonInterpreter.SafePythonObject(integerLiteral: Self.pythonIntegerModulus(lhs: lhsVal ? 1 : 0, rhs: rhsVal ? 1 : 0))
+            }
+        }
+    }
+    
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    static internal func modulusOperator(dividend: PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            return try dividend.modulus(divisor: divisor)
         } catch {
             fatalError("Modulus failed: \(error).  Use `SafePythonObject.modulus()` for modulus that might throw.")
         }
@@ -492,79 +676,6 @@ extension PythonInterpreter.SafePythonObject {
             }
         } catch {
             fatalError("Failed: \(error)")
-        }
-    }
-    
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    static internal func modulusOperator(dividend: PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        switch dividend.state {
-        case .bound:
-            return boundPythonModulus(interpreter: dividend.interpreter, dividend: dividend, divisor: divisor)
-            
-        case .deferredDouble(let lhsVal):
-            switch divisor.state {
-            case .bound:
-                return boundPythonModulus(interpreter: divisor.interpreter, dividend: dividend, divisor: divisor)
-            case .deferredDouble(let rhsVal):
-                guard rhsVal != 0.0 else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(floatLiteral: pythonModulus(lhs: lhsVal, rhs: rhsVal))
-            case .deferredInt(let rhsVal):
-                guard rhsVal != 0 else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(floatLiteral: pythonModulus(lhs: lhsVal, rhs: Double(rhsVal)))
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let rhsVal):
-                guard rhsVal else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(floatLiteral: pythonModulus(lhs: lhsVal, rhs: 1.0))
-            }
-            
-        case .deferredInt(let lhsVal):
-            switch divisor.state {
-            case .bound:
-                return boundPythonModulus(interpreter: divisor.interpreter, dividend: dividend, divisor: divisor)
-            case .deferredDouble(let rhsVal):
-                guard rhsVal != 0.0 else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(floatLiteral: pythonModulus(lhs: Double(lhsVal), rhs: rhsVal))
-            case .deferredInt(let rhsVal):
-                guard rhsVal != 0 else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(integerLiteral: pythonIntegerModulus(lhs: lhsVal, rhs: rhsVal))
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let rhsVal):
-                guard rhsVal else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(integerLiteral: pythonIntegerModulus(lhs: lhsVal, rhs: 1))
-            }
-            
-        case .deferredString:
-            switch divisor.state {
-            case .bound:
-                return boundPythonModulus(interpreter: divisor.interpreter, dividend: dividend, divisor: divisor)
-            case .deferredDouble:
-                fatalError("Python TypeError")
-            case .deferredInt:
-                fatalError("Python TypeError")
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool:
-                fatalError("Python TypeError")
-            }
-            
-        case .deferredBool(let lhsVal):
-            switch divisor.state {
-            case .bound:
-                return boundPythonModulus(interpreter: divisor.interpreter, dividend: dividend, divisor: divisor)
-            case .deferredDouble(let rhsVal):
-                guard rhsVal != 0.0 else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(floatLiteral: pythonModulus(lhs: lhsVal ? 1.0 : 0.0, rhs: rhsVal))
-            case .deferredInt(let rhsVal):
-                guard rhsVal != 0 else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(integerLiteral: pythonIntegerModulus(lhs: lhsVal ? 1 : 0, rhs: rhsVal))
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let rhsVal):
-                guard rhsVal else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(integerLiteral: pythonIntegerModulus(lhs: lhsVal ? 1 : 0, rhs: rhsVal ? 1 : 0))
-            }
         }
     }
     

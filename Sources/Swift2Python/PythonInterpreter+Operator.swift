@@ -101,7 +101,8 @@ extension PythonInterpreter {
         logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceSubtract")
         guard let differencePtr = api.PyNumber_InPlaceSubtract(diffendPtr, subtrahendPtr) else {
             logger.error("PyNumber_InPlaceSubtract returned NULL.  Throwing Python error.")
-            throw PythonError.nullPointer("Python '-=' failed")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "in place subtraction", opType1: "SafePythonObject", opType2: "SafePythonObject")
         }
         return newSafePythonObject(fromReturnedPointer: differencePtr)
     }
@@ -130,13 +131,10 @@ extension PythonInterpreter {
         logger.trace("CPython API call in synchronous mode: PyNumber_Multiply")
         guard let productPtr = api.PyNumber_Multiply(lhsPtr, rhsPtr) else {
             logger.error("PyNumber_Multiply returned NULL.  Throwing Python error.")
-            throw PythonError.nullPointer("Python '*' failed")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "multiplication", opType1: "SafePythonObject", opType2: "SafePythonObject")
         }
-        
-        let productId = registerSafePythonObject(productPtr)
-        let productObj = SafePythonObject(interpreter: self, id: productId)
-        self.incrementHousekeepingRefCount(forSafeObj: productObj)
-        return productObj
+        return newSafePythonObject(fromReturnedPointer: productPtr)
     }
     
     internal func multiply(_ lhs: PythonObject, _ rhs: PythonObject) async throws -> PythonObject {
@@ -161,13 +159,10 @@ extension PythonInterpreter {
         logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceMultiply")
         guard let productPtr = api.PyNumber_InPlaceMultiply(productandPtr, multiplicandPtr) else {
             logger.error("PyNumber_InPlaceMultiply returned NULL.  Throwing Python error.")
-            throw PythonError.nullPointer("Python '*=' failed")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "in place multiplication", opType1: "SafePythonObject", opType2: "SafePythonObject")
         }
-        
-        let productId = registerSafePythonObject(productPtr)
-        let productObj = SafePythonObject(interpreter: self, id: productId)
-        self.incrementHousekeepingRefCount(forSafeObj: productObj)
-        return productObj
+        return newSafePythonObject(fromReturnedPointer: productPtr)
     }
     
     internal func multiplyInPlace(_ lhs: PythonObject, _ rhs: PythonObject) async throws -> PythonObject {
@@ -194,13 +189,10 @@ extension PythonInterpreter {
         logger.trace("CPython API call in synchronous mode: PyNumber_TrueDivide")
         guard let quotientPtr = api.PyNumber_TrueDivide(dividendPtr, divisorPtr) else {
             logger.error("PyNumber_TrueDivide returned NULL.  Throwing Python error.")
-            throw PythonError.nullPointer("Python '/' failed")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "division", opType1: "SafePythonObject", opType2: "SafePythonObject")
         }
-        
-        let quotientId = registerSafePythonObject(quotientPtr)
-        let quotientObj = SafePythonObject(interpreter: self, id: quotientId)
-        self.incrementHousekeepingRefCount(forSafeObj: quotientObj)
-        return quotientObj
+        return newSafePythonObject(fromReturnedPointer: quotientPtr)
     }
     
     internal func divide(dividend: PythonObject, divisor: PythonObject) async throws -> PythonObject {
@@ -225,13 +217,10 @@ extension PythonInterpreter {
         logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceTrueDivide")
         guard let quotientPtr = api.PyNumber_InPlaceTrueDivide(quotientandPtr, divisorPtr) else {
             logger.error("PyNumber_InPlaceTrueDivide returned NULL.  Throwing Python error.")
-            throw PythonError.nullPointer("Python '/=' failed")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "in place division", opType1: "SafePythonObject", opType2: "SafePythonObject")
         }
-        
-        let quotientId = registerSafePythonObject(quotientPtr)
-        let quotientObj = SafePythonObject(interpreter: self, id: quotientId)
-        self.incrementHousekeepingRefCount(forSafeObj: quotientObj)
-        return quotientObj
+        return newSafePythonObject(fromReturnedPointer: quotientPtr)
     }
     
     internal func divideInPlace(_ lhs: PythonObject, _ divisor: PythonObject) async throws -> PythonObject {
@@ -258,13 +247,10 @@ extension PythonInterpreter {
         logger.trace("CPython API call in synchronous mode: PyNumber_TrueDivide")
         guard let remainderPtr = api.PyNumber_Remainder(dividendPtr, divisorPtr) else {
             logger.error("PyNumber_Remainder returned NULL.  Throwing Python error.")
-            throw PythonError.nullPointer("Python '%' failed")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "modulus", opType1: "SafePythonObject", opType2: "SafePythonObject")
         }
-        
-        let remainderId = registerSafePythonObject(remainderPtr)
-        let remainderObj = SafePythonObject(interpreter: self, id: remainderId)
-        self.incrementHousekeepingRefCount(forSafeObj: remainderObj)
-        return remainderObj
+        return newSafePythonObject(fromReturnedPointer: remainderPtr)
     }
     
     internal func syncInPlaceRemainder(quotientand: SafePythonObject, divisor: SafePythonObject) throws -> SafePythonObject {
@@ -276,11 +262,7 @@ extension PythonInterpreter {
             logger.error("PyNumber_InPlaceRemainder returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '%=' failed")
         }
-        
-        let reminderId = registerSafePythonObject(remainderPtr)
-        let reminderObj = SafePythonObject(interpreter: self, id: reminderId)
-        self.incrementHousekeepingRefCount(forSafeObj: reminderObj)
-        return reminderObj
+        return newSafePythonObject(fromReturnedPointer: remainderPtr)
     }
     
     // MARK: Exponentiation
@@ -294,11 +276,7 @@ extension PythonInterpreter {
             logger.error("pythonNumber_Power returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '**' failed")
         }
-        
-        let resultId = registerSafePythonObject(resultPtr)
-        let resultObj = SafePythonObject(interpreter: self, id: resultId)
-        self.incrementHousekeepingRefCount(forSafeObj: resultObj)
-        return resultObj
+        return newSafePythonObject(fromReturnedPointer: resultPtr)
     }
     
     internal func syncInPlacePower(lhs: SafePythonObject, exponent: SafePythonObject) throws -> SafePythonObject {
@@ -310,11 +288,7 @@ extension PythonInterpreter {
             logger.error("pythonNumber_InPlacePower returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '**=' failed")
         }
-        
-        let resultId = registerSafePythonObject(resultPtr)
-        let resultObj = SafePythonObject(interpreter: self, id: resultId)
-        self.incrementHousekeepingRefCount(forSafeObj: resultObj)
-        return resultObj
+        return newSafePythonObject(fromReturnedPointer: resultPtr)
     }
     
     // MARK: Bitwise AND
@@ -328,11 +302,7 @@ extension PythonInterpreter {
             logger.error("PyNumber_And returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '&' failed")
         }
-        
-        let resultId = registerSafePythonObject(resultPtr)
-        let resultObj = SafePythonObject(interpreter: self, id: resultId)
-        self.incrementHousekeepingRefCount(forSafeObj: resultObj)
-        return resultObj
+        return newSafePythonObject(fromReturnedPointer: resultPtr)
     }
     
     internal func syncInPlaceBitwiseAnd(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
@@ -344,11 +314,7 @@ extension PythonInterpreter {
             logger.error("PyNumber_InPlaceAnd returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '&=' failed")
         }
-        
-        let resultId = registerSafePythonObject(resultPtr)
-        let resultObj = SafePythonObject(interpreter: self, id: resultId)
-        self.incrementHousekeepingRefCount(forSafeObj: resultObj)
-        return resultObj
+        return newSafePythonObject(fromReturnedPointer: resultPtr)
     }
     
     // MARK: Bitwise OR
@@ -362,11 +328,7 @@ extension PythonInterpreter {
             logger.error("PyNumber_Or returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '|' failed")
         }
-        
-        let resultId = registerSafePythonObject(resultPtr)
-        let resultObj = SafePythonObject(interpreter: self, id: resultId)
-        self.incrementHousekeepingRefCount(forSafeObj: resultObj)
-        return resultObj
+        return newSafePythonObject(fromReturnedPointer: resultPtr)
     }
     
     internal func syncInPlaceBitwiseOr(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
@@ -378,11 +340,7 @@ extension PythonInterpreter {
             logger.error("PyNumber_InPlaceOr returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '|=' failed")
         }
-        
-        let resultId = registerSafePythonObject(resultPtr)
-        let resultObj = SafePythonObject(interpreter: self, id: resultId)
-        self.incrementHousekeepingRefCount(forSafeObj: resultObj)
-        return resultObj
+        return newSafePythonObject(fromReturnedPointer: resultPtr)
     }
     
     // MARK: Bitwise XOR
@@ -396,11 +354,7 @@ extension PythonInterpreter {
             logger.error("PyNumber_Xor returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '^' failed")
         }
-        
-        let resultId = registerSafePythonObject(resultPtr)
-        let resultObj = SafePythonObject(interpreter: self, id: resultId)
-        self.incrementHousekeepingRefCount(forSafeObj: resultObj)
-        return resultObj
+        return newSafePythonObject(fromReturnedPointer: resultPtr)
     }
     
     internal func syncInPlaceBitwiseXor(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
@@ -412,11 +366,7 @@ extension PythonInterpreter {
             logger.error("PyNumber_InPlaceXor returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '^=' failed")
         }
-        
-        let resultId = registerSafePythonObject(resultPtr)
-        let resultObj = SafePythonObject(interpreter: self, id: resultId)
-        self.incrementHousekeepingRefCount(forSafeObj: resultObj)
-        return resultObj
+        return newSafePythonObject(fromReturnedPointer: resultPtr)
     }
     
     // MARK: Bitwise NOT
@@ -429,11 +379,7 @@ extension PythonInterpreter {
             logger.error("PyNumber_Invert returned NULL.  Throwing Python error.")
             throw PythonError.nullPointer("Python '~' failed")
         }
-        
-        let resultId = registerSafePythonObject(resultPtr)
-        let resultObj = SafePythonObject(interpreter: self, id: resultId)
-        self.incrementHousekeepingRefCount(forSafeObj: resultObj)
-        return resultObj
+        return newSafePythonObject(fromReturnedPointer: resultPtr)
     }
     
     // MARK: Equals Operator

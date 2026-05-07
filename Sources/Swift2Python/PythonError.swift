@@ -35,6 +35,7 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
     case conversionOverflow(value: String, sourceType: String, targetType: String )
     indirect case conversionType( value: String, sourceType: String, targetType: String, underlying: PythonError? = nil)
     case typeError(operation: String, opType1: String, opType2: String )
+    case divideByZero
     
     
     // MARK: - CustomStringConvertible
@@ -73,6 +74,8 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
             return "Conversion type error: value \(value) of type \(sourceType) cannot be converted to \(targetType)"
         case .typeError(let operation, let opType1, let opType2):
             return "Operation \(operation) is invalid between type \(opType1) and \(opType2)"
+        case .divideByZero:
+            return "Attempted to divide by zero."
         }
     }
         
