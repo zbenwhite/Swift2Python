@@ -470,7 +470,7 @@ extension PythonInterpreter.SafePythonObject {
                 return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal)) // n / 1 == n
             }
             
-        case .deferredString(let lhsVal):
+        case .deferredString:
             switch divisor.state {
             case .bound:
                 let localInterpreter = divisor.interpreter
@@ -701,15 +701,183 @@ extension PythonInterpreter.SafePythonObject {
         return result
     }
     
+    
+    // The throwing power function.  For materialized python objects, this calls PyNumber_Power
+    // using the interpreter. If only one is materialized, materialize the other and do the same.
+    // If neither are materialized (why?) then do the operation python would do.
+    //
+    // Exceptions: Python returns complex numbers for something like (-2) ** 0​.5.  This gives NaN.
+    //             Also this code can overflow an int.  This code is only for convenience because
+    //             returning good answers is better than erroring out on unbound values.  Materialize
+    //             your SafePythonObjects and stop messing around if you want better behavior.
+    //
+    // LHS     RHS      ACTION / Type                Error or special case
+    // -----   ------   ---------                    -------------------------------
+    // bound   any      PyNumber_Power
+    // any     bound    PyNumber_Power
+    // double  double   double                       lhs == 0.0 && rhs < 0.0  .... can't raise zero to negative power.  Divide by zero.
+    // double  int      double                       lhs == 0.0 && rhs < 0.0  .... can't raise zero to negative power.  Divide by zero.
+    // double  string   ERR: typeError
+    // double  bool     double
+    // int     int      int (double if rhs < 0)      lhs == 0 && rhs < 0      .... can't raise zero to negative power.  Divide by zero.
+    // int     double   double                       lhs == 0.0 && rhs < 0.0  .... can't raise zero to negative power.  Divide by zero.
+    // int     string   ERR: typeError
+    // int     bool     int
+    // string  double   ERR: typeError
+    // string  int      ERR: typeError
+    // string  string   ERR: typeError
+    // string  bool     ERR: typeError
+    // bool    double   double                       lhs == False && rhs < 0.0  .... can't raise zero to negative power.  Divide by zero.
+    // bool    int      int (double if rhs < 0)      lhs == False && rhs < 0.0  .... can't raise zero to negative power.  Divide by zero.
+    // bool    string   ERR: typeError
+    // bool    bool     int
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    static internal func boundPythonExponentiation(interpreter: PythonInterpreter, base: PythonInterpreter.SafePythonObject, exponent: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        do {
+    public func power(exponent: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+        switch self.state {
+            
+        case .bound:
             let localInterpreter = interpreter
             return try localInterpreter.assumeIsolated {
-                try $0.syncPower(base: base.toSafePythonObject(interpreter: $0), exponent: exponent.toSafePythonObject(interpreter: $0))
+                try $0.syncPower(base: self.toSafePythonObject(interpreter: $0), exponent: exponent.toSafePythonObject(interpreter: $0))
             }
+            
+        case .deferredDouble(let lhsVal):
+            switch exponent.state {
+            case .bound:
+                let localInterpreter = exponent.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncPower(base: self.toSafePythonObject(interpreter: $0), exponent: exponent.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                if lhsVal == 0.0 {
+                    if rhsVal == 0.0 {
+                        return PythonInterpreter.SafePythonObject(floatLiteral: 1.0)      // 0 ** 0 = 1
+                    } else if rhsVal < 0.0 {
+                        throw PythonError.divideByZero                                    // 0 ** n is divide by zero for negative n
+                    }
+                }
+                return PythonInterpreter.SafePythonObject(floatLiteral: pow(lhsVal, rhsVal))
+            case .deferredInt(let rhsVal):
+                if lhsVal == 0.0 {
+                    if rhsVal == 0 {
+                        return PythonInterpreter.SafePythonObject(floatLiteral: 1.0)      // 0 ** 0 = 1
+                    } else if rhsVal < 0 {
+                        throw PythonError.divideByZero                                    // 0 ** n is divide by zero for negative n
+                    }
+                }
+                return PythonInterpreter.SafePythonObject(floatLiteral: pow(lhsVal, Double(rhsVal)))
+            case .deferredString:
+                throw PythonError.typeError(operation: "power", opType1: "Double", opType2: "String")
+            case .deferredBool(let rhsVal):
+                if lhsVal == 0.0 && rhsVal {
+                    return PythonInterpreter.SafePythonObject(floatLiteral: 1.0)      // 0 ** 0 = 1
+                }
+                return PythonInterpreter.SafePythonObject(floatLiteral: pow(lhsVal, rhsVal ? 1.0 : 0.0))
+            }
+            
+        case .deferredInt(let lhsVal):
+            switch exponent.state {
+            case .bound:
+                let localInterpreter = exponent.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncPower(base: self.toSafePythonObject(interpreter: $0), exponent: exponent.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                if lhsVal == 0 {
+                    if rhsVal == 0.0 {
+                        return PythonInterpreter.SafePythonObject(floatLiteral: 1.0)      // 0 ** 0 = 1
+                    } else if rhsVal < 0.0 {
+                        throw PythonError.divideByZero                                    // 0 ** n is divide by zero for negative n
+                    }
+                }
+                return PythonInterpreter.SafePythonObject(floatLiteral: pow(Double(lhsVal), rhsVal))
+            case .deferredInt(let rhsVal):
+                if lhsVal == 0 {
+                    if rhsVal == 0 {
+                        return PythonInterpreter.SafePythonObject(integerLiteral: 1)      // 0 ** 0 = 1
+                    } else if rhsVal < 0 {
+                        throw PythonError.divideByZero                                    // 0 ** n is divide by zero for negative n
+                    }
+                }
+                if rhsVal < 0 {
+                    return PythonInterpreter.SafePythonObject(floatLiteral: pow(Double(lhsVal), Double(rhsVal)))
+                }
+                return PythonInterpreter.SafePythonObject(integerLiteral: Self.integerPower(base: lhsVal, exponent: rhsVal))
+            case .deferredString:
+                throw PythonError.typeError(operation: "power", opType1: "Int", opType2: "String")
+            case .deferredBool(let rhsVal):
+                // n ** 0 == 1
+                // n ** 1 == n
+                return rhsVal ? PythonInterpreter.SafePythonObject(integerLiteral: lhsVal) : PythonInterpreter.SafePythonObject(integerLiteral: 1)
+            }
+            
+        case .deferredString:
+            switch exponent.state {
+            case .bound:
+                let localInterpreter = exponent.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncPower(base: self.toSafePythonObject(interpreter: $0), exponent: exponent.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble:
+                throw PythonError.typeError(operation: "power", opType1: "String", opType2: "Double")
+            case .deferredInt:
+                throw PythonError.typeError(operation: "power", opType1: "String", opType2: "Int")
+            case .deferredString:
+                throw PythonError.typeError(operation: "power", opType1: "String", opType2: "String")
+            case .deferredBool:
+                throw PythonError.typeError(operation: "power", opType1: "String", opType2: "Bool")
+            }
+            
+        case .deferredBool(let lhsVal):
+            switch exponent.state {
+            case .bound:
+                let localInterpreter = exponent.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncPower(base: self.toSafePythonObject(interpreter: $0), exponent: exponent.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                if lhsVal == false {
+                    if rhsVal == 0.0 {
+                        return PythonInterpreter.SafePythonObject(floatLiteral: 1.0)      // 0 ** 0 = 1
+                    } else if rhsVal < 0.0 {
+                        throw PythonError.divideByZero                                    // 0 ** n is divide by zero for negative n
+                    } else {
+                        return PythonInterpreter.SafePythonObject(floatLiteral: 0.0)      // 0 ** n = 0 for positive n
+                    }
+                } else {
+                    return PythonInterpreter.SafePythonObject(floatLiteral: pow(1.0, rhsVal))
+                }
+            case .deferredInt(let rhsVal):
+                
+                if lhsVal == false {
+                    if rhsVal == 0 {
+                        return PythonInterpreter.SafePythonObject(integerLiteral: 1)      // 0 ** 0 = 1
+                    } else if rhsVal < 0 {
+                        throw PythonError.divideByZero                                    // 0 ** n is divide by zero for negative n
+                    } else {
+                        return PythonInterpreter.SafePythonObject(integerLiteral: 0)      // 0 ** n = 0 for positive n
+                    }
+                } else {
+                    return PythonInterpreter.SafePythonObject(integerLiteral: 1)
+                }
+            case .deferredString:
+                throw PythonError.typeError(operation: "power", opType1: "Bool", opType2: "String")
+            case .deferredBool(let rhsVal):
+                // 0 ** 0 == 1
+                // 0 ** 1 == 0
+                // 1 ** 0 == 1
+                // 1 ** 1 == 1
+                return rhsVal ? PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0)) : PythonInterpreter.SafePythonObject(integerLiteral: 1)
+            }
+        }
+    }
+    
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    static internal func exponentiationOperator(base: PythonInterpreter.SafePythonObject, exponent: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            return try base.power(exponent: exponent)
         } catch {
-            fatalError("Exponentiation failed: \(error).  Use `SafePythonObject.power()` for exponentiation that might throw.")
+            fatalError("Power failed: \(error).  Use `SafePythonObject.power()` for power that might throw.")
         }
     }
     
@@ -724,92 +892,6 @@ extension PythonInterpreter.SafePythonObject {
             fatalError("Failed: \(error)")
         }
     }
-    
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    static internal func exponentiationOperator(base: PythonInterpreter.SafePythonObject, exponent: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        switch base.state {
-        case .bound:
-            return boundPythonExponentiation(interpreter: base.interpreter, base: base, exponent: exponent)
-            
-        case .deferredDouble(let lhsVal):
-            switch exponent.state {
-            case .bound:
-                return boundPythonExponentiation(interpreter: exponent.interpreter, base: base, exponent: exponent)
-            case .deferredDouble(let rhsVal):
-                guard lhsVal != 0.0 || rhsVal >= 0.0 else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(floatLiteral: pow(lhsVal, rhsVal))
-            case .deferredInt(let rhsVal):
-                guard lhsVal != 0.0 || rhsVal >= 0 else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(floatLiteral: pow(lhsVal, Double(rhsVal)))
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let rhsVal):
-                return PythonInterpreter.SafePythonObject(floatLiteral: pow(lhsVal, rhsVal ? 1.0 : 0.0))
-            }
-            
-        case .deferredInt(let lhsVal):
-            switch exponent.state {
-            case .bound:
-                return boundPythonExponentiation(interpreter: exponent.interpreter, base: base, exponent: exponent)
-            case .deferredDouble(let rhsVal):
-                guard lhsVal != 0 || rhsVal >= 0.0 else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(floatLiteral: pow(Double(lhsVal), rhsVal))
-            case .deferredInt(let rhsVal):
-                if rhsVal >= 0 {
-                    return PythonInterpreter.SafePythonObject(integerLiteral: integerPower(base: lhsVal, exponent: rhsVal))
-                } else {
-                    guard lhsVal != 0 else { fatalError("Python Divide By Zero") }
-                    return PythonInterpreter.SafePythonObject(floatLiteral: pow(Double(lhsVal), Double(rhsVal)))
-                }
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let rhsVal):
-                return rhsVal ? PythonInterpreter.SafePythonObject(integerLiteral: lhsVal) : PythonInterpreter.SafePythonObject(integerLiteral: 1)
-            }
-            
-        case .deferredString:
-            switch exponent.state {
-            case .bound:
-                return boundPythonExponentiation(interpreter: exponent.interpreter, base: base, exponent: exponent)
-            case .deferredDouble:
-                fatalError("Python TypeError")
-            case .deferredInt:
-                fatalError("Python TypeError")
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool:
-                fatalError("Python TypeError")
-            }
-            
-        case .deferredBool(let lhsVal):
-            switch exponent.state {
-            case .bound:
-                return boundPythonExponentiation(interpreter: exponent.interpreter, base: base, exponent: exponent)
-            case .deferredDouble(let rhsVal):
-                let baseValue = lhsVal ? 1.0 : 0.0
-                guard baseValue != 0.0 || rhsVal >= 0.0 else { fatalError("Python Divide By Zero") }
-                return PythonInterpreter.SafePythonObject(floatLiteral: pow(baseValue, rhsVal))
-            case .deferredInt(let rhsVal):
-                let baseValue = lhsVal ? 1 : 0
-                if rhsVal >= 0 {
-                    return PythonInterpreter.SafePythonObject(integerLiteral: integerPower(base: baseValue, exponent: rhsVal))
-                } else {
-                    guard baseValue != 0 else { fatalError("Python Divide By Zero") }
-                    return PythonInterpreter.SafePythonObject(floatLiteral: pow(Double(baseValue), Double(rhsVal)))
-                }
-            case .deferredString:
-                fatalError("Python TypeError")
-            case .deferredBool(let rhsVal):
-                return rhsVal ? PythonInterpreter.SafePythonObject(integerLiteral: lhsVal ? 1 : 0) : PythonInterpreter.SafePythonObject(integerLiteral: 1)
-            }
-        }
-    }
-    
-    
-    
-    
-    
-    
     
     
     // MARK: -
