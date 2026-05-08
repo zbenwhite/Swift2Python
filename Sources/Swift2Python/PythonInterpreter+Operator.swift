@@ -244,13 +244,28 @@ extension PythonInterpreter {
         let dividendPtr = getRegisteredPointer(forSafeObj:dividend)
         let divisorPtr = getRegisteredPointer(forSafeObj:divisor)
         
-        logger.trace("CPython API call in synchronous mode: PyNumber_TrueDivide")
+        logger.trace("CPython API call in synchronous mode: PyNumber_Remainder")
         guard let remainderPtr = api.PyNumber_Remainder(dividendPtr, divisorPtr) else {
             logger.error("PyNumber_Remainder returned NULL.  Throwing Python error.")
             try throwSafePythonErrorIfPresent()
             throw PythonError.typeError(operation: "modulus", opType1: "SafePythonObject", opType2: "SafePythonObject")
         }
         return newSafePythonObject(fromReturnedPointer: remainderPtr)
+    }
+    
+    internal func modulus(dividend: PythonObject, divisor: PythonObject) async throws -> PythonObject {
+        let dividendPtr = getRegisteredPointer(forPythonObject: dividend)!
+        let divisorPtr = getRegisteredPointer(forPythonObject: divisor)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_Remainder")
+        return try await withGIL {
+            guard let remainderPtr = api.PyNumber_Remainder(dividendPtr, divisorPtr) else {
+                logger.error("PyNumber_Remainder returned NULL.  Throwing Python error.")
+                try throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "modulus", opType1: "PythonObject", opType2: "PythonObject")
+            }
+            return newPythonObject(fromReturnedPointer: remainderPtr)
+        }
     }
     
     internal func syncInPlaceRemainder(quotientand: SafePythonObject, divisor: SafePythonObject) throws -> SafePythonObject {

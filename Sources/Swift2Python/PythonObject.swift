@@ -282,6 +282,10 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         return try await interpreter.divideInPlace(self, other.toPythonObject(interpreter: interpreter))
     }
     
+    public func modulus(_ other: PendingPythonConvertible) async throws -> PythonObject {
+        return try await interpreter.modulus(dividend: self, divisor: other.toPythonObject(interpreter: interpreter))
+    }
+    
     public func isTrue() async throws -> Bool {
         return try await interpreter.isTrue(self)
     }
