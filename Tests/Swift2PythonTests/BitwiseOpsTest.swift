@@ -38,8 +38,4 @@ struct BitwiseOpsTests {
     }
     
     
-    // MARK: O&_xxx Bitwise AND Tests
-    // MARK: O|_xxx Bitwise OR Tests
-    // MARK: O^_xxx Bitwise XOR Tests
-    // MARK: O~_xxx Bitwise NOT Tests
 }
