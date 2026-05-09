@@ -305,6 +305,276 @@ extension ArithmeticTests {
         }
     }
     
+    
+    
+    // MARK: O+=_xxx Plus Equals
+    
+    @Test("O+=_001: Plus Equals Operator Integer")
+    func plusEqualsOperatorInteger() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundIntA = try 77.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundIntB = try 22.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundIntA: PythonInterpreter.SafePythonObject = 6
+            let unboundIntB: PythonInterpreter.SafePythonObject = 2
+            
+            let boundTrue = try true.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundTrue: PythonInterpreter.SafePythonObject = true
+            
+            // Integer-led += should preserve integer results for int/bool combinations regardless
+            // of whether the destination and operand start bound or deferred.
+            let intCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Int)] = [
+                ("bound int += bound int", boundIntA, boundIntB, 99),
+                ("bound int += unbound int", boundIntA, unboundIntB, 79),
+                ("unbound int += bound int", unboundIntB, boundIntA, 79),
+                ("unbound int += unbound int", unboundIntA, unboundIntB, 8),
+                ("bound int += bound bool", boundIntA, boundTrue, 78),
+                ("bound int += unbound bool", boundIntA, unboundTrue, 78),
+                ("unbound int += bound bool", unboundIntA, boundTrue, 7),
+                ("unbound int += unbound bool", unboundIntA, unboundTrue, 7)
+            ]
+            
+            for (description, initialValue, addend, expected) in intCases {
+                var result = initialValue
+                result += addend
+                let roundTrip = try Int(result)
+                #expect(roundTrip == expected, Comment(rawValue: description))
+            }
+        }
+    }
+    
+    @Test("O+=_002: Plus Equals Operator Double")
+    func plusEqualsOperatorDouble() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundDoubleA = try (-17.4).toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundDoubleB = try 22.6.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundDoubleA: PythonInterpreter.SafePythonObject = 19.1
+            let unboundDoubleB: PythonInterpreter.SafePythonObject = 1.6
+            
+            let boundInt = try 8.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundInt: PythonInterpreter.SafePythonObject = 3
+            
+            let boundTrue = try true.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundFalse: PythonInterpreter.SafePythonObject = false
+            
+            // Double-led += should stay in floating-point space for double/double, double/int,
+            // and double/bool combinations across bound and unbound states.
+            let doubleCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Double)] = [
+                ("bound double += bound double", boundDoubleA, boundDoubleB, 5.2),
+                ("bound double += unbound double", boundDoubleA, unboundDoubleA, 1.7),
+                ("unbound double += bound double", unboundDoubleA, boundDoubleA, 1.7),
+                ("unbound double += unbound double", unboundDoubleA, unboundDoubleB, 20.7),
+                ("bound double += bound int", boundDoubleA, boundInt, -9.4),
+                ("bound double += unbound int", boundDoubleA, unboundInt, -14.4),
+                ("unbound double += bound int", unboundDoubleA, boundInt, 27.1),
+                ("unbound double += unbound int", unboundDoubleA, unboundInt, 22.1),
+                ("bound double += bound bool", boundDoubleA, boundTrue, -16.4),
+                ("bound double += unbound bool", boundDoubleA, unboundFalse, -17.4),
+                ("unbound double += bound bool", unboundDoubleA, boundTrue, 20.1),
+                ("unbound double += unbound bool", unboundDoubleA, unboundFalse, 19.1)
+            ]
+            
+            for (description, initialValue, addend, expected) in doubleCases {
+                var result = initialValue
+                result += addend
+                let roundTrip = try Double(result)
+                #expect(roundTrip.isCloseEnough(to: expected), Comment(rawValue: description))
+            }
+        }
+    }
+    
+    @Test("O+=_003: Plus Equals Operator String")
+    func plusEqualsOperatorString() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundStringA = try "ABC".toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundStringB = try "DEF".toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundStringA: PythonInterpreter.SafePythonObject = "PP"
+            let unboundStringB: PythonInterpreter.SafePythonObject = "QQ"
+            
+            // String += is concatenation only, so these cases cover every successful bound/unbound
+            // pairing and confirm operand order is preserved in the output.
+            let stringCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, String)] = [
+                ("bound string += bound string", boundStringA, boundStringB, "ABCDEF"),
+                ("bound string += unbound string", boundStringA, unboundStringB, "ABCQQ"),
+                ("unbound string += bound string", unboundStringA, boundStringA, "PPABC"),
+                ("unbound string += unbound string", unboundStringA, unboundStringB, "PPQQ")
+            ]
+            
+            for (description, initialValue, addend, expected) in stringCases {
+                var result = initialValue
+                result += addend
+                let roundTrip = try String(result)
+                #expect(roundTrip == expected, Comment(rawValue: description))
+            }
+        }
+    }
+    
+    @Test("O+=_004: Plus Equals Operator Bool")
+    func plusEqualsOperatorBool() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundTrue = try true.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundFalse = try false.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundTrue: PythonInterpreter.SafePythonObject = true
+            let unboundFalse: PythonInterpreter.SafePythonObject = false
+            
+            let boundInt = try 9.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundInt: PythonInterpreter.SafePythonObject = 4
+            
+            let boundDouble = try 2.5.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundDouble: PythonInterpreter.SafePythonObject = 7.5
+            
+            let intCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Int)] = [
+                ("bound bool += bound bool", boundTrue, boundFalse, 1),
+                ("bound bool += unbound bool", boundTrue, unboundFalse, 1),
+                ("unbound bool += bound bool", unboundTrue, boundFalse, 1),
+                ("unbound bool += unbound bool", unboundTrue, unboundTrue, 2),
+                ("bound bool += bound int", boundTrue, boundInt, 10),
+                ("bound bool += unbound int", boundTrue, unboundInt, 5),
+                ("unbound bool += bound int", unboundTrue, boundInt, 10),
+                ("unbound bool += unbound int", unboundTrue, unboundInt, 5)
+            ]
+            
+            for (description, initialValue, addend, expected) in intCases {
+                var result = initialValue
+                result += addend
+                let roundTrip = try Int(result)
+                #expect(roundTrip == expected, Comment(rawValue: description))
+            }
+            
+            let doubleCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Double)] = [
+                ("bound bool += bound double", boundTrue, boundDouble, 3.5),
+                ("bound bool += unbound double", boundTrue, unboundDouble, 8.5),
+                ("unbound bool += bound double", unboundTrue, boundDouble, 3.5),
+                ("unbound bool += unbound double", unboundTrue, unboundDouble, 8.5)
+            ]
+            
+            for (description, initialValue, addend, expected) in doubleCases {
+                var result = initialValue
+                result += addend
+                let roundTrip = try Double(result)
+                #expect(roundTrip.isCloseEnough(to: expected), Comment(rawValue: description))
+            }
+        }
+    }
+    
+    @Test("O+=_005: PythonObject (async) plus equals")
+    func plusEqualsPythonObject() async throws {
+        let a = try await 17.toPythonObject(interpreter: interpreter)
+        let sum = try await a.addInPlace(60)
+        let check = try await Int(sum)
+        #expect(check == 77)
+        
+        let a2 = try await 17.toPythonObject(interpreter: interpreter)
+        let sum2 = try await a2.addInPlace(59.7)
+        let check2 = try await Double(sum2)
+        #expect(check2.isCloseEnough(to: 76.7))
+        
+        let a3 = try await "FF".toPythonObject(interpreter: interpreter)
+        let sum3 = try await a3.addInPlace("PP")
+        let check3 = try await String(sum3)
+        #expect(check3 == "FFPP")
+        
+        let a4 = try await true.toPythonObject(interpreter: interpreter)
+        let sum4 = try await a4.addInPlace(4)
+        let check4 = try await Int(sum4)
+        #expect(check4 == 5)
+    }
+    
+    @Test("O+=_006: PythonObject (async) plus equals error checking")
+    func plusEqualsPythonObjectError() async throws {
+        let boundDouble = try await 17.toPythonObject(interpreter: interpreter)
+        let boundString = try await "AA".toPythonObject(interpreter: interpreter)
+        let boundBool = try await true.toPythonObject(interpreter: interpreter)
+        
+        let errorCases: [(String, PythonObject, any PendingPythonConvertible)] = [
+            ("python int += string", boundDouble, "AA"),
+            ("python string += int", boundString, 17),
+            ("python bool += string", boundBool, "AA")
+        ]
+        
+        for (description, lhs, rhs) in errorCases {
+            let thrownError = await #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                _ = try await lhs.addInPlace(rhs)
+            }
+            
+            if case .pythonException = thrownError {
+                // expected
+            } else {
+                Issue.record("Expected .pythonException for \(description), but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("O+=_010: safePythonObject plus equals error checking")
+    func safePlusEqualsErrors() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundDouble = try 1.5.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundInt = try 2.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundString = try "abc".toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundBool = try true.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let unboundDouble: PythonInterpreter.SafePythonObject = 1.5
+            let unboundInt: PythonInterpreter.SafePythonObject = 2
+            let unboundString: PythonInterpreter.SafePythonObject = "abc"
+            let unboundBool: PythonInterpreter.SafePythonObject = true
+            
+            // Fully deferred invalid in-place additions should throw the local typeError that matches
+            // the operand order encoded in SafePythonObject.addInPlace(_:).
+            let unboundTypeErrorCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, String, String)] = [
+                ("unbound double += unbound string", unboundDouble, unboundString, "Double", "String"),
+                ("unbound int += unbound string", unboundInt, unboundString, "Int", "String"),
+                ("unbound string += unbound double", unboundString, unboundDouble, "String", "Double"),
+                ("unbound string += unbound int", unboundString, unboundInt, "String", "Int"),
+                ("unbound string += unbound bool", unboundString, unboundBool, "String", "Bool"),
+                ("unbound bool += unbound string", unboundBool, unboundString, "Bool", "String")
+            ]
+            
+            for (description, lhs, rhs, expectedType1, expectedType2) in unboundTypeErrorCases {
+                var sumend = lhs
+                let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                    try sumend.addInPlace(rhs)
+                }
+                
+                if case let .typeError(operation, opType1, opType2) = thrownError {
+                    #expect(operation == "in place addition", Comment(rawValue: description))
+                    #expect(opType1 == expectedType1, Comment(rawValue: description))
+                    #expect(opType2 == expectedType2, Comment(rawValue: description))
+                } else {
+                    Issue.record("Expected .typeError for \(description), but got \(thrownError)")
+                }
+            }
+            
+            // Once either side is bound, addInPlace(_:) delegates to Python. The same invalid type pairs
+            // should therefore fail as safePythonException instead of the local typeError above.
+            let boundExceptionCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject)] = [
+                ("bound double += unbound string", boundDouble, unboundString),
+                ("unbound double += bound string", unboundDouble, boundString),
+                ("bound int += unbound string", boundInt, unboundString),
+                ("unbound int += bound string", unboundInt, boundString),
+                ("bound string += unbound double", boundString, unboundDouble),
+                ("unbound string += bound double", unboundString, boundDouble),
+                ("bound string += unbound int", boundString, unboundInt),
+                ("unbound string += bound int", unboundString, boundInt),
+                ("bound string += unbound bool", boundString, unboundBool),
+                ("unbound string += bound bool", unboundString, boundBool),
+                ("bound bool += unbound string", boundBool, unboundString),
+                ("unbound bool += bound string", unboundBool, boundString)
+            ]
+            
+            for (description, lhs, rhs) in boundExceptionCases {
+                var sumend = lhs
+                let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                    try sumend.addInPlace(rhs)
+                }
+                
+                if case .safePythonException = thrownError {
+                    // expected
+                } else {
+                    Issue.record("Expected .safePythonException for \(description), but got \(thrownError)")
+                }
+            }
+        }
+    }
+    
 }
 
 

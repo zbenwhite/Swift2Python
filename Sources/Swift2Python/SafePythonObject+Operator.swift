@@ -130,6 +130,86 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    
+    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    public mutating func addInPlace(_ other: PythonInterpreter.SafePythonObject) throws  {
+        switch state {
+        case .bound:
+            let localInterpreter = interpreter
+            try localInterpreter.assumeIsolated {
+                self = try $0.syncInPlaceAdd(sumend: self.toSafePythonObject(interpreter: $0), addend: other.toSafePythonObject(interpreter: $0))
+            }
+            
+        case .deferredDouble(let lhsVal):
+            switch other.state {
+            case .bound:
+                let localInterpreter = other.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceAdd(sumend: self.toSafePythonObject(interpreter: $0), addend: other.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(floatLiteral: lhsVal + rhsVal)
+            case .deferredInt(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(floatLiteral: lhsVal + Double(rhsVal))
+            case .deferredString:
+                throw PythonError.typeError(operation: "in place addition", opType1: "Double", opType2: "String")
+            case .deferredBool(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(floatLiteral: lhsVal + (rhsVal ? 1.0 : 0.0))
+            }
+            
+        case .deferredInt(let lhsVal):
+            switch other.state {
+            case .bound:
+                let localInterpreter = other.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceAdd(sumend: self.toSafePythonObject(interpreter: $0), addend: other.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) + rhsVal)
+            case .deferredInt(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(integerLiteral: lhsVal + rhsVal)
+            case .deferredString:
+                throw PythonError.typeError(operation: "in place addition", opType1: "Int", opType2: "String")
+            case .deferredBool(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(integerLiteral: lhsVal + (rhsVal ? 1 : 0))
+            }
+            
+        case .deferredString(let lhsVal):
+            switch other.state {
+            case .bound:
+                let localInterpreter = other.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceAdd(sumend: self.toSafePythonObject(interpreter: $0), addend: other.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble:
+                throw PythonError.typeError(operation: "in place addition", opType1: "String", opType2: "Double")
+            case .deferredInt:
+                throw PythonError.typeError(operation: "in place addition", opType1: "String", opType2: "Int")
+            case .deferredString(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(stringLiteral: lhsVal + rhsVal)
+            case .deferredBool:
+                throw PythonError.typeError(operation: "in place addition", opType1: "String", opType2: "Bool")
+            }
+            
+        case .deferredBool(let lhsVal):
+            switch other.state {
+            case .bound:
+                let localInterpreter = other.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceAdd(sumend: self.toSafePythonObject(interpreter: $0), addend: other.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) + rhsVal)
+            case .deferredInt(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) + rhsVal)
+            case .deferredString:
+                throw PythonError.typeError(operation: "in place addition", opType1: "Bool", opType2: "String")
+            case .deferredBool(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) + (rhsVal ? 1 : 0))
+            }
+        }
+    }
+    
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     internal func addInPlaceOperator(sumend: SafePythonConvertible, addend: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
         do {
@@ -138,7 +218,7 @@ extension PythonInterpreter.SafePythonObject {
                 try $0.syncInPlaceAdd(sumend: sumend.toSafePythonObject(interpreter: $0), addend: addend.toSafePythonObject(interpreter: $0))
             }
         } catch {
-            fatalError("Failed: \(error)")
+            fatalError("In place addition failed: \(error).  Use `SafePythonObject.addInPlace()` for in place addition that might throw.")
         }
     }
     

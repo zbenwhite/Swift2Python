@@ -44,7 +44,8 @@ extension PythonInterpreter {
         logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceAdd")
         guard let sumPtr = api.PyNumber_InPlaceAdd(sumendPtr, addendPtr) else {
             logger.error("PyNumber_InPlaceAdd returned NULL.  Throwing Python error.")
-            throw PythonError.nullPointer("Python '+=' failed")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "in place addition", opType1: "SafePythonObject", opType2: "SafePythonObject")
         }
         return newSafePythonObject(fromReturnedPointer: sumPtr)
     }
