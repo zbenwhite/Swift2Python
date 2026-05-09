@@ -47,13 +47,7 @@ public extension PythonInterpreter.SafePythonObject {
     }
     
     static func += (sumend: inout PythonInterpreter.SafePythonObject, addend: PythonInterpreter.SafePythonObject) {
-        if sumend.isBoundToPythonInterpreter {
-            sumend = sumend.addInPlaceOperator(sumend: sumend, addend: addend)
-        } else if addend.isBoundToPythonInterpreter {
-            sumend = addend.addInPlaceOperator(sumend: sumend, addend: addend)
-        } else {
-            sumend = PythonInterpreter.SafePythonObject.addOperator(lhs:sumend, rhs:addend)
-        }
+        sumend = PythonInterpreter.SafePythonObject.addInPlaceOperator(sumend:sumend, addend:addend)
     }
     
     static func -= (diffend: inout PythonInterpreter.SafePythonObject, subtrahend: PythonInterpreter.SafePythonObject) {

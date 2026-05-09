@@ -18,7 +18,7 @@ extension PythonInterpreter.SafePythonObject {
     
     // The throwing addition function.  For materialized python objects, this calls PyNumber_Add
     // using the interpreter. If only one is materialized, materialize the other and do the same.
-    // If neither are materialized (why?) then add them the way Pythong would add them:
+    // If neither are materialized (why?) then add them the way Python would add them:
     // LHS     RHS      ACTION / Type
     // -----   ------   ---------
     // bound   any      PyNumber_Add -- preserve term order
@@ -130,7 +130,6 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     public mutating func addInPlace(_ other: PythonInterpreter.SafePythonObject) throws  {
         switch state {
@@ -211,12 +210,11 @@ extension PythonInterpreter.SafePythonObject {
     }
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
-    internal func addInPlaceOperator(sumend: SafePythonConvertible, addend: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
+    static internal func addInPlaceOperator(sumend: PythonInterpreter.SafePythonObject, addend: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
-            let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                try $0.syncInPlaceAdd(sumend: sumend.toSafePythonObject(interpreter: $0), addend: addend.toSafePythonObject(interpreter: $0))
-            }
+            var result = sumend
+            try result.addInPlace(addend)
+            return result
         } catch {
             fatalError("In place addition failed: \(error).  Use `SafePythonObject.addInPlace()` for in place addition that might throw.")
         }
