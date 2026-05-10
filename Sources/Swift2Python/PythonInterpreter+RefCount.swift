@@ -19,6 +19,7 @@ extension PythonInterpreter {
     
     // MARK: Async
     
+    
     // A new python object came from python.  Python incremented the reference count
     // itself.  S2P starts the count at 1 so Py_DecRef gets called later
     internal func newPythonObject(fromReturnedPointer: UnsafeMutableRawPointer) -> PythonObject {
@@ -119,6 +120,14 @@ extension PythonInterpreter {
         let safeObj = SafePythonObject(interpreter: self, id: id)
         self.incrementHousekeepingRefCount(forSafeObj: safeObj)
         return safeObj
+    }
+    
+    // A borrowed safePythonObject came from python.  Python DID NOT increment the reference count.
+    // S2P needs call Py_IncRef because turning this into a SafePythonObject means keeping it around
+    // a while.
+    internal func borrowedSafePythonObject(fromReturnedPointer pointer: UnsafeMutableRawPointer) -> SafePythonObject {
+        api.Py_IncRef(pointer)
+        return newSafePythonObject(fromReturnedPointer: pointer)
     }
     
     @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")

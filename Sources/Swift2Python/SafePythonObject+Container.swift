@@ -93,5 +93,18 @@ extension PythonInterpreter.SafePythonObject {
     }
     
     
+    // MARK: Tuple Support
     
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public var tuple3: (
+        PythonInterpreter.SafePythonObject,
+        PythonInterpreter.SafePythonObject,
+        PythonInterpreter.SafePythonObject
+    )? {
+        get throws {
+            try interpreter.assumeIsolated {
+                try $0.syncTuple3(self)
+            }
+        }
+    }
 }

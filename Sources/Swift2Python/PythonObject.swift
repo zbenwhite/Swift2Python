@@ -182,6 +182,10 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         }
     }
     
+    public func convertToTuple3() async throws -> (PythonObject, PythonObject, PythonObject) {
+        return try await interpreter.convertToTuple3(self)
+    }
+    
     public func convertToInt() async throws -> Int {
         return try await interpreter.convertToInt(self)
     }
