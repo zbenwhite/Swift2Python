@@ -17,7 +17,7 @@ extension PythonInterpreter {
                                     kwargs: [String: PendingPythonConvertible]) async throws -> PythonObject {
 
         // Build args tuple
-        let argTuplePtr: UnsafeMutableRawPointer? = try await createArgsTupleAsync(args)
+        let argTuplePtr: UnsafeMutableRawPointer? = try await createTupleAsync(args)
         // Build kwargs dict (if any)
         let kwDictPtr: UnsafeMutableRawPointer? = kwargs.isEmpty
         ? nil
@@ -33,23 +33,6 @@ extension PythonInterpreter {
             }
             return newPythonObject(fromReturnedPointer: resultPtr)
         }
-    }
-    
-    internal func createArgsTupleAsync(_ args: [any PendingPythonConvertible]) async throws -> UnsafeMutableRawPointer {
-        let tuplePtr = try await withGIL {
-            try api.pythonTuple_New(args.count) ?? {
-                throw PythonError.nullPointer("Failed to create argument tuple")
-            } ()
-        }
-        
-        for (index, element) in args.enumerated() {
-            let pyObj = try await element.toPythonObject(interpreter: self)
-            guard let itemPtr = getRegisteredPointer(forPythonObject:pyObj) else {
-                throw PythonError.nullPointer("Argument conversion failed")
-            }
-            _ = try await withGIL { try api.pythonTuple_SetItem(tuplePtr, index, itemPtr) }
-        }
-        return tuplePtr
     }
     
     internal func createKwargsDictAsync(_ kwargs: [String: PendingPythonConvertible]) async throws -> UnsafeMutableRawPointer {
@@ -115,29 +98,6 @@ extension PythonInterpreter {
     
     // MARK: Callable support (synchronous mode)
     
-    internal func syncCallCreateTuplePtr(from elements: [any SafePythonConvertible]) throws -> UnsafeMutableRawPointer {
-        let count = elements.count
-        logger.trace("CPython API call in synchronous mode: PyTuple_New")
-        guard let tuplePtr = api.PyTuple_New(count) else {
-            throw PythonError.nullPointer("Failed to create Python tuple")
-        }
-        
-        logger.trace("CPython API call in synchronous mode: PyTuple_SetItem in a loop.")
-        for (index, element) in elements.enumerated() {
-            
-            // Convert args from SafePythonConvertible to SafePythonObject
-            let pyObj = try element.toSafePythonObject(interpreter: self)
-            let itemPtr = getRegisteredPointer(forSafeObj:pyObj)
-            
-            let res = api.PyTuple_SetItem(tuplePtr, index, itemPtr)
-            if res != 0 {
-                throw PythonError.stringConversionFailed("PyTuple_SetItem failed at index \(index)")
-            }
-        }
-        
-        return tuplePtr
-    }
-    
     internal func syncCallCreateDictPtr(from dict: [String: any SafePythonConvertible]) throws -> UnsafeMutableRawPointer {
         logger.trace("CPython API call in synchronous mode: PyDict_New")
         guard let dictPtr = api.PyDict_New() else {
@@ -179,7 +139,7 @@ extension PythonInterpreter {
     internal func syncCall(callable: SafePythonObject, args: [any SafePythonConvertible]) throws -> SafePythonObject {
         
         // Put args in a tuple
-        let argTuplePtr = try syncCallCreateTuplePtr(from: args)
+        let argTuplePtr = try syncCreateTuplePtr(from: args)
         
         let callablePtr = getRegisteredPointer(forSafeObj: callable)
         
@@ -197,7 +157,7 @@ extension PythonInterpreter {
                              kwargs: [String: any SafePythonConvertible]) throws -> SafePythonObject {
         
         // Put args in a tuple
-        let argTuplePtr = try syncCallCreateTuplePtr(from: args)
+        let argTuplePtr = try syncCreateTuplePtr(from: args)
         
         // Create kwargs dictionary (can be NULL if no keyword args)
         let kwDictPtr: UnsafeMutableRawPointer? = kwargs.isEmpty ? nil : try syncCallCreateDictPtr(from: kwargs)

@@ -268,12 +268,12 @@ extension PythonInterpreter {
             return command.withCString { PyRun_SimpleString($0) }
         }
         
-        internal func pythonTuple_New(_ length: Int) throws -> UnsafeMutableRawPointer? {
+        internal func pythonTuple_New(_ length: Int) -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: PyTuple_New")
             return PyTuple_New(length)
         }
         
-        internal func pythonTuple_SetItem(_ tuple: UnsafeMutableRawPointer, _ index: Int, _ item: UnsafeMutableRawPointer) throws -> Int32 {
+        internal func pythonTuple_SetItem(_ tuple: UnsafeMutableRawPointer, _ index: Int, _ item: UnsafeMutableRawPointer) -> Int32 {
             logger.trace("CPython API Call: PyTuple_SetItem")
             return PyTuple_SetItem(tuple, index, item)
         }

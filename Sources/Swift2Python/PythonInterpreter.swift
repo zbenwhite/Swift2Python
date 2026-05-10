@@ -533,7 +533,7 @@ public actor PythonInterpreter {
             let pyKey = try! key[0].toSafePythonObject(interpreter: self)
             pyKeyPtr = getRegisteredPointer(forSafeObj: pyKey)
         default:
-            pyKeyPtr = try! syncCallCreateTuplePtr(from: key)
+            pyKeyPtr = try! syncCreateTuplePtr(from: key)
         }
         
         let objPtr = getRegisteredPointer(forSafeObj:obj)
@@ -557,7 +557,7 @@ public actor PythonInterpreter {
             let pyKey = try! key[0].toSafePythonObject(interpreter: self)
             pyKeyPtr = getRegisteredPointer(forSafeObj: pyKey)
         default:
-            pyKeyPtr = try! syncCallCreateTuplePtr(from: key)
+            pyKeyPtr = try! syncCreateTuplePtr(from: key)
         }
         
         let objPtr = getRegisteredPointer(forSafeObj:obj)
