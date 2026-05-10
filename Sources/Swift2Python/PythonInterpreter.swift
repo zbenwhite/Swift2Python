@@ -222,98 +222,6 @@ public actor PythonInterpreter {
         }
     }
     
-    // MARK: Comparion Support (async mode)
-    
-    public func equals(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
-        logger.trace("Equals comparison for PythonObject (async)")
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
-        
-        return try await withGIL {
-            switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.equal.rawValue) {
-            case 0: return false
-            case 1: return true
-            default: try throwPythonError()
-            }
-        }
-    }
-    
-    public func notEquals(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
-        logger.trace("Not equals comparison for PythonObject (async)")
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
-        
-        return try await withGIL {
-            switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.notEqual.rawValue) {
-            case 0: return false
-            case 1: return true
-            default: try throwPythonError()
-            }
-        }
-    }
-    
-    public func lessThan(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
-        logger.trace("Less than comparison for PythonObject (async)")
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
-        
-        return try await withGIL {
-            switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.lessThan.rawValue) {
-            case 0: return false
-            case 1: return true
-            default: try throwPythonError()
-            }
-        }
-    }
-    
-    public func lessThanOrEqual(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
-        logger.trace("Less than or equal comparison for PythonObject (async)")
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
-        
-        return try await withGIL {
-            switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.lessThanOrEqual.rawValue) {
-            case 0: return false
-            case 1: return true
-            default: try throwPythonError()
-            }
-        }
-    }
-    public func greaterThan(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
-        logger.trace("Greater than comparison for PythonObject (async)")
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
-        
-        return try await withGIL {
-            switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.greaterThan.rawValue) {
-            case 0: return false
-            case 1: return true
-            default: try throwPythonError()
-            }
-        }
-    }
-    
-    public func greaterThanOrEqual(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
-        logger.trace("Greater than or equal comparison for PythonObject (async)")
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
-        
-        return try await withGIL {
-            switch api.PyObject_RichCompareBool(lhsPtr, rhsPtr, PythonRichCompareOp.greaterThanOrEqual.rawValue) {
-            case 0: return false
-            case 1: return true
-            default: try throwPythonError()
-            }
-        }
-    }
-
-    
     // MARK: -
     // MARK: SYNCHRONOUS MODE
     //
@@ -417,28 +325,6 @@ public actor PythonInterpreter {
         
         // All Python C API usage is now safe here.
         return try body()
-    }
-    
-    
-    public enum PythonRichCompareOp: CInt {
-        case lessThan           = 0     // Py_LT   →  <
-        case lessThanOrEqual    = 1     // Py_LE   →  <=
-        case equal              = 2     // Py_EQ   →  ==
-        case notEqual           = 3     // Py_NE   →  !=
-        case greaterThan        = 4     // Py_GT   →  >
-        case greaterThanOrEqual = 5     // Py_GE   →  >=
-        
-        /// The integer value expected by the Python C API.
-        public var rawValue: CInt {
-            switch self {
-            case .lessThan:           return 0
-            case .lessThanOrEqual:    return 1
-            case .equal:              return 2
-            case .notEqual:           return 3
-            case .greaterThan:        return 4
-            case .greaterThanOrEqual: return 5
-            }
-        }
     }
     
     // MARK: Module Import (synchronous mode)
