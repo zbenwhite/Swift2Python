@@ -114,6 +114,22 @@ extension PythonInterpreter.SafePythonObject {
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public var tupleArray: [PythonInterpreter.SafePythonObject]? {
+        get throws {
+            try interpreter.assumeIsolated {
+                try $0.syncTupleArray(self)
+            }
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func tupleItem(at index: Int) throws -> PythonInterpreter.SafePythonObject? {
+        try interpreter.assumeIsolated {
+            try $0.syncTupleItem(at: index, in: self)
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public var tuple2: (
         PythonInterpreter.SafePythonObject,
         PythonInterpreter.SafePythonObject

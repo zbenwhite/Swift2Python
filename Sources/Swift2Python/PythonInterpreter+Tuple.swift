@@ -41,6 +41,35 @@ extension PythonInterpreter {
         return try await withGIL { try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } ) }
     }
     
+    internal func toTupleArray(_ obj: PythonObject) async throws -> [PythonObject] {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL {
+            let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
+            guard isTuple else {
+                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
+            }
+            
+            let size = try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } )
+            return try (0..<size).map { index in
+                let ptr = try getItemAt(index: index, fromTuple: objPtr, onError: { try throwPythonError() } )
+                return borrowedPythonObject(fromReturnedPointer: ptr)
+            }
+        }
+    }
+    
+    internal func tupleItem(at index: Int, in obj: PythonObject) async throws -> PythonObject {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL {
+            let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
+            guard isTuple else {
+                throw PythonError.typeError(operation: "tuple item access", opType1: "", opType2: "")
+            }
+            
+            let ptr = try getItemAt(index: index, fromTuple: objPtr, onError: { try throwPythonError() } )
+            return borrowedPythonObject(fromReturnedPointer: ptr)
+        }
+    }
+    
     internal func toTuple2(_ obj: PythonObject) async throws -> (PythonObject, PythonObject) {
         let objPtr = getRegisteredPointer(forPythonObject: obj)!
         return try await withGIL {
@@ -215,6 +244,29 @@ extension PythonInterpreter {
     internal func syncTupleCount(_ obj: PythonInterpreter.SafePythonObject) throws -> Int {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
         return try getSizeOf(tuple: objPtr, onError: { try throwSafePythonError() } )
+    }
+    
+    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    internal func syncTupleArray(_ obj: PythonInterpreter.SafePythonObject) throws -> [PythonInterpreter.SafePythonObject]? {
+        let objPtr = getRegisteredPointer(forSafeObj: obj)
+        let isTuple = try isTuple(objPtr, onError: { try throwSafePythonError() } )
+        guard isTuple else { return nil }
+        
+        let size = try getSizeOf(tuple: objPtr, onError: { try throwSafePythonError() } )
+        return try (0..<size).map { index in
+            let ptr = try getItemAt(index: index, fromTuple: objPtr, onError: { try throwSafePythonError() } )
+            return borrowedSafePythonObject(fromReturnedPointer: ptr)
+        }
+    }
+    
+    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    internal func syncTupleItem(at index: Int, in obj: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject? {
+        let objPtr = getRegisteredPointer(forSafeObj: obj)
+        let isTuple = try isTuple(objPtr, onError: { try throwSafePythonError() } )
+        guard isTuple else { return nil }
+        
+        let ptr = try getItemAt(index: index, fromTuple: objPtr, onError: { try throwSafePythonError() } )
+        return borrowedSafePythonObject(fromReturnedPointer: ptr)
     }
     
     @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")

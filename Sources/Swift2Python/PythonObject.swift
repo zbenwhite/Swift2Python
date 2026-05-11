@@ -158,15 +158,23 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         return try await interpreter.getTupleCount(self)
     }
     
-    public func toTuple2() async throws -> (PythonObject, PythonObject) {
+    public func asTupleArray() async throws -> [PythonObject] {
+        return try await interpreter.toTupleArray(self)
+    }
+    
+    public func tupleItem(at index: Int) async throws -> PythonObject {
+        return try await interpreter.tupleItem(at: index, in: self)
+    }
+    
+    public func asTuple2() async throws -> (PythonObject, PythonObject) {
         return try await interpreter.toTuple2(self)
     }
     
-    public func toTuple3() async throws -> (PythonObject, PythonObject, PythonObject) {
+    public func asTuple3() async throws -> (PythonObject, PythonObject, PythonObject) {
         return try await interpreter.toTuple3(self)
     }
     
-    public func toTuple4() async throws -> (PythonObject, PythonObject, PythonObject, PythonObject) {
+    public func asTuple4() async throws -> (PythonObject, PythonObject, PythonObject, PythonObject) {
         return try await interpreter.toTuple4(self)
     }
     
