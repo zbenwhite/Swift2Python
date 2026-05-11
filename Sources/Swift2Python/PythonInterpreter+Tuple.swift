@@ -18,7 +18,8 @@ extension PythonInterpreter {
         let tuplePtr = try await createTupleAsync(elements)
         return newPythonObject(fromReturnedPointer: tuplePtr)
     }
-
+    
+    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
     public func convertToSafePython<A, B, C>(tuple: (A, B, C)) throws -> PythonInterpreter.SafePythonObject
         where A: SafePythonConvertible,
               B: SafePythonConvertible,
@@ -30,10 +31,17 @@ extension PythonInterpreter {
     }
     
     
+    internal func isTuple(_ obj: PythonObject) async throws -> Bool {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL { try isTuple(objPtr, onError: { try throwPythonError() } ) }
+    }
     
-
+    internal func getTupleCount(_ obj: PythonObject) async throws -> Int {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL { try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } ) }
+    }
     
-    internal func convertToTuple3(_ obj: PythonObject) async throws -> (PythonObject, PythonObject, PythonObject) {
+    internal func toTuple2(_ obj: PythonObject) async throws -> (PythonObject, PythonObject) {
         let objPtr = getRegisteredPointer(forPythonObject: obj)!
         return try await withGIL {
             let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
@@ -41,18 +49,66 @@ extension PythonInterpreter {
                 throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
             }
             
-            let size = try getSizeOf(tuple: objPtr, onError: { try throwSafePythonError() } )
+            let size = try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } )
+            guard size == 2 else {
+                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
+            }
+            
+            let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: { try throwPythonError() } )
+            let ptr1 = try getItemAt(index: 1, fromTuple: objPtr, onError: { try throwPythonError() } )
+            return (
+                borrowedPythonObject(fromReturnedPointer: ptr0),
+                borrowedPythonObject(fromReturnedPointer: ptr1)
+            )
+        }
+    }
+    
+    internal func toTuple3(_ obj: PythonObject) async throws -> (PythonObject, PythonObject, PythonObject) {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL {
+            let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
+            guard isTuple else {
+                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
+            }
+            
+            let size = try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } )
             guard size == 3 else {
                 throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
             }
             
-            let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: { try throwSafePythonError() } )
-            let ptr1 = try getItemAt(index: 1, fromTuple: objPtr, onError: { try throwSafePythonError() } )
-            let ptr2 = try getItemAt(index: 2, fromTuple: objPtr, onError: { try throwSafePythonError() } )
+            let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: { try throwPythonError() } )
+            let ptr1 = try getItemAt(index: 1, fromTuple: objPtr, onError: { try throwPythonError() } )
+            let ptr2 = try getItemAt(index: 2, fromTuple: objPtr, onError: { try throwPythonError() } )
             return (
                 borrowedPythonObject(fromReturnedPointer: ptr0),
                 borrowedPythonObject(fromReturnedPointer: ptr1),
                 borrowedPythonObject(fromReturnedPointer: ptr2)
+            )
+        }
+    }
+    
+    internal func toTuple4(_ obj: PythonObject) async throws -> (PythonObject, PythonObject, PythonObject, PythonObject) {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL {
+            let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
+            guard isTuple else {
+                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
+            }
+            
+            let size = try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } )
+            guard size == 4 else {
+                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
+            }
+            
+            let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: { try throwPythonError() } )
+            let ptr1 = try getItemAt(index: 1, fromTuple: objPtr, onError: { try throwPythonError() } )
+            let ptr2 = try getItemAt(index: 2, fromTuple: objPtr, onError: { try throwPythonError() } )
+            let ptr3 = try getItemAt(index: 3, fromTuple: objPtr, onError: { try throwPythonError() } )
+            return (
+                borrowedPythonObject(fromReturnedPointer: ptr0),
+                borrowedPythonObject(fromReturnedPointer: ptr1),
+                borrowedPythonObject(fromReturnedPointer: ptr2),
+                borrowedPythonObject(fromReturnedPointer: ptr3)
             )
         }
     }
@@ -95,6 +151,7 @@ extension PythonInterpreter {
         }
     }
     
+    // This requires the GIL
     private func getSizeOf(tuple: UnsafeMutableRawPointer, onError throwError: () throws -> Never ) throws -> Int {
         let result = api.pythonTuple_Size(tuple)
         if result == -1 {
@@ -103,6 +160,7 @@ extension PythonInterpreter {
         return result
     }
     
+    // This requires the GIL
     private func getItemAt(index: Int, fromTuple: UnsafeMutableRawPointer, onError throwError: () throws -> Never ) throws -> UnsafeMutableRawPointer {
         try api.pythonTuple_GetItem(fromTuple, index) ?? {
             try throwError()
@@ -131,6 +189,7 @@ extension PythonInterpreter {
         return tuplePtr
     }
     
+    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
     internal func syncCreateTuplePtr(from elements: [any SafePythonConvertible]) throws -> UnsafeMutableRawPointer {
         let tuplePtr = try newPythonTuple(ofSize: elements.count, orElse: { try throwSafePythonError() })
         
@@ -146,6 +205,39 @@ extension PythonInterpreter {
         return tuplePtr
     }
     
+    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    internal func syncIsTuple(_ obj: PythonInterpreter.SafePythonObject) throws -> Bool {
+        let objPtr = getRegisteredPointer(forSafeObj: obj)
+        return try isTuple(objPtr, onError: { try throwSafePythonError() } )
+    }
+    
+    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    internal func syncTupleCount(_ obj: PythonInterpreter.SafePythonObject) throws -> Int {
+        let objPtr = getRegisteredPointer(forSafeObj: obj)
+        return try getSizeOf(tuple: objPtr, onError: { try throwSafePythonError() } )
+    }
+    
+    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    internal func syncTuple2(_ obj: PythonInterpreter.SafePythonObject) throws ->  (
+        PythonInterpreter.SafePythonObject,
+        PythonInterpreter.SafePythonObject
+    )? {
+        let objPtr = getRegisteredPointer(forSafeObj: obj)
+        let isTuple = try isTuple(objPtr, onError: { try throwSafePythonError() } )
+        guard isTuple else { return nil }
+        
+        let size = try getSizeOf(tuple: objPtr, onError: { try throwSafePythonError() } )
+        guard size == 2 else { return nil }
+        
+        let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: { try throwSafePythonError() } )
+        let ptr1 = try getItemAt(index: 1, fromTuple: objPtr, onError: { try throwSafePythonError() } )
+        return (
+            borrowedSafePythonObject(fromReturnedPointer: ptr0),
+            borrowedSafePythonObject(fromReturnedPointer: ptr1)
+        )
+    }
+    
+    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
     internal func syncTuple3(_ obj: PythonInterpreter.SafePythonObject) throws ->  (
         PythonInterpreter.SafePythonObject,
         PythonInterpreter.SafePythonObject,
@@ -165,6 +257,32 @@ extension PythonInterpreter {
             borrowedSafePythonObject(fromReturnedPointer: ptr0),
             borrowedSafePythonObject(fromReturnedPointer: ptr1),
             borrowedSafePythonObject(fromReturnedPointer: ptr2)
+        )
+    }
+    
+    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    internal func syncTuple4(_ obj: PythonInterpreter.SafePythonObject) throws ->  (
+        PythonInterpreter.SafePythonObject,
+        PythonInterpreter.SafePythonObject,
+        PythonInterpreter.SafePythonObject,
+        PythonInterpreter.SafePythonObject
+    )? {
+        let objPtr = getRegisteredPointer(forSafeObj: obj)
+        let isTuple = try isTuple(objPtr, onError: { try throwSafePythonError() } )
+        guard isTuple else { return nil }
+        
+        let size = try getSizeOf(tuple: objPtr, onError: { try throwSafePythonError() } )
+        guard size == 4 else { return nil }
+        
+        let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: { try throwSafePythonError() } )
+        let ptr1 = try getItemAt(index: 1, fromTuple: objPtr, onError: { try throwSafePythonError() } )
+        let ptr2 = try getItemAt(index: 2, fromTuple: objPtr, onError: { try throwSafePythonError() } )
+        let ptr3 = try getItemAt(index: 3, fromTuple: objPtr, onError: { try throwSafePythonError() } )
+        return (
+            borrowedSafePythonObject(fromReturnedPointer: ptr0),
+            borrowedSafePythonObject(fromReturnedPointer: ptr1),
+            borrowedSafePythonObject(fromReturnedPointer: ptr2),
+            borrowedSafePythonObject(fromReturnedPointer: ptr3)
         )
     }
 }

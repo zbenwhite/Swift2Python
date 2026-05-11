@@ -96,6 +96,36 @@ extension PythonInterpreter.SafePythonObject {
     // MARK: Tuple Support
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public var isTuple: Bool {
+        get throws {
+            try interpreter.assumeIsolated {
+                try $0.syncIsTuple(self)
+            }
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public var tupleCount: Int {
+        get throws {
+            try interpreter.assumeIsolated {
+                try $0.syncTupleCount(self)
+            }
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public var tuple2: (
+        PythonInterpreter.SafePythonObject,
+        PythonInterpreter.SafePythonObject
+    )? {
+        get throws {
+            try interpreter.assumeIsolated {
+                try $0.syncTuple2(self)
+            }
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public var tuple3: (
         PythonInterpreter.SafePythonObject,
         PythonInterpreter.SafePythonObject,
@@ -104,6 +134,20 @@ extension PythonInterpreter.SafePythonObject {
         get throws {
             try interpreter.assumeIsolated {
                 try $0.syncTuple3(self)
+            }
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public var tuple4: (
+        PythonInterpreter.SafePythonObject,
+        PythonInterpreter.SafePythonObject,
+        PythonInterpreter.SafePythonObject,
+        PythonInterpreter.SafePythonObject
+    )? {
+        get throws {
+            try interpreter.assumeIsolated {
+                try $0.syncTuple4(self)
             }
         }
     }

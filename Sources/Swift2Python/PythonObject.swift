@@ -148,9 +148,36 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         }
     }
     
+    // MARK: Tuple support
+    
+    public func isTuple() async throws -> Bool {
+        return try await interpreter.isTuple(self)
+    }
+    
+    public func tupleCount() async throws -> Int {
+        return try await interpreter.getTupleCount(self)
+    }
+    
+    public func toTuple2() async throws -> (PythonObject, PythonObject) {
+        return try await interpreter.toTuple2(self)
+    }
+    
+    public func toTuple3() async throws -> (PythonObject, PythonObject, PythonObject) {
+        return try await interpreter.toTuple3(self)
+    }
+    
+    public func toTuple4() async throws -> (PythonObject, PythonObject, PythonObject, PythonObject) {
+        return try await interpreter.toTuple4(self)
+    }
+    
+    // MARK: Bool conversion
+    
     public func convertToBool() async throws -> Bool {
         return try await interpreter.convertToBool(self)
     }
+    
+    
+    // MARK: Floating Point conversion
     
     public func convertToDouble() async throws -> Double {
         return try await interpreter.convertToDouble(self)
@@ -182,9 +209,7 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         }
     }
     
-    public func convertToTuple3() async throws -> (PythonObject, PythonObject, PythonObject) {
-        return try await interpreter.convertToTuple3(self)
-    }
+    // MARK: Int conversion
     
     public func convertToInt() async throws -> Int {
         return try await interpreter.convertToInt(self)
@@ -205,6 +230,8 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     public func convertToInt64() async throws -> Int64 {
         return try await interpreter.convertToInt64(self)
     }
+    
+    // MARK: UInt conversion
     
     public func convertToUInt() async throws -> UInt {
         return try await interpreter.convertToUInt(self)
@@ -230,6 +257,8 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         return try await interpreter.convertToString(self)
     }
     
+    // MARK: Comparison functions
+    
     public func equals(_ other: PendingPythonConvertible) async throws -> Bool {
         return try await interpreter.equals(lhs: self, rhs: other)
     }
@@ -253,6 +282,8 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     public func greaterThanOrEqual(_ other: PendingPythonConvertible) async throws -> Bool {
         return try await interpreter.greaterThanOrEqual(lhs: self, rhs: other)
     }
+    
+    // MARK: Arithmetic functions
     
     public func add(_ other: PendingPythonConvertible) async throws -> PythonObject {
         return try await interpreter.add(lhs: self, rhs: other.toPythonObject(interpreter: interpreter))
@@ -301,6 +332,8 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     public func powerInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
         return try await interpreter.powerInPlace(self, other.toPythonObject(interpreter: interpreter))
     }
+    
+    // MARK: Trueness
     
     public func isTrue() async throws -> Bool {
         return try await interpreter.isTrue(self)
