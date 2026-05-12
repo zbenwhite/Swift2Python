@@ -34,6 +34,8 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
     /// because it is out of range for the target type (e.g. 2000 → UInt8).
     case conversionOverflow(value: String, sourceType: String, targetType: String )
     indirect case conversionType( value: String, sourceType: String, targetType: String, underlying: PythonError? = nil)
+    case tupleConversionFailed(expected: String, actual: String?)
+    case tupleArityMismatch(expected: Int, actual: Int)
     case typeError(operation: String, opType1: String, opType2: String )
     case divideByZero
     
@@ -72,6 +74,14 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
             return "Overflow error: value \(value) of type \(source) cannot be converted to \(target) (out of range)"
         case .conversionType(let value, let sourceType, let targetType, _ ):
             return "Conversion type error: value \(value) of type \(sourceType) cannot be converted to \(targetType)"
+        case .tupleConversionFailed(let expected, let actual):
+            if let actual {
+                return "Tuple conversion failed: expected \(expected), got \(actual)"
+            } else {
+                return "Tuple conversion failed: expected \(expected)"
+            }
+        case .tupleArityMismatch(let expected, let actual):
+            return "Tuple arity mismatch: expected \(expected) elements, got \(actual)"
         case .typeError(let operation, let opType1, let opType2):
             return "Operation \(operation) is invalid between type \(opType1) and \(opType2)"
         case .divideByZero:

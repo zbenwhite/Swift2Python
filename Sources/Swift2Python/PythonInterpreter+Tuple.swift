@@ -6,21 +6,30 @@
 //
 
 import Foundation
-
+import Logging
 
 // TODO: tupleArray returns nil but toTupleArray throws.  This should be consistent or the reason should be documented
 // TODO: Same for getTupleCount versus tupleCount
 // TODO: Python negative indexing -- either support it or document that it's not supported.
 
-// Codex suggestions for error fixes:
-//
-// case tupleConversionFailed(expected: String, actual: String?)
-// case tupleArityMismatch(expected: Int, actual: Int)
-
 extension PythonInterpreter {
     
     // MARK: Convert To Python Tuples
     
+    /// Create a PythonObject tuple of the elements of a Swift sequence.
+    ///
+    /// Use `await` for correctly managed Swift and Python concurreny.  Reference
+    /// counting and GIL-handling are automatic.
+    ///
+    /// ```swift
+    /// let numbers = [1, 2, 3, 4]
+    /// let pyTuple = try await interpreter.convertToPython(tupleContentsOf: numbers)
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - elements: A sequence whose elements conform to `PendingPythonConvertible`.
+    /// - Returns: A `PythonObject` representing a Python tuple.
+    /// - Throws: `PythonError` if tuple creation or element conversion fails.
     public func convertToPython<T>(tupleContentsOf elements: T) async throws -> PythonObject
         where T: Sequence, T.Element: PendingPythonConvertible
     {
@@ -28,11 +37,34 @@ extension PythonInterpreter {
         return newPythonObject(fromReturnedPointer: tuplePtr)
     }
     
+    /// Create a PythonObject tuple from any number of input values.
+    ///
+    /// Use `await` for correctly managed Swift and Python concurreny.  Reference
+    /// counting and GIL-handling are automatic.
+    ///
+    /// ```swift
+    /// let pyTuple = try await interpreter.convertToPython( tupleOf: 42, "hello", true, [1, 2, 3]
+    /// )
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - elements: Zero or more values conforming to `PendingPythonConvertible`.
+    /// - Returns: A `PythonObject` representing a Python tuple.
+    /// - Throws: `PythonError` if tuple creation or element conversion fails.
     public func convertToPython(tupleOf elements: any PendingPythonConvertible...) async throws -> PythonObject {
         let tuplePtr = try await createTupleAsync(elements)
         return newPythonObject(fromReturnedPointer: tuplePtr)
     }
     
+    /// Create a SafePythonObject tuple of the elements of a Swift sequence.
+    ///
+    /// Only for use inside the synchronous, GIL-managed, reference-managed local
+    /// `withIsolatedContext` environment.
+    ///
+    /// - Parameters:
+    ///   - elements: A sequence whose elements conform to `SafePythonConvertible`.
+    /// - Returns: A `SafePythonObject` representing a Python tuple.
+    /// - Throws: `PythonError` if tuple creation or element conversion fails.
     @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
     public func convertToSafePython<T>(tupleContentsOf elements: T) throws -> PythonInterpreter.SafePythonObject
         where T: Sequence, T.Element: SafePythonConvertible
@@ -41,6 +73,15 @@ extension PythonInterpreter {
         return newSafePythonObject(fromReturnedPointer: tuplePtr)
     }
     
+    /// Create a SafePythonObject tuple from any number of input values.
+    ///
+    /// Only for use inside the synchronous, GIL-managed, reference-managed local
+    /// `withIsolatedContext` environment.
+    ///
+    /// - Parameters:
+    ///   - elements: Zero or more values conforming to `SafePythonConvertible`.
+    /// - Returns: A `SafePythonObject` representing a Python tuple.
+    /// - Throws: `PythonError` if tuple creation or element conversion fails.
     @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
     public func convertToSafePython(tupleOf elements: any SafePythonConvertible...) throws -> PythonInterpreter.SafePythonObject {
         let tuplePtr = try syncCreateTuplePtr(from: elements)
@@ -160,12 +201,22 @@ extension PythonInterpreter {
     
     internal func getTupleCount(_ obj: PythonObject) async throws -> Int {
         let objPtr = getRegisteredPointer(forPythonObject: obj)!
-        return try await withGIL { try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } ) }
+        return try await withGIL {
+            let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
+            guard isTuple else {
+                throw PythonError.tupleConversionFailed(expected: "tuple", actual: nil)
+            }
+            return try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } )
+        }
     }
     
     @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
     internal func syncTupleCount(_ obj: PythonInterpreter.SafePythonObject) throws -> Int {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
+        let isTuple = try isTuple(objPtr, onError: { try throwSafePythonError() } )
+        guard isTuple else {
+            throw PythonError.tupleConversionFailed(expected: "tuple", actual: nil)
+        }
         return try getSizeOf(tuple: objPtr, onError: { try throwSafePythonError() } )
     }
     
@@ -176,7 +227,7 @@ extension PythonInterpreter {
         return try await withGIL {
             let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
             guard isTuple else {
-                throw PythonError.typeError(operation: "tuple item access", opType1: "", opType2: "")
+                throw PythonError.tupleConversionFailed(expected: "tuple", actual: nil)
             }
             
             let ptr = try getItemAt(index: index, fromTuple: objPtr, onError: { try throwPythonError() } )
@@ -201,7 +252,7 @@ extension PythonInterpreter {
         return try await withGIL {
             let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
             guard isTuple else {
-                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
+                throw PythonError.tupleConversionFailed(expected: "tuple", actual: nil)
             }
             
             let size = try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } )
@@ -232,12 +283,12 @@ extension PythonInterpreter {
         return try await withGIL {
             let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
             guard isTuple else {
-                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
+                throw PythonError.tupleConversionFailed(expected: "tuple", actual: nil)
             }
             
             let size = try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } )
             guard size == 2 else {
-                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
+                throw PythonError.tupleArityMismatch(expected: 2, actual: size)
             }
             
             let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: { try throwPythonError() } )
@@ -254,13 +305,12 @@ extension PythonInterpreter {
         return try await withGIL {
             let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
             guard isTuple else {
-                // FIXME: These type errors are not setup right.  The setup is too specific to arithmetic operators.
-                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
+                throw PythonError.tupleConversionFailed(expected: "tuple", actual: nil)
             }
             
             let size = try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } )
             guard size == 3 else {
-                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
+                throw PythonError.tupleArityMismatch(expected: 3, actual: size)
             }
             
             let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: { try throwPythonError() } )
@@ -279,12 +329,12 @@ extension PythonInterpreter {
         return try await withGIL {
             let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
             guard isTuple else {
-                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
+                throw PythonError.tupleConversionFailed(expected: "tuple", actual: nil)
             }
             
             let size = try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } )
             guard size == 4 else {
-                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
+                throw PythonError.tupleArityMismatch(expected: 4, actual: size)
             }
             
             let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: { try throwPythonError() } )
