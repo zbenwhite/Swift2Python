@@ -8,139 +8,46 @@
 import Foundation
 
 
+// TODO: tupleArray returns nil but toTupleArray throws.  This should be consistent or the reason should be documented
+// TODO: Same for getTupleCount versus tupleCount
+// TODO: Python negative indexing -- either support it or document that it's not supported.
+
+// Codex suggestions for error fixes:
+//
+// case tupleConversionFailed(expected: String, actual: String?)
+// case tupleArityMismatch(expected: Int, actual: Int)
+
 extension PythonInterpreter {
-    public func convertToPython<A, B, C>(tuple: (A, B, C)) async throws -> PythonObject
-        where A: PendingPythonConvertible,
-              B: PendingPythonConvertible,
-              C: PendingPythonConvertible
+    
+    // MARK: Convert To Python Tuples
+    
+    public func convertToPython<T>(tupleContentsOf elements: T) async throws -> PythonObject
+        where T: Sequence, T.Element: PendingPythonConvertible
     {
-        let elements: [any PendingPythonConvertible] = [tuple.0, tuple.1, tuple.2]
+        let tuplePtr = try await createTupleAsync(elements.map { $0 as any PendingPythonConvertible })
+        return newPythonObject(fromReturnedPointer: tuplePtr)
+    }
+    
+    public func convertToPython(tupleOf elements: any PendingPythonConvertible...) async throws -> PythonObject {
         let tuplePtr = try await createTupleAsync(elements)
         return newPythonObject(fromReturnedPointer: tuplePtr)
     }
     
     @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
-    public func convertToSafePython<A, B, C>(tuple: (A, B, C)) throws -> PythonInterpreter.SafePythonObject
-        where A: SafePythonConvertible,
-              B: SafePythonConvertible,
-              C: SafePythonConvertible
+    public func convertToSafePython<T>(tupleContentsOf elements: T) throws -> PythonInterpreter.SafePythonObject
+        where T: Sequence, T.Element: SafePythonConvertible
     {
-        let elements: [any SafePythonConvertible] = [tuple.0, tuple.1, tuple.2]
+        let tuplePtr = try syncCreateTuplePtr(from: elements.map { $0 as any SafePythonConvertible })
+        return newSafePythonObject(fromReturnedPointer: tuplePtr)
+    }
+    
+    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    public func convertToSafePython(tupleOf elements: any SafePythonConvertible...) throws -> PythonInterpreter.SafePythonObject {
         let tuplePtr = try syncCreateTuplePtr(from: elements)
         return newSafePythonObject(fromReturnedPointer: tuplePtr)
     }
     
-    
-    internal func isTuple(_ obj: PythonObject) async throws -> Bool {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
-        return try await withGIL { try isTuple(objPtr, onError: { try throwPythonError() } ) }
-    }
-    
-    internal func getTupleCount(_ obj: PythonObject) async throws -> Int {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
-        return try await withGIL { try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } ) }
-    }
-    
-    internal func toTupleArray(_ obj: PythonObject) async throws -> [PythonObject] {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
-        return try await withGIL {
-            let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
-            guard isTuple else {
-                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
-            }
-            
-            let size = try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } )
-            return try (0..<size).map { index in
-                let ptr = try getItemAt(index: index, fromTuple: objPtr, onError: { try throwPythonError() } )
-                return borrowedPythonObject(fromReturnedPointer: ptr)
-            }
-        }
-    }
-    
-    internal func tupleItem(at index: Int, in obj: PythonObject) async throws -> PythonObject {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
-        return try await withGIL {
-            let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
-            guard isTuple else {
-                throw PythonError.typeError(operation: "tuple item access", opType1: "", opType2: "")
-            }
-            
-            let ptr = try getItemAt(index: index, fromTuple: objPtr, onError: { try throwPythonError() } )
-            return borrowedPythonObject(fromReturnedPointer: ptr)
-        }
-    }
-    
-    internal func toTuple2(_ obj: PythonObject) async throws -> (PythonObject, PythonObject) {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
-        return try await withGIL {
-            let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
-            guard isTuple else {
-                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
-            }
-            
-            let size = try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } )
-            guard size == 2 else {
-                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
-            }
-            
-            let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: { try throwPythonError() } )
-            let ptr1 = try getItemAt(index: 1, fromTuple: objPtr, onError: { try throwPythonError() } )
-            return (
-                borrowedPythonObject(fromReturnedPointer: ptr0),
-                borrowedPythonObject(fromReturnedPointer: ptr1)
-            )
-        }
-    }
-    
-    internal func toTuple3(_ obj: PythonObject) async throws -> (PythonObject, PythonObject, PythonObject) {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
-        return try await withGIL {
-            let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
-            guard isTuple else {
-                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
-            }
-            
-            let size = try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } )
-            guard size == 3 else {
-                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
-            }
-            
-            let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: { try throwPythonError() } )
-            let ptr1 = try getItemAt(index: 1, fromTuple: objPtr, onError: { try throwPythonError() } )
-            let ptr2 = try getItemAt(index: 2, fromTuple: objPtr, onError: { try throwPythonError() } )
-            return (
-                borrowedPythonObject(fromReturnedPointer: ptr0),
-                borrowedPythonObject(fromReturnedPointer: ptr1),
-                borrowedPythonObject(fromReturnedPointer: ptr2)
-            )
-        }
-    }
-    
-    internal func toTuple4(_ obj: PythonObject) async throws -> (PythonObject, PythonObject, PythonObject, PythonObject) {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
-        return try await withGIL {
-            let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
-            guard isTuple else {
-                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
-            }
-            
-            let size = try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } )
-            guard size == 4 else {
-                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
-            }
-            
-            let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: { try throwPythonError() } )
-            let ptr1 = try getItemAt(index: 1, fromTuple: objPtr, onError: { try throwPythonError() } )
-            let ptr2 = try getItemAt(index: 2, fromTuple: objPtr, onError: { try throwPythonError() } )
-            let ptr3 = try getItemAt(index: 3, fromTuple: objPtr, onError: { try throwPythonError() } )
-            return (
-                borrowedPythonObject(fromReturnedPointer: ptr0),
-                borrowedPythonObject(fromReturnedPointer: ptr1),
-                borrowedPythonObject(fromReturnedPointer: ptr2),
-                borrowedPythonObject(fromReturnedPointer: ptr3)
-            )
-        }
-    }
+    // MARK: Python API Helpers
     
     // This requires the GIL
     private func newPythonTuple(ofSize: Int, orElse throwError: () throws -> Never) throws -> UnsafeMutableRawPointer {
@@ -196,6 +103,8 @@ extension PythonInterpreter {
         } ()
     }
     
+    // MARK: Create Python Tuples
+    
     internal func createTupleAsync(_ args: [any PendingPythonConvertible]) async throws -> UnsafeMutableRawPointer {
         // TODO: improve performance
         // This acquires the GIL to create the tuple, releases it, potentially re-aquires and releases
@@ -234,16 +143,73 @@ extension PythonInterpreter {
         return tuplePtr
     }
     
+    // MARK: Is Python Tuple ?
+    
+    internal func isTuple(_ obj: PythonObject) async throws -> Bool {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL { try isTuple(objPtr, onError: { try throwPythonError() } ) }
+    }
+    
     @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
     internal func syncIsTuple(_ obj: PythonInterpreter.SafePythonObject) throws -> Bool {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
         return try isTuple(objPtr, onError: { try throwSafePythonError() } )
     }
     
+    // MARK: Python Tuple Count
+    
+    internal func getTupleCount(_ obj: PythonObject) async throws -> Int {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL { try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } ) }
+    }
+    
     @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
     internal func syncTupleCount(_ obj: PythonInterpreter.SafePythonObject) throws -> Int {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
         return try getSizeOf(tuple: objPtr, onError: { try throwSafePythonError() } )
+    }
+    
+    // MARK: Python Tuple Indexing
+    
+    internal func tupleItem(at index: Int, in obj: PythonObject) async throws -> PythonObject {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL {
+            let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
+            guard isTuple else {
+                throw PythonError.typeError(operation: "tuple item access", opType1: "", opType2: "")
+            }
+            
+            let ptr = try getItemAt(index: index, fromTuple: objPtr, onError: { try throwPythonError() } )
+            return borrowedPythonObject(fromReturnedPointer: ptr)
+        }
+    }
+    
+    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    internal func syncTupleItem(at index: Int, in obj: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject? {
+        let objPtr = getRegisteredPointer(forSafeObj: obj)
+        let isTuple = try isTuple(objPtr, onError: { try throwSafePythonError() } )
+        guard isTuple else { return nil }
+        
+        let ptr = try getItemAt(index: index, fromTuple: objPtr, onError: { try throwSafePythonError() } )
+        return borrowedSafePythonObject(fromReturnedPointer: ptr)
+    }
+    
+    // MARK: Convert To Swift Array
+    
+    internal func toTupleArray(_ obj: PythonObject) async throws -> [PythonObject] {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL {
+            let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
+            guard isTuple else {
+                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
+            }
+            
+            let size = try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } )
+            return try (0..<size).map { index in
+                let ptr = try getItemAt(index: index, fromTuple: objPtr, onError: { try throwPythonError() } )
+                return borrowedPythonObject(fromReturnedPointer: ptr)
+            }
+        }
     }
     
     @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
@@ -259,14 +225,79 @@ extension PythonInterpreter {
         }
     }
     
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
-    internal func syncTupleItem(at index: Int, in obj: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject? {
-        let objPtr = getRegisteredPointer(forSafeObj: obj)
-        let isTuple = try isTuple(objPtr, onError: { try throwSafePythonError() } )
-        guard isTuple else { return nil }
-        
-        let ptr = try getItemAt(index: index, fromTuple: objPtr, onError: { try throwSafePythonError() } )
-        return borrowedSafePythonObject(fromReturnedPointer: ptr)
+    // MARK: Convert To Swift Tuples
+    
+    internal func toTuple2(_ obj: PythonObject) async throws -> (PythonObject, PythonObject) {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL {
+            let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
+            guard isTuple else {
+                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
+            }
+            
+            let size = try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } )
+            guard size == 2 else {
+                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
+            }
+            
+            let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: { try throwPythonError() } )
+            let ptr1 = try getItemAt(index: 1, fromTuple: objPtr, onError: { try throwPythonError() } )
+            return (
+                borrowedPythonObject(fromReturnedPointer: ptr0),
+                borrowedPythonObject(fromReturnedPointer: ptr1)
+            )
+        }
+    }
+    
+    internal func toTuple3(_ obj: PythonObject) async throws -> (PythonObject, PythonObject, PythonObject) {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL {
+            let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
+            guard isTuple else {
+                // FIXME: These type errors are not setup right.  The setup is too specific to arithmetic operators.
+                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
+            }
+            
+            let size = try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } )
+            guard size == 3 else {
+                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
+            }
+            
+            let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: { try throwPythonError() } )
+            let ptr1 = try getItemAt(index: 1, fromTuple: objPtr, onError: { try throwPythonError() } )
+            let ptr2 = try getItemAt(index: 2, fromTuple: objPtr, onError: { try throwPythonError() } )
+            return (
+                borrowedPythonObject(fromReturnedPointer: ptr0),
+                borrowedPythonObject(fromReturnedPointer: ptr1),
+                borrowedPythonObject(fromReturnedPointer: ptr2)
+            )
+        }
+    }
+    
+    internal func toTuple4(_ obj: PythonObject) async throws -> (PythonObject, PythonObject, PythonObject, PythonObject) {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL {
+            let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
+            guard isTuple else {
+                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
+            }
+            
+            let size = try getSizeOf(tuple: objPtr, onError: { try throwPythonError() } )
+            guard size == 4 else {
+                throw PythonError.typeError(operation: "tuple conversion", opType1: "", opType2: "")
+            }
+            
+            let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: { try throwPythonError() } )
+            let ptr1 = try getItemAt(index: 1, fromTuple: objPtr, onError: { try throwPythonError() } )
+            let ptr2 = try getItemAt(index: 2, fromTuple: objPtr, onError: { try throwPythonError() } )
+            let ptr3 = try getItemAt(index: 3, fromTuple: objPtr, onError: { try throwPythonError() } )
+            return (
+                borrowedPythonObject(fromReturnedPointer: ptr0),
+                borrowedPythonObject(fromReturnedPointer: ptr1),
+                borrowedPythonObject(fromReturnedPointer: ptr2),
+                borrowedPythonObject(fromReturnedPointer: ptr3)
+            )
+        }
     }
     
     @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
