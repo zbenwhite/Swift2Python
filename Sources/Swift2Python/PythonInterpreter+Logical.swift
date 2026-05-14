@@ -10,55 +10,52 @@ import Foundation
 
 extension PythonInterpreter {
     
+    // MARK: Python API Helpers
+    
+    
+    // This requires the GIL
+    private func isTrue(_ objPtr: UnsafeMutableRawPointer, onError throwError: () throws -> Never ) throws -> Bool  {
+        let result = api.pythonObject_IsTrue(objPtr)
+        if result == -1 {
+            if let _ = try api.pythonErr_Occurred() {
+                try throwError()
+            }
+        }
+        return result == 1
+    }
+    
+    // This requires the GIL
+    private func isNotTrue(_ objPtr: UnsafeMutableRawPointer, onError throwError: () throws -> Never ) throws -> Bool  {
+        let result = api.pythonObject_Not(objPtr)
+        if result == -1 {
+            if let _ = try api.pythonErr_Occurred() {
+                try throwError()
+            }
+        }
+        return result == 1
+    }
+    
     
     @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
     internal func syncIsTrue(_ safeObj: SafePythonObject) throws -> Bool {
         let safePtr = getRegisteredPointer(forSafeObj:safeObj)
-        let value = try api.pythonObject_IsTrue(safePtr)
-        if value == -1 {
-            if let _ = try api.pythonErr_Occurred() {
-                try throwSafePythonError()
-            }
-        }
-        return value == 1
+        return try isTrue(safePtr, onError: { try throwSafePythonError() } )
     }
     
     
     @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
     internal func syncIsNotTrue(_ safeObj: SafePythonObject) throws -> Bool {
         let safePtr = getRegisteredPointer(forSafeObj:safeObj)
-        let value = try api.pythonObject_Not(safePtr)
-        if value == -1 {
-            if let _ = try api.pythonErr_Occurred() {
-                try throwSafePythonError()
-            }
-        }
-        return value == 1
+        return try isNotTrue(safePtr, onError: { try throwSafePythonError() } )
     }
     
     internal func isTrue(_ obj: PythonObject) async throws -> Bool {
         let objPtr = getRegisteredPointer(forPythonObject: obj)!
-        return try await withGIL {
-            let value = try api.pythonObject_IsTrue(objPtr)
-            if value == -1 {
-                if let _ = try api.pythonErr_Occurred() {
-                    try throwPythonError()
-                }
-            }
-            return value == 1
-        }
+        return try isTrue(objPtr, onError: { try throwPythonError() } )
     }
     
     internal func isNotTrue(_ obj: PythonObject) async throws -> Bool {
         let objPtr = getRegisteredPointer(forPythonObject: obj)!
-        return try await withGIL {
-            let value = try api.pythonObject_Not(objPtr)
-            if value == -1 {
-                if let _ = try api.pythonErr_Occurred() {
-                    try throwPythonError()
-                }
-            }
-            return value == 1
-        }
+        return try isNotTrue(objPtr, onError: { try throwPythonError() } )
     }
 }
