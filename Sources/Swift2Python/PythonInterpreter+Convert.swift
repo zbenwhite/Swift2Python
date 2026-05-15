@@ -57,6 +57,14 @@ extension PythonInterpreter {
         return value
     }
     
+    private func asUTF8String(_ objPtr: UnsafeMutableRawPointer, onError throwError: () throws -> Never ) throws -> String  {
+        if let s = api.pythonUnicode_AsUTF8AndSize(objPtr) {
+            return s
+        } else {
+            try throwError()
+        }
+    }
+    
     // This requires the GIL
     private func toPythonBoolFromBool(_ value: Bool, onError throwError: () throws -> Never ) throws -> UnsafeMutableRawPointer  {
         // PyBool_FromLong never fails.
@@ -77,6 +85,22 @@ extension PythonInterpreter {
     // This requires the GIL
     private func toPythonIntFromLongLong(_ value: Int64, onError throwError: () throws -> Never ) throws -> UnsafeMutableRawPointer  {
         guard let ptr = api.pythonLong_FromLongLong(value) else {
+            try throwError()
+        }
+        return ptr
+    }
+    
+    // This requires the GIL
+    private func toPythonIntFromUnsignedLongLong(_ value: UInt64, onError throwError: () throws -> Never ) throws -> UnsafeMutableRawPointer  {
+        guard let ptr = api.pythonLong_FromUnsignedLongLong(value) else {
+            try throwError()
+        }
+        return ptr
+    }
+    
+    // This requires the GIL
+    private func toPythonUnicodeFromString(_ value: String, onError throwError: () throws -> Never ) throws -> UnsafeMutableRawPointer  {
+        guard let ptr = api.pythonUnicode_FromStringAndSize(value) else {
             try throwError()
         }
         return ptr
@@ -501,9 +525,7 @@ extension PythonInterpreter {
     
     public func convertToPython(uint val: UInt64) async throws -> PythonObject {
         return try await withGIL {
-            guard let ptr = try api.pythonLong_FromUnsignedLongLong(UInt64(val)) else {
-                throw PythonError.nullPointer("Failed to convert int: \(val)")
-            }
+            let ptr = try toPythonIntFromUnsignedLongLong(val, onError: { try throwPythonError() } )
             return newPythonObject(fromReturnedPointer: ptr)
         }
     }
@@ -516,10 +538,7 @@ extension PythonInterpreter {
     }
     
     internal func convertToSafePythonID(uint val: UInt64) throws -> PythonObjectUniqueID {
-        guard let ptr = try api.pythonLong_FromUnsignedLongLong(val) else {
-            throw PythonError.nullPointer("Failed to convert int: \(val)")
-        }
-        
+        let ptr = try toPythonIntFromUnsignedLongLong(val, onError: { try throwSafePythonError() } )
         let id = registerSafePythonObject(ptr)
         return id
     }
@@ -848,9 +867,7 @@ extension PythonInterpreter {
     
     public func convertToPython(string: String) async throws -> PythonObject {
         return try await withGIL {
-            guard let ptr = try api.pythonUnicode_FromStringAndSize(string) else {
-                throw PythonError.nullPointer("Failed to convert string: \(string)")
-            }
+            let ptr = try toPythonUnicodeFromString(string, onError: { try throwPythonError() } )
             return newPythonObject(fromReturnedPointer: ptr)
         }
     }
@@ -866,11 +883,7 @@ extension PythonInterpreter {
                     // even though it's only temporary.
                     _ = newPythonObject(fromReturnedPointer: pyStr)
                     
-                    if let s = try api.pythonUnicode_AsUTF8AndSize(pyStr) {
-                        return s
-                    } else {
-                        try throwPythonError()
-                    }
+                    return try asUTF8String(pyStr, onError: { try throwPythonError() } )
                 }
                 else {
                     try throwPythonError()
@@ -897,11 +910,7 @@ extension PythonInterpreter {
             self.incrementHousekeepingRefCount(forSafeObj: safeObj)
             
             // Turn the python string into a Swift string.
-            if let s = try api.pythonUnicode_AsUTF8AndSize(pyStr) {
-                return s
-            } else {
-                try throwSafePythonError()
-            }
+            return try asUTF8String(pyStr, onError: { try throwSafePythonError() } )
         } catch let error as PythonError {
             throw PythonError.conversionType( value: "<unrepresentable>", sourceType: "SafePythonObject", targetType: "String", underlying: error )
         }
@@ -950,9 +959,7 @@ extension PythonInterpreter {
     }
     
     internal func convertToSafePythonID(string: String) throws -> PythonObjectUniqueID {
-        guard let ptr = try api.pythonUnicode_FromStringAndSize(string) else {
-            throw PythonError.nullPointer("Failed to convert string: \(string)")
-        }
+        let ptr = try toPythonUnicodeFromString(string, onError: { try throwSafePythonError() } )
         let id = registerSafePythonObject(ptr)
         return id
     }

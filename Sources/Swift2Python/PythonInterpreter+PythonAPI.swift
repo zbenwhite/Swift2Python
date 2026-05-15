@@ -103,7 +103,7 @@ extension PythonInterpreter {
         
         
         
-        internal func python_DecRef(_ pointer: UnsafeMutableRawPointer) throws {
+        internal func python_DecRef(_ pointer: UnsafeMutableRawPointer) {
             logger.trace("CPython API Call: Py_DecRef")
             Py_DecRef(pointer)
         }
@@ -113,12 +113,12 @@ extension PythonInterpreter {
             return PyBool_FromLong(value ? 1 : 0)
         }
         
-        internal func pythonBytes_Size(_ pointer: UnsafeMutableRawPointer) throws -> Int {
+        internal func pythonBytes_Size(_ pointer: UnsafeMutableRawPointer) -> Int {
             logger.trace("CPython API Call: PyBytes_Size")
             return Int(PyBytes_Size(pointer))
         }
         
-        internal func pythonByteArray_Size(_ pointer: UnsafeMutableRawPointer) throws -> Int {
+        internal func pythonByteArray_Size(_ pointer: UnsafeMutableRawPointer) -> Int {
             logger.trace("CPython API Call: PyByteArray_Size")
             return Int(PyByteArray_Size(pointer))
         }
@@ -168,22 +168,22 @@ extension PythonInterpreter {
             PyGILState_Release(gstate)
         }
         
-        internal func pythonImport_AddModule(_ module: String) throws -> UnsafeMutableRawPointer? {
+        internal func pythonImport_AddModule(_ module: String) -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: PyImport_AddModule")
             return module.withCString({ PyImport_AddModule($0) })
         }
         
-        internal func pythonImport_ImportModule(_ module: String) throws -> UnsafeMutableRawPointer? {
+        internal func pythonImport_ImportModule(_ module: String) -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: PyImport_ImportModule")
             return module.withCString({ PyImport_ImportModule($0) })
         }
         
-        internal func pythonList_New(_ length: Int) throws -> UnsafeMutableRawPointer? {
+        internal func pythonList_New(_ length: Int) -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: PyList_New")
             return PyList_New(length)
         }
         
-        internal func pythonList_SetItem(_ listPtr: UnsafeMutableRawPointer, _ index: Int, _ valuePtr: UnsafeMutableRawPointer) throws -> Int32 {
+        internal func pythonList_SetItem(_ listPtr: UnsafeMutableRawPointer, _ index: Int, _ valuePtr: UnsafeMutableRawPointer) -> Int32 {
             logger.trace("CPython API Call: PyList_SetItem")
             return PyList_SetItem(listPtr, index, valuePtr)
         }
@@ -208,14 +208,14 @@ extension PythonInterpreter {
             return PyLong_FromLongLong(value)
         }
         
-        internal func pythonLong_FromUnsignedLongLong(_ value: UInt64) throws -> UnsafeMutableRawPointer? {
+        internal func pythonLong_FromUnsignedLongLong(_ value: UInt64) -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: PyLong_FromUnsignedLongLong")
             return PyLong_FromUnsignedLongLong(value)
         }
         
-        internal func pythonNumber_InPlacePower(_ lhs: UnsafeMutableRawPointer, _ rhs: UnsafeMutableRawPointer) throws -> UnsafeMutableRawPointer? {
+        internal func pythonNumber_InPlacePower(_ lhs: UnsafeMutableRawPointer, _ rhs: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: Number_InPlacePower")
-            if let pyNone = try pythonNone() {
+            if let pyNone = pythonNone() {
                 logger.trace("CPython API Call: Number_InPlacePower")
                 return PyNumber_Power(lhs, rhs, pyNone)
             } else {
@@ -225,8 +225,8 @@ extension PythonInterpreter {
             }
         }
         
-        internal func pythonNumber_Power(_ lhs: UnsafeMutableRawPointer, _ rhs: UnsafeMutableRawPointer) throws -> UnsafeMutableRawPointer? {
-            if let pyNone = try pythonNone() {
+        internal func pythonNumber_Power(_ lhs: UnsafeMutableRawPointer, _ rhs: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer? {
+            if let pyNone = pythonNone() {
                 logger.trace("CPython API Call: Number_Power")
                 return PyNumber_Power(lhs, rhs, pyNone)
             } else {
@@ -236,22 +236,22 @@ extension PythonInterpreter {
             }
         }
         
-        internal func pythonObject_Call(_ callable: UnsafeMutableRawPointer, _ args: UnsafeMutableRawPointer, _ kwargs: UnsafeMutableRawPointer?) throws -> UnsafeMutableRawPointer? {
+        internal func pythonObject_Call(_ callable: UnsafeMutableRawPointer, _ args: UnsafeMutableRawPointer, _ kwargs: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: PyObject_Call")
             return PyObject_Call(callable, args, kwargs)
         }
         
-        internal func pythonObject_CallObject(_ objPtr: UnsafeMutableRawPointer, _ args: UnsafeMutableRawPointer? = nil) throws -> UnsafeMutableRawPointer? {
+        internal func pythonObject_CallObject(_ objPtr: UnsafeMutableRawPointer, _ args: UnsafeMutableRawPointer? = nil) -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: PyObject_CallObject")
             return PyObject_CallObject(objPtr, args)
         }
         
-        internal func pythonObject_GetAttrString(_ pointer: UnsafeMutableRawPointer, _ name: String) throws -> UnsafeMutableRawPointer? {
+        internal func pythonObject_GetAttrString(_ pointer: UnsafeMutableRawPointer, _ name: String) -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: PyObject_GetAttrString")
             return PyObject_GetAttrString(pointer, name.withCString({ $0 }))
         }
         
-        internal func pythonObject_GetItem(_ obPtr: UnsafeMutableRawPointer, _ keyPtr: UnsafeMutableRawPointer) throws -> UnsafeMutableRawPointer? {
+        internal func pythonObject_GetItem(_ obPtr: UnsafeMutableRawPointer, _ keyPtr: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: PyObject_GetItem")
             return PyObject_GetItem(obPtr, keyPtr)
         }
@@ -266,12 +266,12 @@ extension PythonInterpreter {
             return PyObject_Not(obPtr)
         }
         
-        internal func pythonObject_SetAttrString(_ obPtr: UnsafeMutableRawPointer, _ name: String, _ rvalPtr: UnsafeMutableRawPointer) throws -> Int32? {
+        internal func pythonObject_SetAttrString(_ obPtr: UnsafeMutableRawPointer, _ name: String, _ rvalPtr: UnsafeMutableRawPointer) -> Int32? {
             logger.trace("CPython API Call: PyObject_SetAttrString")
             return PyObject_SetAttrString(obPtr, name.withCString({ $0 }), rvalPtr)
         }
         
-        internal func pythonObject_SetItem(_ obPtr: UnsafeMutableRawPointer, _ keyPtr: UnsafeMutableRawPointer, _ rvalPtr: UnsafeMutableRawPointer) throws -> Int32? {
+        internal func pythonObject_SetItem(_ obPtr: UnsafeMutableRawPointer, _ keyPtr: UnsafeMutableRawPointer, _ rvalPtr: UnsafeMutableRawPointer) -> Int32? {
             logger.trace("CPython API Call: PyObject_SetItem")
             return PyObject_SetItem(obPtr, keyPtr, rvalPtr)
         }
@@ -281,7 +281,7 @@ extension PythonInterpreter {
             return PyObject_Str(obPtr)
         }
         
-        internal func pythonRun_SimpleString(_ command: String) throws -> Int32 {
+        internal func pythonRun_SimpleString(_ command: String) -> Int32 {
             logger.trace("CPython API Call: PyRun_SimpleString")
             return command.withCString { PyRun_SimpleString($0) }
         }
@@ -311,7 +311,7 @@ extension PythonInterpreter {
             return PyTuple_Size(tuple)
         }
         
-        internal func pythonUnicode_FromStringAndSize(_ st: String) throws -> UnsafeMutableRawPointer? {
+        internal func pythonUnicode_FromStringAndSize(_ st: String) -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: PyUnicode_FromStringAndSize")
             let cString = st.utf8CString
             return cString.withUnsafeBufferPointer { bufferPtr in
@@ -319,7 +319,7 @@ extension PythonInterpreter {
             }
         }
         
-        internal func pythonUnicode_AsUTF8AndSize(_ objPtr: UnsafeMutableRawPointer) throws -> (String)? {
+        internal func pythonUnicode_AsUTF8AndSize(_ objPtr: UnsafeMutableRawPointer) -> (String)? {
             logger.trace("CPython API Call: PyUnicode_AsUTF8AndSize")
             var size: Py_ssize_t = 0
             let utf8 = PyUnicode_AsUTF8AndSize(objPtr, &size)
@@ -330,7 +330,7 @@ extension PythonInterpreter {
             return String(cString: utf8)
         }
         
-        internal func pythonNone() throws -> UnsafeMutableRawPointer? {
+        internal func pythonNone() -> UnsafeMutableRawPointer? {
             logger.trace("Obtaining Py_None")
 
             // Preferred path: Py_GetConstant (Stable ABI, Python 3.13+)
