@@ -143,12 +143,12 @@ extension PythonInterpreter {
             PyErr_Clear()
         }
         
-        internal func pythonErr_Occurred() throws -> UnsafeMutableRawPointer? {
+        internal func pythonErr_Occurred() -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: PyErr_Occurred")
             return PyErr_Occurred()
         }
         
-        internal func pythonFloat_FromDouble(_ value: Double) throws -> UnsafeMutableRawPointer? {
+        internal func pythonFloat_FromDouble(_ value: Double) -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: PyFloat_FromDouble")
             return PyFloat_FromDouble(value)
         }
@@ -193,12 +193,12 @@ extension PythonInterpreter {
             return PyList_Size(list)
         }
         
-        internal func pythonLong_AsLongLong(_ valuePtr: UnsafeMutableRawPointer) throws -> Int64 {
+        internal func pythonLong_AsLongLong(_ valuePtr: UnsafeMutableRawPointer) -> Int64 {
             logger.trace("CPython API Call: PyLong_AsLongLong")
             return PyLong_AsLongLong(valuePtr)
         }
         
-        internal func pythonLong_AsUnsignedLongLong(_ valuePtr: UnsafeMutableRawPointer) throws -> UInt64 {
+        internal func pythonLong_AsUnsignedLongLong(_ valuePtr: UnsafeMutableRawPointer) -> UInt64 {
             logger.trace("CPython API Call: PyLong_AsUnsignedLongLong")
             return PyLong_AsUnsignedLongLong(valuePtr)
         }

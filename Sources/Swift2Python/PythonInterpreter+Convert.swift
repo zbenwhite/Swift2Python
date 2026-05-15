@@ -10,14 +10,84 @@ import Foundation
 
 extension PythonInterpreter {
     
+    
+    // MARK: Python API Helpers
+    
+    // This requires the GIL
+    private func pythonErrorOccurred() -> Bool {
+        // pythonErr_Occurred returns a borrowed error pointer.  No need to py_DecRef it
+        // because it is not used.  Python owns it.  Only checking if it's NULL (no error)
+        // or has a value (error).
+        if let _ = api.pythonErr_Occurred() {
+            return true
+        }
+        return false
+    }
+    
+    // This requires the GIL
+    private func asDouble(_ objPtr: UnsafeMutableRawPointer, onError throwError: () throws -> Never ) throws -> Double  {
+        let value = api.pythonFloat_AsDouble(objPtr)
+        if value == -1.0 {
+            if pythonErrorOccurred() {
+                try throwError()
+            }
+        }
+        return value
+    }
+    
+    // This requires the GIL
+    private func asLongLong(_ objPtr: UnsafeMutableRawPointer, onError throwError: () throws -> Never ) throws -> Int64  {
+        let value = api.pythonLong_AsLongLong(objPtr)
+        if value == -1 {
+            if pythonErrorOccurred() {
+                try throwError()
+            }
+        }
+        return value
+    }
+    
+    // This requires the GIL
+    private func asUnsignedLongLong(_ objPtr: UnsafeMutableRawPointer, onError throwError: () throws -> Never ) throws -> UInt64  {
+        let value = api.pythonLong_AsUnsignedLongLong(objPtr)
+        if value == UInt64.max {              // (unsigned long long)-1 on error
+            if pythonErrorOccurred() {
+                try throwError()
+            }
+        }
+        return value
+    }
+    
+    // This requires the GIL
+    private func toPythonBoolFromBool(_ value: Bool, onError throwError: () throws -> Never ) throws -> UnsafeMutableRawPointer  {
+        // PyBool_FromLong never fails.
+        guard let ptr = api.pythonBool_FromLong(value) else {
+            try throwError()
+        }
+        return ptr
+    }
+    
+    // This requires the GIL
+    private func toPythonFloatFromDouble(_ value: Double, onError throwError: () throws -> Never ) throws -> UnsafeMutableRawPointer  {
+        guard let ptr = api.pythonFloat_FromDouble(value) else {
+            try throwError()
+        }
+        return ptr
+    }
+    
+    // This requires the GIL
+    private func toPythonIntFromLongLong(_ value: Int64, onError throwError: () throws -> Never ) throws -> UnsafeMutableRawPointer  {
+        guard let ptr = api.pythonLong_FromLongLong(value) else {
+            try throwError()
+        }
+        return ptr
+    }
+    
     // MARK: Bool Conversions
     
     public func convertToPython(bool: Bool) async throws -> PythonObject {
         return try await withGIL {
-            guard let ptr = api.pythonBool_FromLong(bool) else {
-                // PyBool_FromLong never fails.  Unknown error is fine.
-                throw PythonError.unknownPythonException
-            }
+            // PyBool_FromLong never fails.  Unknown error is fine.
+            let ptr = try toPythonBoolFromBool(bool, onError: { throw PythonError.unknownPythonException } )
             return newPythonObject(fromReturnedPointer: ptr)
         }
     }
@@ -50,9 +120,7 @@ extension PythonInterpreter {
     
     public func convertToPython(double: Double) async throws -> PythonObject {
         return try await withGIL {
-            guard let ptr =  try api.pythonFloat_FromDouble(double) else {
-                throw PythonError.nullPointer("Failed to convert double: \(double)")
-            }
+            let ptr = try toPythonFloatFromDouble(double, onError: { try throwPythonError() })
             return newPythonObject(fromReturnedPointer: ptr)
         }
     }
@@ -61,13 +129,7 @@ extension PythonInterpreter {
         let objPtr = getRegisteredPointer(forPythonObject:obj)!
         do {
             return try await withGIL {
-                let value: Double = api.pythonFloat_AsDouble(objPtr)
-                if value == -1.0 {
-                    if let _ = try api.pythonErr_Occurred() {
-                        try throwPythonError()
-                    }
-                }
-                return value
+                return try asDouble(objPtr, onError: { try throwPythonError() } )
             }
         } catch let error as PythonError {
             switch error {
@@ -83,13 +145,7 @@ extension PythonInterpreter {
     public func convertToDouble(_ obj: SafePythonObject) throws -> Double {
         let objPtr = getRegisteredPointer(forSafeObj:obj)
         do {
-            let value: Double = api.pythonFloat_AsDouble(objPtr)
-            if value == -1.0 {
-                if let _ = try api.pythonErr_Occurred() {
-                    try throwSafePythonError()
-                }
-            }
-            return value
+            return try asDouble(objPtr, onError: { try throwSafePythonError() } )
         } catch let error as PythonError {
             switch error {
             case .safePythonException:
@@ -105,9 +161,7 @@ extension PythonInterpreter {
     public func convertToPython(int val: Int64) async throws -> PythonObject {
         logger.trace("convertToPython: Convert Int64 to PythonObject.")
         return try await withGIL {
-            guard let ptr = api.pythonLong_FromLongLong(val) else {
-                throw PythonError.nullPointer("Failed to convert int: \(val)")
-            }
+            let ptr = try toPythonIntFromLongLong(val, onError: { try throwPythonError() } )
             return newPythonObject(fromReturnedPointer: ptr)
         }
     }
@@ -120,10 +174,7 @@ extension PythonInterpreter {
     }
     
     internal func convertToSafePythonID(int val: Int64) throws -> PythonObjectUniqueID {
-        guard let ptr = api.pythonLong_FromLongLong(val) else {
-            throw PythonError.nullPointer("Failed to convert int: \(val)")
-        }
-        
+        let ptr = try toPythonIntFromLongLong(val, onError: { try throwSafePythonError() } )
         let id = registerSafePythonObject(ptr)
         return id
     }
@@ -367,13 +418,7 @@ extension PythonInterpreter {
         
         do {
             return try await withGIL {
-                let value = try api.pythonLong_AsLongLong(objPtr)
-                if value == -1 {
-                    if let _ = try api.pythonErr_Occurred() {
-                        try throwPythonError()
-                    }
-                }
-                return value
+                return try asLongLong(objPtr, onError: { try throwPythonError() } )
             }
         } catch let error as PythonError {
             switch error {
@@ -439,26 +484,17 @@ extension PythonInterpreter {
         }
         
         let objPtr = getRegisteredPointer(forSafeObj:obj)
-        let value = try api.pythonLong_AsLongLong(objPtr)
-        if value == -1 {
-            if let _ = try api.pythonErr_Occurred() {
-                do {
-                    try throwSafePythonError()
-                } catch let error as PythonError {
-                    switch error {
-                    case .safePythonException:
-                        let objStr = (try? String(obj)) ?? "<unrepresentable>"
-                        
-                        throw PythonError.conversionType( value: objStr, sourceType: "SafePythonObject", targetType: "Int64", underlying: error )
-                    default:
-                        throw error
-                    }
-                } catch {
-                    throw error
-                }
+        do {
+            return try asLongLong(objPtr, onError: { try throwSafePythonError() } )
+        } catch let error as PythonError {
+            switch error {
+            case .safePythonException:
+                let objStr = (try? String(obj)) ?? "<unrepresentable>"
+                throw PythonError.conversionType( value: objStr, sourceType: "SafePythonObject", targetType: "Int64", underlying: error )
+            default:
+                throw error
             }
         }
-        return value
     }
     
     // MARK: UInt Conversions
@@ -732,13 +768,7 @@ extension PythonInterpreter {
         
         do {
             return try await withGIL {
-                let value = try api.pythonLong_AsUnsignedLongLong(objPtr)
-                if value == UInt64.max {              // (unsigned long long)-1 on error
-                    if let _ = try api.pythonErr_Occurred() {
-                        try throwPythonError()
-                    }
-                }
-                return value
+                return try asUnsignedLongLong(objPtr, onError: { try throwPythonError() } )
             }
         } catch let error as PythonError {
             switch error {
@@ -787,7 +817,7 @@ extension PythonInterpreter {
             case .pythonException:
                 let objStr = (try? String(obj)) ?? "<unrepresentable>"
                 
-                throw PythonError.conversionType( value: objStr, sourceType: "PythonObject", targetType: "UInt64", underlying: error )
+                throw PythonError.conversionType( value: objStr, sourceType: "SafePythonObject", targetType: "UInt64", underlying: error )
             default:
                 throw error
             }
@@ -801,26 +831,17 @@ extension PythonInterpreter {
         }
         
         let objPtr = getRegisteredPointer(forSafeObj:obj)
-        let value = try api.pythonLong_AsUnsignedLongLong(objPtr)
-        if value == UInt64.max {              // (unsigned long long)-1 on error
-            if let _ = try api.pythonErr_Occurred() {
-                do {
-                    try throwSafePythonError()
-                } catch let error as PythonError {
-                    switch error {
-                    case .safePythonException:
-                        let objStr = (try? String(obj)) ?? "<unrepresentable>"
-                        
-                        throw PythonError.conversionType( value: objStr, sourceType: "SafePythonObject", targetType: "UInt64", underlying: error )
-                    default:
-                        throw error
-                    }
-                } catch {
-                    throw error
-                }
+        do {
+            return try asUnsignedLongLong(objPtr, onError: { try throwSafePythonError() } )
+        } catch let error as PythonError {
+            switch error {
+            case .safePythonException:
+                let objStr = (try? String(obj)) ?? "<unrepresentable>"
+                throw PythonError.conversionType( value: objStr, sourceType: "SafePythonObject", targetType: "UInt64", underlying: error )
+            default:
+                throw error
             }
         }
-        return value
     }
     
     // MARK: String Conversions
@@ -898,10 +919,8 @@ extension PythonInterpreter {
     }
     
     internal func convertToSafePythonID(bool: Bool) throws -> PythonObjectUniqueID {
-        guard let ptr = api.pythonBool_FromLong(bool) else {
-            // PyBool_FromLong never fails.  Unknown error is fine.
-            throw PythonError.unknownPythonException
-        }
+        // PyBool_FromLong never fails.  Unknown error is fine.
+        let ptr = try toPythonBoolFromBool(bool, onError: { throw PythonError.unknownPythonException } )
         let id = registerSafePythonObject(ptr)
         return id
     }
