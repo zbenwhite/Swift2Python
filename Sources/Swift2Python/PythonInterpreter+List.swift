@@ -7,7 +7,7 @@
 
 import Foundation
 
-
+// TODO: The stuff with Python 3.13 and free threading for PyList_GetItem()
 
 extension PythonInterpreter {
     
@@ -50,6 +50,15 @@ extension PythonInterpreter {
     }
     
     // This requires the GIL
+    private func isList(_ objPtr: UnsafeMutableRawPointer, onError throwError: () throws -> Never ) throws -> Bool  {
+        switch api.pythonObject_IsInstance(objPtr, api.PyList_Type) {
+        case 0: return false
+        case 1: return true
+        default: try throwError()
+        }
+    }
+    
+    // This requires the GIL
     private func getSizeOf(list: UnsafeMutableRawPointer, onError throwError: () throws -> Never ) throws -> Int {
         let result = api.pythonList_Size(list)
         if result == -1 {
@@ -80,5 +89,48 @@ extension PythonInterpreter {
         }
     }
     
+    // This requires the GIL
+    private func getItemAt(index: Int, fromList list: UnsafeMutableRawPointer, onError throwError: () throws -> Never ) throws -> UnsafeMutableRawPointer {
+        try api.pythonList_GetItem(list, index) ?? {
+            try throwError()
+        } ()
+    }
     
+    // This requires the GIL
+    internal func toArray<K>(fromPythonListPointer objPtr: UnsafeMutableRawPointer,
+                             onError throwError: () throws -> Never,
+                             handleEachItem: (UnsafeMutableRawPointer) throws -> K) throws -> [K] {
+        let isList = try isList(objPtr, onError: { try throwError() } )
+        guard isList else {
+            throw PythonError.listConversionFailed(expected: "list", actual: nil)
+        }
+        let size = try getSizeOf(list: objPtr, onError: { try throwError() } )
+        return try (0..<size).map { index in
+            let ptr = try getItemAt(index: index, fromList: objPtr, onError: { try throwPythonError() } )
+            return try handleEachItem(ptr)
+        }
+    }
+    
+    // This requires the GIL
+    internal func toArray<K>(fromPythonListPointer objPtr: UnsafeMutableRawPointer,
+                             onError throwError: () throws -> Never,
+                             borrowedObject: (UnsafeMutableRawPointer) -> K) throws -> [K] {
+        return try toArray(fromPythonListPointer: objPtr, onError: throwError, handleEachItem: borrowedObject)
+    }
+    
+    internal func toArray(_ obj: PythonObject) async throws -> [PythonObject] {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL {
+            try toArray(fromPythonListPointer: objPtr,
+                        onError: { try throwPythonError() },
+                        borrowedObject: { ptr in borrowedPythonObject(fromReturnedPointer: ptr)} )
+        }
+    }
+    
+    internal func toSafeArray(_ obj: SafePythonObject) throws -> [SafePythonObject] {
+        let objPtr = getRegisteredPointer(forSafeObj: obj)
+        return try toArray(fromPythonListPointer: objPtr,
+                        onError: { try throwSafePythonError() },
+                        borrowedObject: { ptr in borrowedSafePythonObject(fromReturnedPointer: ptr)} )
+    }
 }
