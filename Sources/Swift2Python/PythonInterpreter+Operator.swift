@@ -304,7 +304,7 @@ extension PythonInterpreter {
         let exponentPtr = getRegisteredPointer(forSafeObj:exponent)
         
         logger.trace("CPython API call in synchronous mode: PyNumber_Power")
-        guard let resultPtr = try api.pythonNumber_Power(basePtr, exponentPtr) else {
+        guard let resultPtr = api.pythonNumber_Power(basePtr, exponentPtr) else {
             logger.error("pythonNumber_Power returned NULL.  Throwing Python error.")
             try throwSafePythonErrorIfPresent()
             throw PythonError.typeError(operation: "power", opType1: "SafePythonObject", opType2: "SafePythonObject")
@@ -318,7 +318,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in async mode: PyNumber_Power")
         return try await withGIL {
-            guard let resultPtr = try api.pythonNumber_Power(basePtr, exponentPtr) else {
+            guard let resultPtr = api.pythonNumber_Power(basePtr, exponentPtr) else {
                 logger.error("pythonNumber_Power returned NULL.  Throwing Python error.")
                 try throwPythonErrorIfPresent()
                 throw PythonError.typeError(operation: "power", opType1: "PythonObject", opType2: "PythonObject")
@@ -332,7 +332,7 @@ extension PythonInterpreter {
         let exponentPtr = getRegisteredPointer(forSafeObj:exponent)
         
         logger.trace("CPython API call in synchronous mode: PyNumber_InPlacePower")
-        guard let resultPtr = try api.pythonNumber_InPlacePower(lhsPtr, exponentPtr) else {
+        guard let resultPtr = api.pythonNumber_InPlacePower(lhsPtr, exponentPtr) else {
             logger.error("pythonNumber_InPlacePower returned NULL.  Throwing Python error.")
             try throwSafePythonErrorIfPresent()
             throw PythonError.typeError(operation: "in place power", opType1: "SafePythonObject", opType2: "SafePythonObject")
@@ -346,7 +346,7 @@ extension PythonInterpreter {
         
         logger.trace("CPython API call in async mode: PyNumber_InPlacePower")
         return try await withGIL {
-            guard let resultPtr = try api.pythonNumber_InPlacePower(lhsPtr, exponentPtr) else {
+            guard let resultPtr = api.pythonNumber_InPlacePower(lhsPtr, exponentPtr) else {
                 logger.error("pythonNumber_InPlacePower returned NULL.  Throwing Python error.")
                 try throwPythonErrorIfPresent()
                 throw PythonError.typeError(operation: "in place power", opType1: "PythonObject", opType2: "PythonObject")
