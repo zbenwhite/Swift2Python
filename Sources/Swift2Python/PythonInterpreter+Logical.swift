@@ -36,14 +36,14 @@ extension PythonInterpreter {
     }
     
     
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func syncIsTrue(_ safeObj: SafePythonObject) throws -> Bool {
         let safePtr = getRegisteredPointer(forSafeObj:safeObj)
         return try isTrue(safePtr, onError: { try throwSafePythonError() } )
     }
     
     
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func syncIsNotTrue(_ safeObj: SafePythonObject) throws -> Bool {
         let safePtr = getRegisteredPointer(forSafeObj:safeObj)
         return try isNotTrue(safePtr, onError: { try throwSafePythonError() } )
