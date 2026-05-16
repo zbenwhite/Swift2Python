@@ -17,7 +17,7 @@ extension PythonInterpreter {
     private func isTrue(_ objPtr: UnsafeMutableRawPointer, onError throwError: () throws -> Never ) throws -> Bool  {
         let result = api.pythonObject_IsTrue(objPtr)
         if result == -1 {
-            if let _ = try api.pythonErr_Occurred() {
+            if let _ = api.pythonErr_Occurred() {
                 try throwError()
             }
         }
@@ -28,7 +28,7 @@ extension PythonInterpreter {
     private func isNotTrue(_ objPtr: UnsafeMutableRawPointer, onError throwError: () throws -> Never ) throws -> Bool  {
         let result = api.pythonObject_Not(objPtr)
         if result == -1 {
-            if let _ = try api.pythonErr_Occurred() {
+            if let _ = api.pythonErr_Occurred() {
                 try throwError()
             }
         }
