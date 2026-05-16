@@ -148,6 +148,34 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         }
     }
     
+    // MARK: Dict support
+    
+    public func isDict() async throws -> Bool {
+        return try await interpreter.isDict(self)
+    }
+    
+    public func dictCount() async throws -> Int {
+        return try await interpreter.getDictCount(self)
+    }
+    
+    public func dictKeys() async throws -> [PythonObject] {
+        return try await interpreter.dictKeys(self)
+    }
+    
+    public func dictValues() async throws -> [PythonObject] {
+        return try await interpreter.dictValues(self)
+    }
+    
+    public func dictItems() async throws -> [(key: PythonObject, value: PythonObject)] {
+        return try await interpreter.dictItems(self)
+    }
+    
+    // MARK: List support
+    
+    public func asArray() async throws -> [PythonObject] {
+        return try await interpreter.toArray(self)
+    }
+    
     // MARK: Tuple support
     
     public func isTuple() async throws -> Bool {
