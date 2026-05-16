@@ -65,7 +65,7 @@ extension PythonInterpreter {
     ///   - elements: A sequence whose elements conform to `SafePythonConvertible`.
     /// - Returns: A `SafePythonObject` representing a Python tuple.
     /// - Throws: `PythonError` if tuple creation or element conversion fails.
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func convertToSafePython<T>(tupleContentsOf elements: T) throws -> PythonInterpreter.SafePythonObject
         where T: Sequence, T.Element: SafePythonConvertible
     {
@@ -82,7 +82,7 @@ extension PythonInterpreter {
     ///   - elements: Zero or more values conforming to `SafePythonConvertible`.
     /// - Returns: A `SafePythonObject` representing a Python tuple.
     /// - Throws: `PythonError` if tuple creation or element conversion fails.
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func convertToSafePython(tupleOf elements: any SafePythonConvertible...) throws -> PythonInterpreter.SafePythonObject {
         let tuplePtr = try syncCreateTuplePtr(from: elements)
         return newSafePythonObject(fromReturnedPointer: tuplePtr)
@@ -138,8 +138,8 @@ extension PythonInterpreter {
     }
     
     // This requires the GIL
-    private func getItemAt(index: Int, fromTuple: UnsafeMutableRawPointer, onError throwError: () throws -> Never ) throws -> UnsafeMutableRawPointer {
-        try api.pythonTuple_GetItem(fromTuple, index) ?? {
+    private func getItemAt(index: Int, fromTuple tuple: UnsafeMutableRawPointer, onError throwError: () throws -> Never ) throws -> UnsafeMutableRawPointer {
+        try api.pythonTuple_GetItem(tuple, index) ?? {
             try throwError()
         } ()
     }
@@ -168,7 +168,7 @@ extension PythonInterpreter {
         return tuplePtr
     }
     
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func syncCreateTuplePtr(from elements: [any SafePythonConvertible]) throws -> UnsafeMutableRawPointer {
         let tuplePtr = try newPythonTuple(ofSize: elements.count, orElse: { try throwSafePythonError() })
         
@@ -191,7 +191,7 @@ extension PythonInterpreter {
         return try await withGIL { try isTuple(objPtr, onError: { try throwPythonError() } ) }
     }
     
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func syncIsTuple(_ obj: PythonInterpreter.SafePythonObject) throws -> Bool {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
         return try isTuple(objPtr, onError: { try throwSafePythonError() } )
@@ -210,7 +210,7 @@ extension PythonInterpreter {
         }
     }
     
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func syncTupleCount(_ obj: PythonInterpreter.SafePythonObject) throws -> Int {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
         let isTuple = try isTuple(objPtr, onError: { try throwSafePythonError() } )
@@ -235,7 +235,7 @@ extension PythonInterpreter {
         }
     }
     
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func syncTupleItem(at index: Int, in obj: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject? {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
         let isTuple = try isTuple(objPtr, onError: { try throwSafePythonError() } )
@@ -263,7 +263,7 @@ extension PythonInterpreter {
         }
     }
     
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func syncTupleArray(_ obj: PythonInterpreter.SafePythonObject) throws -> [PythonInterpreter.SafePythonObject]? {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
         let isTuple = try isTuple(objPtr, onError: { try throwSafePythonError() } )
@@ -277,6 +277,36 @@ extension PythonInterpreter {
     }
     
     // MARK: Convert To Swift Tuples
+    
+    
+//    // This requires the GIL
+//    internal func toTuple2<K>(fromObjectPointer objPtr: UnsafeMutableRawPointer,
+//                              onError throwError: () throws -> Never,
+//                              handleEachItem: (UnsafeMutableRawPointer) throws -> K) throws -> (K, K) {
+//        let isTuple = try isTuple(objPtr, onError: throwError )
+//        guard isTuple else {
+//            throw PythonError.tupleConversionFailed(expected: "tuple", actual: nil)
+//        }
+//        
+//        let size = try getSizeOf(tuple: objPtr, onError: throwError )
+//        guard size == 2 else {
+//            throw PythonError.tupleArityMismatch(expected: 2, actual: size)
+//        }
+//        let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: throwError )
+//        let ptr1 = try getItemAt(index: 1, fromTuple: objPtr, onError: throwError )
+//        return (
+//            try handleEachItem(ptr0),
+//            try handleEachItem(ptr1)
+//        )
+//    }
+//    
+//    internal func toTuple2(_ obj: PythonObject) async throws -> (PythonObject, PythonObject) {
+//        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+//        return try await withGIL {
+//            return try toTuple2(fromObjectPointer: objPtr, onError: { try throwPythonError() }, handleEachItem:
+//                                { ptr in borrowedPythonObject(fromReturnedPointer: ptr) } )
+//        }
+//    }
     
     internal func toTuple2(_ obj: PythonObject) async throws -> (PythonObject, PythonObject) {
         let objPtr = getRegisteredPointer(forPythonObject: obj)!
@@ -350,7 +380,7 @@ extension PythonInterpreter {
         }
     }
     
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func syncTuple2(_ obj: PythonInterpreter.SafePythonObject) throws ->  (
         PythonInterpreter.SafePythonObject,
         PythonInterpreter.SafePythonObject
@@ -370,7 +400,7 @@ extension PythonInterpreter {
         )
     }
     
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func syncTuple3(_ obj: PythonInterpreter.SafePythonObject) throws ->  (
         PythonInterpreter.SafePythonObject,
         PythonInterpreter.SafePythonObject,
@@ -393,7 +423,7 @@ extension PythonInterpreter {
         )
     }
     
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func syncTuple4(_ obj: PythonInterpreter.SafePythonObject) throws ->  (
         PythonInterpreter.SafePythonObject,
         PythonInterpreter.SafePythonObject,
