@@ -92,6 +92,53 @@ extension PythonInterpreter.SafePythonObject {
         ItemsSequence(dictView: self)
     }
     
+    // MARK: Dictionary Support
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public var isDict: Bool {
+        get throws {
+            try interpreter.assumeIsolated {
+                try $0.syncIsDict(self)
+            }
+            
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public var dictCount: Int {
+        get throws {
+            try interpreter.assumeIsolated {
+                try $0.syncDictCount(self)
+            }
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public var dictKeys: [PythonInterpreter.SafePythonObject]? {
+        get throws {
+            try interpreter.assumeIsolated {
+                try $0.syncDictKeys(self)
+            }
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public var dictValues: [PythonInterpreter.SafePythonObject]? {
+        get throws {
+            try interpreter.assumeIsolated {
+                try $0.syncDictValues(self)
+            }
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public var dictItems: [(key: PythonInterpreter.SafePythonObject, value: PythonInterpreter.SafePythonObject)]? {
+        get throws {
+            try interpreter.assumeIsolated {
+                try $0.syncDictItems(self)
+            }
+        }
+    }
     
     // MARK: Tuple Support
     
