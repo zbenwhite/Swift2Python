@@ -75,7 +75,33 @@ public actor PythonInterpreter {
     }
     
     internal var api: PreloadedPythonSymbols!  // Loaded in init
-        
+    
+    // MARK: Python API Helpers
+    
+    // This requires the GIL
+    private func runString(_ code: String, onError throwError: () throws -> Never ) throws {
+        let result = api.pythonRun_SimpleString(code)
+        if result != 0 {
+            try throwError()
+        }
+    }
+    
+    // This requires the GIL
+    private func importModule(_ name: String, onError throwError: () throws -> Never ) throws -> UnsafeMutableRawPointer {
+        guard let ptr = api.pythonImport_ImportModule(name) else {
+            try throwError()
+        }
+        return ptr
+    }
+    
+    // This requires the GIL
+    private func addModule(_ name: String, onError throwError: () throws -> Never ) throws -> UnsafeMutableRawPointer {
+        guard let ptr = api.pythonImport_AddModule(name) else {
+            try throwError()
+        }
+        return ptr
+    }
+    
     // MARK: GIL handling (async mode)
     
     // A GIL handler for async mode
@@ -95,9 +121,7 @@ public actor PythonInterpreter {
     private func importStandard(_ name: String) async throws -> PythonObject {
         logger.trace("import \(name) called for PythonObject (async)")
         return try await withGIL {
-            guard let ptr = try api.pythonImport_ImportModule(name) else {
-                throw PythonError.nullPointer("Failed to import module: \(name)")
-            }
+            let ptr = try importModule(name, onError: { try throwPythonError() } )
             return newPythonObject(fromReturnedPointer: ptr)
         }
     }
@@ -127,9 +151,7 @@ public actor PythonInterpreter {
     public func addModule(_ name: String) async throws -> PythonObject {
         logger.trace("addModule(\(name)) called for PythonObject (async)")
         return try await withGIL {
-            guard let ptr = try api.pythonImport_AddModule(name) else {
-                throw PythonError.nullPointer("Could not access __main__")
-            }
+            let ptr = try addModule(name, onError: { try throwPythonError() } )
             return borrowedPythonObject(fromReturnedPointer: ptr)
         }
     }
@@ -167,10 +189,7 @@ public actor PythonInterpreter {
     public func runSimpleString(pythonCode: String) async throws {
         logger.trace("runSimpleString called (async)")
         try await withGIL {
-            let result = try api.pythonRun_SimpleString(pythonCode)
-            guard result == 0 else {
-                throw PythonError.stringConversionFailed("Python execution failed for: \(pythonCode)")
-            }
+            try runString(pythonCode, onError: { try throwPythonError() } )
         }
     }
     
@@ -352,10 +371,7 @@ public actor PythonInterpreter {
     
     private func syncImportStandard(_ name: String) throws -> SafePythonObject {
         logger.trace("import \(name) called for SafePythonObject (synchronous)")
-        guard let ptr = try api.pythonImport_ImportModule(name) else {
-            throw PythonError.nullPointer("Failed to import module: \(name)")
-        }
-        
+        let ptr = try importModule(name, onError: { try throwSafePythonError() } )
         let id = registerSafePythonObject(ptr)
         let moduleObj =  SafePythonObject(interpreter: self, id: id)
         self.incrementHousekeepingRefCount(forSafeObj: moduleObj)
@@ -365,7 +381,7 @@ public actor PythonInterpreter {
     @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
     private func syncAddModule(_ name: String) throws -> SafePythonObject {
         logger.trace("add module \(name) called for SafePythonObject (synchronous)")
-        let modulePtr = try api.pythonImport_AddModule(name)!
+        let modulePtr = try addModule(name, onError: { try throwSafePythonError() } )
         let moduleId = registerSafePythonObject(modulePtr)
         let moduleObj = SafePythonObject(interpreter: self, id: moduleId)
         self.incrementHousekeepingRefCount(forSafeObj: moduleObj, andAlsoPythonsRefCount: true)
@@ -382,10 +398,7 @@ public actor PythonInterpreter {
     
     public func runSimpleString(pythonCode: String) throws {
         logger.trace("runSimpleString called (synchronous)")
-        let result = try api.pythonRun_SimpleString(pythonCode)
-        guard result == 0 else {
-            throw PythonError.stringConversionFailed("Python execution failed for: \(pythonCode)")
-        }
+        try runString(pythonCode, onError: { try throwSafePythonError() } )
     }
     
     // MARK: Subscript support (synchronous mode)
