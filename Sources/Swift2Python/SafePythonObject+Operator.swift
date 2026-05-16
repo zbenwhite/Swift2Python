@@ -39,7 +39,7 @@ extension PythonInterpreter.SafePythonObject {
     // bool    int      int
     // bool    string   ERR: typeError
     // bool    bool     int
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func add(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
         switch state {
         case .bound:
@@ -119,9 +119,8 @@ extension PythonInterpreter.SafePythonObject {
     }
     
     // A static function to be used for the + operator.  The + operator does not throw, so this causes
-    // a fatal error if the types of the addition are incompatible.  Use SafePythonObject.add() for a throwing
-    // add.
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    // a fatal error if the types are incompatible.  Use SafePythonObject.add() for a throwing add.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     static internal func addOperator(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
             return try lhs.add(rhs)
@@ -209,7 +208,10 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    // A static function to be used for the += operator.  The += operator does not throw, so this causes
+    // a fatal error if the types are incompatible.  Use SafePythonObject.addInPlace() for a throwing
+    // in place add.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     static internal func addInPlaceOperator(sumend: PythonInterpreter.SafePythonObject, addend: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
             var result = sumend
@@ -245,7 +247,7 @@ extension PythonInterpreter.SafePythonObject {
     // bool    int      int
     // bool    string   ERR: typeError
     // bool    bool     int
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func subtract(subtrahend: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
         switch state {
             
@@ -325,7 +327,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     static internal func subtractOperator(minuend: PythonInterpreter.SafePythonObject, subtrahend: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
             return try minuend.subtract(subtrahend:subtrahend)
@@ -334,7 +336,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func subtractInPlaceOperator(diffend: SafePythonConvertible, subtrahend: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
@@ -371,7 +373,7 @@ extension PythonInterpreter.SafePythonObject {
     // bool    int      int
     // bool    string   string
     // bool    bool     int
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func multiply(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
         switch self.state {
             
@@ -451,7 +453,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     static internal func multiplyOperator(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
             return try lhs.multiply(rhs)
@@ -460,7 +462,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func multiplyInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
@@ -498,7 +500,7 @@ extension PythonInterpreter.SafePythonObject {
     // bool    int      double
     // bool    string   ERR: typeError
     // bool    bool     double
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func divide(divisor: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
         switch self.state {
             
@@ -587,7 +589,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     static internal func divideOperator(dividend: PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
             return try dividend.divide(divisor: divisor)
@@ -596,7 +598,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func divideInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
@@ -647,7 +649,7 @@ extension PythonInterpreter.SafePythonObject {
     // bool    int      double
     // bool    string   ERR: typeError
     // bool    bool     double
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func modulus(divisor: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
         switch self.state {
             
@@ -736,7 +738,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     static internal func modulusOperator(dividend: PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
             return try dividend.modulus(divisor: divisor)
@@ -745,7 +747,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func modulusInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
@@ -809,7 +811,7 @@ extension PythonInterpreter.SafePythonObject {
     // bool    int      int (double if rhs < 0)      lhs == False && rhs < 0.0  .... can't raise zero to negative power.  Divide by zero.
     // bool    string   ERR: typeError
     // bool    bool     int
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func power(exponent: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
         switch self.state {
             
@@ -950,7 +952,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     static internal func exponentiationOperator(base: PythonInterpreter.SafePythonObject, exponent: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
             return try base.power(exponent: exponent)
@@ -959,7 +961,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func exponentiationInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
@@ -1017,8 +1019,8 @@ extension PythonInterpreter.SafePythonObject {
             }
         }
     }
-
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func bitwiseAndOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
@@ -1030,7 +1032,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func bitwiseAndInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
@@ -1044,7 +1046,7 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Bitwise OR
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func bitwiseOrOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
@@ -1056,7 +1058,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func bitwiseOrInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
@@ -1108,7 +1110,7 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Bitwise XOR
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func bitwiseXorOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
@@ -1120,7 +1122,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func bitwiseXorInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
@@ -1172,7 +1174,7 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Bitwise NOT
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func bitwiseNotOperator(_ operand: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
@@ -1213,7 +1215,7 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Compare Equals
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func doubleEqualsEquatableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
         do {
             let localInterpreter = interpreter
@@ -1225,7 +1227,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func doubleEqualsOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
@@ -1237,7 +1239,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     static internal func unboundPythonDoubleEquals(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         PythonInterpreter.SafePythonObject(booleanLiteral: unboundPythonDoubleEqualsEquatable(lhs: lhs, rhs: rhs))
     }
@@ -1308,7 +1310,7 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Compare Not Equals
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func notEqualsEquatableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
         do {
             let localInterpreter = interpreter
@@ -1320,7 +1322,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func notEqualsOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
@@ -1402,7 +1404,7 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Less Than
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func lessThanOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
@@ -1419,7 +1421,7 @@ extension PythonInterpreter.SafePythonObject {
         PythonInterpreter.SafePythonObject(booleanLiteral: lessThanComparable(lhs: lhs, rhs: rhs))
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     static internal func boundPythonLessThanComparable(interpreter: PythonInterpreter, lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
         do {
             let localInterpreter = interpreter
@@ -1431,7 +1433,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     static internal func lessThanComparable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
         switch lhs.state {
         case .bound:
@@ -1498,7 +1500,7 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Less Than Or Equal To
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func lessThanOrEqualOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
@@ -1517,7 +1519,7 @@ extension PythonInterpreter.SafePythonObject {
     
     
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     static internal func boundPythonLessThanOrEqualsComparable(interpreter: PythonInterpreter, lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
         do {
             let localInterpreter = interpreter
@@ -1529,7 +1531,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     static internal func lessThanOrEqualsComparable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
         switch lhs.state {
         case .bound:
@@ -1596,7 +1598,7 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Greater Than
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func greaterThanOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
@@ -1612,7 +1614,7 @@ extension PythonInterpreter.SafePythonObject {
         PythonInterpreter.SafePythonObject(booleanLiteral: greaterThanComparable(lhs: lhs, rhs: rhs))
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     static internal func boundPythonGreaterThanComparable(interpreter: PythonInterpreter, lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
         do {
             let localInterpreter = interpreter
@@ -1624,7 +1626,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     static internal func greaterThanComparable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
         switch lhs.state {
         case .bound:
@@ -1690,8 +1692,8 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Greater Than Or Equal To
     
-           
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func greaterThanOrEqualOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
         do {
             let localInterpreter = interpreter
@@ -1707,7 +1709,7 @@ extension PythonInterpreter.SafePythonObject {
         PythonInterpreter.SafePythonObject(booleanLiteral: greaterThanOrEqualsComparable(lhs: lhs, rhs: rhs))
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     static internal func boundPythonGreaterThanOrEqualsComparable(interpreter: PythonInterpreter, lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
         do {
             let localInterpreter = interpreter
@@ -1719,7 +1721,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     static internal func greaterThanOrEqualsComparable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
         switch lhs.state {
         case .bound:
