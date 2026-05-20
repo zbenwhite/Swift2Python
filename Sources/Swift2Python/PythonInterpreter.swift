@@ -102,6 +102,41 @@ public actor PythonInterpreter {
         return ptr
     }
     
+    // This requires the GIL
+    private func getAttr(_ name: String, onObject objPtr: UnsafeMutableRawPointer, orElse throwError: () throws -> Never) throws -> UnsafeMutableRawPointer {
+        guard let attrPtr = api.pythonObject_GetAttrString(objPtr, name) else {
+            try throwError()
+        }
+        return attrPtr
+    }
+    
+    // This requires the GIL
+    private func setAttr(_ name: String, to value: UnsafeMutableRawPointer, onObject objPtr: UnsafeMutableRawPointer,
+                         onError throwError: () throws -> Never ) throws {
+        let result = api.pythonObject_SetAttrString(objPtr, name, value)
+        if result == -1 {
+            try throwError()
+        }
+    }
+    
+    // This requires the GIL
+    private func getItemWith(key: UnsafeMutableRawPointer, fromObject objPtr: UnsafeMutableRawPointer,
+                             onError throwError: () throws -> Never ) throws -> UnsafeMutableRawPointer {
+        guard let resultPtr = api.pythonObject_GetItem(objPtr, key) else {
+            try throwError()
+        }
+        return resultPtr
+    }
+    
+    // This requires the GIL
+    private func setItemWith(key: UnsafeMutableRawPointer, onObject objPtr: UnsafeMutableRawPointer, to value: UnsafeMutableRawPointer,
+                             onError throwError: () throws -> Never ) throws {
+        let result = api.pythonObject_SetItem(objPtr, key, value)
+        if result == -1 {
+            try throwError()
+        }
+    }
+    
     // MARK: GIL handling (async mode)
     
     // A GIL handler for async mode
@@ -200,7 +235,7 @@ public actor PythonInterpreter {
         let objPtr = getRegisteredPointer(forPythonObject: object)!
         
         return try await withGIL {
-            let valuePtr = try api.pythonObject_GetAttrString(objPtr, attribute)!
+            let valuePtr = try getAttr(attribute, onObject: objPtr, orElse: { try throwPythonError() })
             return newPythonObject(fromReturnedPointer: valuePtr)
         }
     }
@@ -211,7 +246,7 @@ public actor PythonInterpreter {
         let valuePtr = getRegisteredPointer(forPythonObject: value)!
         
         try await withGIL {
-            _ = try api.pythonObject_SetAttrString(objPtr, attribute, valuePtr)
+            try setAttr(attribute, to: valuePtr, onObject: objPtr, onError: { try throwPythonError() })
         }
     }
     
@@ -223,9 +258,7 @@ public actor PythonInterpreter {
         let objPtr = getRegisteredPointer(forPythonObject: object)!
         
         return try await withGIL {
-            guard let resultPtr = try api.pythonObject_GetItem(objPtr, keyPtr) else {
-                throw PythonError.nullPointer("Python subscript get failed")
-            }
+            let resultPtr = try getItemWith(key:keyPtr, fromObject: objPtr, onError: { try throwPythonError() })
             return newPythonObject(fromReturnedPointer: resultPtr)
         }
     }
@@ -237,7 +270,7 @@ public actor PythonInterpreter {
         let objPtr = getRegisteredPointer(forPythonObject: object)!
         
         try await withGIL {
-            _ = try api.pythonObject_SetItem(objPtr, keyPtr, newValuePtr)
+            try setItemWith(key: keyPtr, onObject: objPtr, to: newValuePtr, onError: { try throwPythonError() } )
         }
     }
     
@@ -407,9 +440,7 @@ public actor PythonInterpreter {
     internal func syncGetObjectAttribute(_ obj: SafePythonObject, _ name: String) throws -> SafePythonObject {
         logger.trace("get: 'object.attribute' called for SafePythonObject (synchronous)")
         let objPtr = getRegisteredPointer(forSafeObj:obj)
-        guard let attrPtr = try api.pythonObject_GetAttrString(objPtr, name) else {
-            throw PythonError.nullPointer("Failed ")
-        }
+        let attrPtr = try getAttr(name, onObject: objPtr, orElse: { try throwSafePythonError() })
         let attrId = registerSafePythonObject(attrPtr)
         return SafePythonObject(interpreter: self, id: attrId)
     }
@@ -418,7 +449,7 @@ public actor PythonInterpreter {
         logger.trace("set: 'object.attribute = value' called for SafePythonObject (synchronous)")
         let objPtr = getRegisteredPointer(forSafeObj: obj)
         let valuePtr = getRegisteredPointer(forSafeObj: value)
-        _ = try api.pythonObject_SetAttrString(objPtr, name, valuePtr)
+        try setAttr(name, to: valuePtr, onObject: objPtr, onError: { try throwSafePythonError() })
     }
     
     internal func syncGetObjectItem(obj: SafePythonObject, key: [any SafePythonConvertible]) throws -> SafePythonObject {
@@ -436,11 +467,7 @@ public actor PythonInterpreter {
         }
         
         let objPtr = getRegisteredPointer(forSafeObj:obj)
-        
-        guard let resultPtr = try api.pythonObject_GetItem(objPtr, pyKeyPtr) else {
-            throw PythonError.nullPointer("Python subscript get failed")
-        }
-        
+        let resultPtr = try getItemWith(key: pyKeyPtr, fromObject: objPtr, onError: { try throwSafePythonError() })
         let resultId = registerSafePythonObject(resultPtr)
         return SafePythonObject(interpreter: self, id: resultId)
     }
@@ -464,7 +491,7 @@ public actor PythonInterpreter {
         let newValuePyObj = try! newValue.toSafePythonObject(interpreter: self)
         let newValuePtr = getRegisteredPointer(forSafeObj: newValuePyObj)
         
-        _ = try api.pythonObject_SetItem(objPtr, pyKeyPtr, newValuePtr)
+        try setItemWith(key: pyKeyPtr, onObject: objPtr, to: newValuePtr, onError: { try throwSafePythonError() } )
     }
     
 }
