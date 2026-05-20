@@ -19,6 +19,14 @@ extension Dictionary : PendingPythonConvertible where Key : PendingPythonConvert
     }
 }
 
+extension Dictionary : SafePythonConvertible where Key : SafePythonConvertible & Hashable, Value : SafePythonConvertible {
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try interpreter.assumeIsolated {
+            try $0.convertToSafePython(dictionary:self)
+        }
+    }
+}
+
 extension Range : PendingPythonConvertible where Bound : PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
         // TODO: NOT WRITTEN
