@@ -53,6 +53,19 @@ extension PythonInterpreter {
         }
         return newSafePythonObject(fromReturnedPointer: dictPtr)
     }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func convertToSafePython(dictionary: [String: any SafePythonConvertible]) throws -> SafePythonObject {
+        let dictPtr = try newPythonDict(orElse: { try throwSafePythonError() })
+        for (key, value) in dictionary {
+            let keyObj = try key.toSafePythonObject(interpreter: self)
+            let valueObj = try value.toSafePythonObject(interpreter: self)
+            let keyPtr = getRegisteredPointer(forSafeObj:keyObj)
+            let valuePtr = getRegisteredPointer(forSafeObj:valueObj)
+            try setValue(valuePtr, onDict: dictPtr, atKey: keyPtr, orElse: { try throwSafePythonError() })
+        }
+        return newSafePythonObject(fromReturnedPointer: dictPtr)
+    }
                 
     // MARK: Python API Helpers
     
@@ -100,16 +113,18 @@ extension PythonInterpreter {
     
     // This requires the GIL
     private func getItemAt(index: Int, fromList list: UnsafeMutableRawPointer, onError throwError: () throws -> Never ) throws -> UnsafeMutableRawPointer {
-        try api.pythonList_GetItem(list, index) ?? {
+        guard let resultPtr = api.pythonList_GetItem(list, index) else {
             try throwError()
-        } ()
+        }
+        return resultPtr
     }
     
     // This requires the GIL
     private func getItemAt(index: Int, fromTuple tuple: UnsafeMutableRawPointer, onError throwError: () throws -> Never ) throws -> UnsafeMutableRawPointer {
-        try api.pythonTuple_GetItem(tuple, index) ?? {
+        guard let resultPtr = api.pythonTuple_GetItem(tuple, index) else {
             try throwError()
-        } ()
+        }
+        return resultPtr
     }
     
     // This requires the GIL
