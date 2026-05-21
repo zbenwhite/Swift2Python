@@ -9,7 +9,7 @@ extension PythonInterpreter {
     
     // This function assumes you already have the GIL.
     internal func throwPythonErrorIfPresent() throws {
-        guard try api.pythonErr_Occurred() != nil else { return }
+        guard api.pythonErr_Occurred() != nil else { return }
         try throwPythonError()
     }
     
@@ -50,7 +50,7 @@ extension PythonInterpreter {
     
     @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     internal func throwSafePythonErrorIfPresent() throws {
-        guard try api.pythonErr_Occurred() != nil else { return }
+        guard api.pythonErr_Occurred() != nil else { return }
         try throwSafePythonError()
     }
     

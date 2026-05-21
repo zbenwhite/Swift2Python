@@ -22,13 +22,13 @@ extension PythonInterpreter {
     @available(*, noasync, message: "Synchronous Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     internal func bytesObjectSize(_ obj: SafePythonObject) throws -> Int {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
-        return try api.pythonBytes_Size(objPtr)
+        return api.pythonBytes_Size(objPtr)
     }
     
     @available(*, noasync, message: "Synchronous Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
     internal func byteArrayObjectSize(_ obj: SafePythonObject) throws -> Int {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
-        return try api.pythonByteArray_Size(objPtr)
+        return api.pythonByteArray_Size(objPtr)
     }
     
     @available(*, noasync, message: "Synchronous Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
@@ -62,14 +62,14 @@ extension PythonInterpreter {
         guard let objPtr = getRegisteredPointer(forPythonObject: obj) else {
             throw PythonError.nullPointer("Object pointer not found")
         }
-        return try await withGIL { try Int(api.pythonBytes_Size(objPtr)) }
+        return try await withGIL { Int(api.pythonBytes_Size(objPtr)) }
     }
     
     public func bytesArrayObjectSize(_ obj: PythonObject) async throws -> Int {
         guard let objPtr = getRegisteredPointer(forPythonObject: obj) else {
             throw PythonError.nullPointer("Object pointer not found")
         }
-        return try await withGIL { try api.pythonByteArray_Size(objPtr) }
+        return try await withGIL { api.pythonByteArray_Size(objPtr) }
     }
     
     // REMOVED DUPLICATE async withUnsafeBytes that manually handled bytes and bytearray here
