@@ -31,7 +31,9 @@ extension PythonInterpreter {
         let PyGILState_Release: (@convention(c) (PyGILState_STATE) -> Void)
         let PyImport_AddModule: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?)
         let PyImport_ImportModule: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?)
+        let PyList_Append: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32)
         let PyList_GetItem: (@convention(c) (UnsafeMutableRawPointer?, Int) -> UnsafeMutableRawPointer?)
+        let PyList_Insert: (@convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Int32)
         let PyList_New: (@convention(c) (Int) -> UnsafeMutableRawPointer?)
         let PyList_SetItem: (@convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Int32)
         let PyList_Size: (@convention(c) (UnsafeMutableRawPointer?) -> Int)
@@ -183,9 +185,19 @@ extension PythonInterpreter {
             return module.withCString({ PyImport_ImportModule($0) })
         }
         
+        internal func pythonList_Append(_ listPtr: UnsafeMutableRawPointer, _ itemPtr: UnsafeMutableRawPointer) -> Int32 {
+            logger.trace("CPython API Call: PyList_Append")
+            return PyList_Append(listPtr, itemPtr)
+        }
+        
         internal func pythonList_GetItem(_ listPtr: UnsafeMutableRawPointer, _ index: Int) -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: PyList_GetItem")
             return PyList_GetItem(listPtr, index)
+        }
+        
+        internal func pythonList_Insert(_ listPtr: UnsafeMutableRawPointer, _ index: Int, _ itemPtr: UnsafeMutableRawPointer) -> Int32 {
+            logger.trace("CPython API Call: PyList_Insert")
+            return PyList_Insert(listPtr, index, itemPtr)
         }
         
         internal func pythonList_New(_ length: Int) -> UnsafeMutableRawPointer? {
@@ -438,8 +450,12 @@ extension PythonInterpreter {
                 "PyImport_AddModule", as: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?).self).function,
             PyImport_ImportModule: try await runtime.loadSendableSymbol(
                 "PyImport_ImportModule", as: (@convention(c) (UnsafePointer<CChar>) -> UnsafeMutableRawPointer?).self).function,
+            PyList_Append: try await runtime.loadSendableSymbol(
+                "PyList_Append", as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32).self).function,
             PyList_GetItem: try await runtime.loadSendableSymbol(
                 "PyList_GetItem", as: (@convention(c) (UnsafeMutableRawPointer?, Int) -> UnsafeMutableRawPointer?).self).function,
+            PyList_Insert: try await runtime.loadSendableSymbol(
+                "PyList_Insert", as: (@convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Int32).self).function,
             PyList_New: try await runtime.loadSendableSymbol(
                 "PyList_New", as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function,
             PyList_SetItem: try await runtime.loadSendableSymbol(
@@ -552,7 +568,7 @@ extension PythonInterpreter {
 //                "PyObject_CallOneArg", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             
             PyDict_Type: try await runtime.loadSendableSymbol("PyDict_Type", as: UnsafeMutableRawPointer.self).function,
-            PyList_Type: try await runtime.loadSendableSymbol("PyDict_Type", as: UnsafeMutableRawPointer.self).function,
+            PyList_Type: try await runtime.loadSendableSymbol("PyList_Type", as: UnsafeMutableRawPointer.self).function,
             PyTuple_Type: try await runtime.loadSendableSymbol("PyTuple_Type", as: UnsafeMutableRawPointer.self).function,
             
             _Py_NoneStruct: try? await runtime.loadSendableSymbol("_Py_NoneStruct", as: UnsafeMutableRawPointer.self).function,

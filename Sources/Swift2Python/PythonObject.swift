@@ -176,6 +176,32 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         return try await interpreter.toArray(self)
     }
     
+    public func isList() async throws -> Bool {
+        return try await interpreter.isList(self)
+    }
+    
+    public func listCount() async throws -> Int {
+        return try await interpreter.getListCount(self)
+    }
+    
+    public func listItem(at index: Int) async throws -> PythonObject {
+        return try await interpreter.listItem(at: index, in: self)
+    }
+    
+    public func listAppendItem(_ item: any PendingPythonConvertible) async throws {
+        return try await interpreter.appendListItem(item, to: self)
+        
+    }
+
+    public func listInsertItem(_ item: any PendingPythonConvertible, at index: Int) async throws {
+        return try await interpreter.insertListItem(item, at: index, to: self)
+    }
+
+    public func listSetItem(at index: Int, to value: any PendingPythonConvertible) async throws {
+        return try await interpreter.setListItem(value, at: index , in: self)
+        
+    }
+
     // MARK: Tuple support
     
     public func isTuple() async throws -> Bool {

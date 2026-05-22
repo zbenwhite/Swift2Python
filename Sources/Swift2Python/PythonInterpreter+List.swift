@@ -34,7 +34,7 @@ extension PythonInterpreter {
         for (index, element) in array.enumerated() {
             let valueSafeObject = try element.toSafePythonObject(interpreter: self)
             let valuePtr = getRegisteredPointer(forSafeObj:valueSafeObject)
-            _ = try setItem(valuePtr, onList: listPtr, atIndex: index, orElse: { try throwPythonError() })
+            _ = try setItem(valuePtr, onList: listPtr, atIndex: index, orElse: { try throwSafePythonError() })
         }
         return newSafePythonObject(fromReturnedPointer: listPtr)
     }
@@ -97,6 +97,22 @@ extension PythonInterpreter {
     }
     
     // This requires the GIL
+    private func appendItem(_ item: UnsafeMutableRawPointer, toList: UnsafeMutableRawPointer, onError throwError: () throws -> Never) throws {
+        let result = api.pythonList_Append(toList, item)
+        if result != 0 {
+            try throwError()
+        }
+    }
+    
+    // This requires the GIL
+    private func insertItem(_ item: UnsafeMutableRawPointer, atIndex: Int, inList: UnsafeMutableRawPointer, onError throwError: () throws -> Never) throws {
+        let result = api.pythonList_Insert(inList, atIndex, item)
+        if result != 0 {
+            try throwError()
+        }
+    }
+    
+    // This requires the GIL
     internal func toArray<K>(fromPythonListPointer objPtr: UnsafeMutableRawPointer,
                              onError throwError: () throws -> Never,
                              handleEachItem: (UnsafeMutableRawPointer) throws -> K) throws -> [K] {
@@ -124,6 +140,108 @@ extension PythonInterpreter {
             try toArray(fromPythonListPointer: objPtr,
                         onError: { try throwPythonError() },
                         borrowedObject: { ptr in borrowedPythonObject(fromReturnedPointer: ptr)} )
+        }
+    }
+    
+    // MARK: Is Python List ?
+    
+    internal func isList(_ obj: PythonObject) async throws -> Bool {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL { try isList(objPtr, onError: { try throwPythonError() } ) }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    internal func syncIsList(_ obj: PythonInterpreter.SafePythonObject) throws -> Bool {
+        let objPtr = getRegisteredPointer(forSafeObj: obj)
+        return try isList(objPtr, onError: { try throwSafePythonError() } )
+    }
+    
+    // MARK: Python List Count
+    
+    internal func getListCount(_ obj: PythonObject) async throws -> Int {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL {
+            let isList = try isList(objPtr, onError: { try throwPythonError() } )
+            guard isList else {
+                throw PythonError.listConversionFailed(expected: "list", actual: nil)
+            }
+            return try getSizeOf(list: objPtr, onError: { try throwPythonError() } )
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    internal func syncListCount(_ obj: PythonInterpreter.SafePythonObject) throws -> Int {
+        let objPtr = getRegisteredPointer(forSafeObj: obj)
+        let isList = try isList(objPtr, onError: { try throwSafePythonError() } )
+        guard isList else {
+            throw PythonError.tupleConversionFailed(expected: "list", actual: nil)
+        }
+        return try getSizeOf(list: objPtr, onError: { try throwSafePythonError() } )
+    }
+    
+    // MARK: Python List Mutation
+    
+    internal func appendListItem(_ item: PendingPythonConvertible, to list: PythonObject) async throws {
+        let listPtr = getRegisteredPointer(forPythonObject: list)!
+        let itemObj = try await item.toPythonObject(interpreter: self)
+        let itemPtr = getRegisteredPointer(forPythonObject: itemObj)!
+        return try await withGIL {
+            let isList = try isList(listPtr, onError: { try throwPythonError() } )
+            guard isList else {
+                throw PythonError.tupleConversionFailed(expected: "list", actual: nil)
+            }
+            try appendItem(itemPtr, toList: listPtr, onError: { try throwPythonError() })
+        }
+    }
+    
+    internal func insertListItem(_ item: PendingPythonConvertible, at index: Int, to list: PythonObject) async throws {
+        let listPtr = getRegisteredPointer(forPythonObject: list)!
+        let itemObj = try await item.toPythonObject(interpreter: self)
+        let itemPtr = getRegisteredPointer(forPythonObject: itemObj)!
+        return try await withGIL {
+            let isList = try isList(listPtr, onError: { try throwPythonError() } )
+            guard isList else {
+                throw PythonError.tupleConversionFailed(expected: "list", actual: nil)
+            }
+            try insertItem(itemPtr, atIndex: index, inList: listPtr, onError: { try throwPythonError() })
+        }
+    }
+    
+    // MARK: Python List Indexing
+    
+    internal func listItem(at index: Int, in obj: PythonObject) async throws -> PythonObject {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL {
+            let isList = try isList(objPtr, onError: { try throwPythonError() } )
+            guard isList else {
+                throw PythonError.listConversionFailed(expected: "list", actual: nil)
+            }
+            
+            let ptr = try getItemAt(index: index, fromList: objPtr, onError: { try throwPythonError() } )
+            return borrowedPythonObject(fromReturnedPointer: ptr)
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    internal func syncListItem(at index: Int, in obj: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject? {
+        let objPtr = getRegisteredPointer(forSafeObj: obj)
+        let isList = try isList(objPtr, onError: { try throwSafePythonError() } )
+        guard isList else { return nil }
+        
+        let ptr = try getItemAt(index: index, fromList: objPtr, onError: { try throwSafePythonError() } )
+        return borrowedSafePythonObject(fromReturnedPointer: ptr)
+    }
+    
+    internal func setListItem(_ item: PendingPythonConvertible, at index: Int, in list: PythonObject) async throws {
+        let listPtr = getRegisteredPointer(forPythonObject: list)!
+        let itemObj = try await item.toPythonObject(interpreter: self)
+        let itemPtr = getRegisteredPointer(forPythonObject: itemObj)!
+        return try await withGIL {
+            let isList = try isList(listPtr, onError: { try throwPythonError() } )
+            guard isList else {
+                throw PythonError.listConversionFailed(expected: "list", actual: nil)
+            }
+            try setItem(itemPtr, onList: listPtr, atIndex: index, orElse: { try throwPythonError() })
         }
     }
     
