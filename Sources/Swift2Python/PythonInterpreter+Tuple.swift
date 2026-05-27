@@ -236,10 +236,12 @@ extension PythonInterpreter {
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    internal func syncTupleItem(at index: Int, in obj: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject? {
+    internal func syncTupleItem(at index: Int, in obj: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
         let isTuple = try isTuple(objPtr, onError: { try throwSafePythonError() } )
-        guard isTuple else { return nil }
+        guard isTuple else {
+            throw PythonError.tupleConversionFailed(expected: "tuple", actual: nil)
+        }
         
         let ptr = try getItemAt(index: index, fromTuple: objPtr, onError: { try throwSafePythonError() } )
         return borrowedSafePythonObject(fromReturnedPointer: ptr)
@@ -264,10 +266,12 @@ extension PythonInterpreter {
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    internal func syncTupleArray(_ obj: PythonInterpreter.SafePythonObject) throws -> [PythonInterpreter.SafePythonObject]? {
+    internal func syncTupleArray(_ obj: PythonInterpreter.SafePythonObject) throws -> [PythonInterpreter.SafePythonObject] {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
         let isTuple = try isTuple(objPtr, onError: { try throwSafePythonError() } )
-        guard isTuple else { return nil }
+        guard isTuple else {
+            throw PythonError.tupleConversionFailed(expected: "tuple", actual: nil)
+        }
         
         let size = try getSizeOf(tuple: objPtr, onError: { try throwSafePythonError() } )
         return try (0..<size).map { index in
@@ -384,13 +388,17 @@ extension PythonInterpreter {
     internal func syncTuple2(_ obj: PythonInterpreter.SafePythonObject) throws ->  (
         PythonInterpreter.SafePythonObject,
         PythonInterpreter.SafePythonObject
-    )? {
+    ) {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
         let isTuple = try isTuple(objPtr, onError: { try throwSafePythonError() } )
-        guard isTuple else { return nil }
+        guard isTuple else {
+            throw PythonError.tupleConversionFailed(expected: "tuple", actual: nil)
+        }
         
         let size = try getSizeOf(tuple: objPtr, onError: { try throwSafePythonError() } )
-        guard size == 2 else { return nil }
+        guard size == 2 else {
+            throw PythonError.tupleArityMismatch(expected: 2, actual: size)
+        }
         
         let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: { try throwSafePythonError() } )
         let ptr1 = try getItemAt(index: 1, fromTuple: objPtr, onError: { try throwSafePythonError() } )
@@ -405,13 +413,17 @@ extension PythonInterpreter {
         PythonInterpreter.SafePythonObject,
         PythonInterpreter.SafePythonObject,
         PythonInterpreter.SafePythonObject
-    )? {
+    ) {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
         let isTuple = try isTuple(objPtr, onError: { try throwSafePythonError() } )
-        guard isTuple else { return nil }
+        guard isTuple else {
+            throw PythonError.tupleConversionFailed(expected: "tuple", actual: nil)
+        }
         
         let size = try getSizeOf(tuple: objPtr, onError: { try throwSafePythonError() } )
-        guard size == 3 else { return nil }
+        guard size == 3 else {
+            throw PythonError.tupleArityMismatch(expected: 3, actual: size)
+        }
         
         let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: { try throwSafePythonError() } )
         let ptr1 = try getItemAt(index: 1, fromTuple: objPtr, onError: { try throwSafePythonError() } )
@@ -429,13 +441,17 @@ extension PythonInterpreter {
         PythonInterpreter.SafePythonObject,
         PythonInterpreter.SafePythonObject,
         PythonInterpreter.SafePythonObject
-    )? {
+    ) {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
         let isTuple = try isTuple(objPtr, onError: { try throwSafePythonError() } )
-        guard isTuple else { return nil }
+        guard isTuple else {
+            throw PythonError.tupleConversionFailed(expected: "tuple", actual: nil)
+        }
         
         let size = try getSizeOf(tuple: objPtr, onError: { try throwSafePythonError() } )
-        guard size == 4 else { return nil }
+        guard size == 4 else {
+            throw PythonError.tupleArityMismatch(expected: 4, actual: size)
+        }
         
         let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: { try throwSafePythonError() } )
         let ptr1 = try getItemAt(index: 1, fromTuple: objPtr, onError: { try throwSafePythonError() } )

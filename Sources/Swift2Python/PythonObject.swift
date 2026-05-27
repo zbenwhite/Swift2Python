@@ -204,30 +204,129 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
 
     // MARK: Tuple support
     
+    /// Returns true if this Python object is a tuple.
+    ///
+    /// Use `await` for correctly managed Swift and Python concurrency. Reference
+    /// counting and GIL-handling are automatic.
+    ///
+    /// ```swift
+    /// if try await object.isTuple() {
+    ///     let count = try await object.tupleCount()
+    /// }
+    /// ```
+    ///
+    /// - Returns: `true` when this object is a Python tuple; otherwise `false`.
+    /// - Throws: `PythonError` if Python raises while checking the object type.
     public func isTuple() async throws -> Bool {
         return try await interpreter.isTuple(self)
     }
     
+    /// Returns the number of elements in this Python tuple.
+    ///
+    /// Use `await` for correctly managed Swift and Python concurrency. Reference
+    /// counting and GIL-handling are automatic.
+    ///
+    /// ```swift
+    /// let count = try await tuple.tupleCount()
+    /// ```
+    ///
+    /// - Returns: The number of elements in the tuple.
+    /// - Throws: `PythonError.tupleConversionFailed` if this object is not a tuple,
+    ///   or `PythonError` if Python raises while reading the tuple size.
     public func tupleCount() async throws -> Int {
         return try await interpreter.getTupleCount(self)
     }
-    
+    /// Converts this Python tuple to a Swift array of PythonObject elements.
+    ///
+    /// Use this when the tuple length is dynamic. The returned array contains
+    /// reference-managed `PythonObject` values for each tuple element.
+    ///
+    /// ```swift
+    /// let elements = try await tuple.asTupleArray()
+    /// for element in elements {
+    ///     print(try await String(element))
+    /// }
+    /// ```
+    ///
+    /// - Returns: A Swift array containing the tuple elements as `PythonObject` values.
+    /// - Throws: `PythonError.tupleConversionFailed` if this object is not a tuple,
+    ///   or `PythonError` if Python raises while reading an element.
     public func asTupleArray() async throws -> [PythonObject] {
         return try await interpreter.toTupleArray(self)
     }
     
+    /// Returns the tuple element at the specified index.
+    ///
+    /// Tuple indexing is zero-based. Negative indexing is not currently documented as
+    /// supported by this helper; call Python directly if you need full Python indexing
+    /// behavior.
+    ///
+    /// ```swift
+    /// let first = try await tuple.tupleItem(at: 0)
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - index: The zero-based tuple index to read.
+    /// - Returns: The tuple element at `index` as a `PythonObject`.
+    /// - Throws: `PythonError.tupleConversionFailed` if this object is not a tuple,
+    ///   or `PythonError` if Python raises while reading the element.
     public func tupleItem(at index: Int) async throws -> PythonObject {
         return try await interpreter.tupleItem(at: index, in: self)
     }
     
+    /// Converts this Python tuple to a fixed-size Swift 2-tuple.
+    ///
+    /// Use this when exactly two tuple elements are part of the API contract.
+    ///
+    /// ```swift
+    /// let pair = try await tuple.asTuple2()
+    /// let key = try await String(pair.0)
+    /// let value = try await Int(pair.1)
+    /// ```
+    ///
+    /// - Returns: A Swift tuple containing the two Python tuple elements.
+    /// - Throws: `PythonError.tupleConversionFailed` if this object is not a tuple,
+    ///   `PythonError.tupleArityMismatch` if the tuple does not contain exactly two
+    ///   elements, or `PythonError` if Python raises while reading an element.
     public func asTuple2() async throws -> (PythonObject, PythonObject) {
         return try await interpreter.toTuple2(self)
     }
     
+    /// Converts this Python tuple to a fixed-size Swift 3-tuple.
+    ///
+    /// Use this when exactly three tuple elements are part of the API contract.
+    ///
+    /// ```swift
+    /// let point = try await tuple.asTuple3()
+    /// let x = try await Double(point.0)
+    /// let y = try await Double(point.1)
+    /// let z = try await Double(point.2)
+    /// ```
+    ///
+    /// - Returns: A Swift tuple containing the three Python tuple elements.
+    /// - Throws: `PythonError.tupleConversionFailed` if this object is not a tuple,
+    ///   `PythonError.tupleArityMismatch` if the tuple does not contain exactly three
+    ///   elements, or `PythonError` if Python raises while reading an element.
     public func asTuple3() async throws -> (PythonObject, PythonObject, PythonObject) {
         return try await interpreter.toTuple3(self)
     }
     
+    /// Converts this Python tuple to a fixed-size Swift 4-tuple.
+    ///
+    /// Use this when exactly four tuple elements are part of the API contract.
+    ///
+    /// ```swift
+    /// let values = try await tuple.asTuple4()
+    /// let first = try await Int(values.0)
+    /// let second = try await Int(values.1)
+    /// let third = try await Int(values.2)
+    /// let fourth = try await Int(values.3)
+    /// ```
+    ///
+    /// - Returns: A Swift tuple containing the four Python tuple elements.
+    /// - Throws: `PythonError.tupleConversionFailed` if this object is not a tuple,
+    ///   `PythonError.tupleArityMismatch` if the tuple does not contain exactly four
+    ///   elements, or `PythonError` if Python raises while reading an element.
     public func asTuple4() async throws -> (PythonObject, PythonObject, PythonObject, PythonObject) {
         return try await interpreter.toTuple4(self)
     }
