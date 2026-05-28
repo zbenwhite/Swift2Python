@@ -114,7 +114,7 @@ extension PythonInterpreter.SafePythonObject {
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    public var dictKeys: [PythonInterpreter.SafePythonObject]? {
+    public var dictKeys: [PythonInterpreter.SafePythonObject] {
         get throws {
             try interpreter.assumeIsolated {
                 try $0.syncDictKeys(self)
@@ -123,7 +123,7 @@ extension PythonInterpreter.SafePythonObject {
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    public var dictValues: [PythonInterpreter.SafePythonObject]? {
+    public var dictValues: [PythonInterpreter.SafePythonObject] {
         get throws {
             try interpreter.assumeIsolated {
                 try $0.syncDictValues(self)
@@ -132,7 +132,7 @@ extension PythonInterpreter.SafePythonObject {
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    public var dictItems: [(key: PythonInterpreter.SafePythonObject, value: PythonInterpreter.SafePythonObject)]? {
+    public var dictItems: [(key: PythonInterpreter.SafePythonObject, value: PythonInterpreter.SafePythonObject)] {
         get throws {
             try interpreter.assumeIsolated {
                 try $0.syncDictItems(self)

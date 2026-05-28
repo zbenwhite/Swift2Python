@@ -241,10 +241,12 @@ extension PythonInterpreter {
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    internal func syncDictKeys(_ obj: PythonInterpreter.SafePythonObject) throws -> [PythonInterpreter.SafePythonObject]? {
+    internal func syncDictKeys(_ obj: PythonInterpreter.SafePythonObject) throws -> [PythonInterpreter.SafePythonObject] {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
         let isDict = try isDict(objPtr, onError: { try throwSafePythonError() } )
-        guard isDict else { return nil }
+        guard isDict else {
+            throw PythonError.dictionaryConversionFailed(expected: "dict", actual: nil)
+        }
         
         let listPtr = try getKeysList(from: objPtr, onError: { try throwSafePythonError() } )
         defer { api.Py_DecRef(listPtr) }   // List is only used here and not kept
@@ -254,10 +256,12 @@ extension PythonInterpreter {
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    internal func syncDictValues(_ obj: PythonInterpreter.SafePythonObject) throws -> [PythonInterpreter.SafePythonObject]? {
+    internal func syncDictValues(_ obj: PythonInterpreter.SafePythonObject) throws -> [PythonInterpreter.SafePythonObject] {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
         let isDict = try isDict(objPtr, onError: { try throwSafePythonError() } )
-        guard isDict else { return nil }
+        guard isDict else {
+            throw PythonError.dictionaryConversionFailed(expected: "dict", actual: nil)
+        }
         
         let listPtr = try getValuesList(from: objPtr, onError: { try throwSafePythonError() } )
         defer { api.Py_DecRef(listPtr) }    // List is only used here and not kept
@@ -267,10 +271,12 @@ extension PythonInterpreter {
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    internal func syncDictItems(_ obj: PythonInterpreter.SafePythonObject) throws -> [(key: PythonInterpreter.SafePythonObject, value: PythonInterpreter.SafePythonObject)]? {
+    internal func syncDictItems(_ obj: PythonInterpreter.SafePythonObject) throws -> [(key: PythonInterpreter.SafePythonObject, value: PythonInterpreter.SafePythonObject)] {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
         let isDict = try isDict(objPtr, onError: { try throwSafePythonError() } )
-        guard isDict else { return nil }
+        guard isDict else {
+            throw PythonError.dictionaryConversionFailed(expected: "dict", actual: nil)
+        }
         
         let listPtr = try getItemsList(from: objPtr, onError: { try throwSafePythonError() } )
         defer { api.Py_DecRef(listPtr) }    // List is only used here and not kept
