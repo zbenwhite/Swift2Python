@@ -15,8 +15,7 @@ extension PythonInterpreter {
     
     public func convertToPython<K, V>(dictionary: [K: V]) async throws -> PythonObject
             where K: PendingPythonConvertible & Hashable, V: PendingPythonConvertible {
-                
-        let dictPtr = try newPythonDict(orElse: { try throwPythonError() })
+        let dictPtr = try await withGIL { try newPythonDict(orElse: { try throwPythonError() }) }
         for (key, value) in dictionary {
             let keyObj = try await key.toPythonObject(interpreter: self)
             let valueObj = try await value.toPythonObject(interpreter: self)
@@ -28,7 +27,7 @@ extension PythonInterpreter {
     }
     
     public func convertToPython(dictionary: [String: any PendingPythonConvertible]) async throws -> PythonObject {
-        let dictPtr = try newPythonDict(orElse: { try throwPythonError() })
+        let dictPtr = try await withGIL { try newPythonDict(orElse: { try throwPythonError() }) }
         for (key, value) in dictionary {
             let keyObj = try await key.toPythonObject(interpreter: self)
             let valueObj = try await value.toPythonObject(interpreter: self)
@@ -233,8 +232,8 @@ extension PythonInterpreter {
             return try toArray(fromPythonListPointer: listPtr, onError: { try throwPythonError() },
                         handleEachItem: { tuplePtr in
                     // no need to reference count the tuple pointer.  It's owned by python and not stored in swift.
-                    let keyPtr = try getItemAt(index: 0, fromTuple: tuplePtr, onError: { try throwSafePythonError() } )
-                    let valuePtr = try getItemAt(index: 1, fromTuple: tuplePtr, onError: { try throwSafePythonError() } )
+                    let keyPtr = try getItemAt(index: 0, fromTuple: tuplePtr, onError: { try throwPythonError() } )
+                    let valuePtr = try getItemAt(index: 1, fromTuple: tuplePtr, onError: { try throwPythonError() } )
                     return ( key: borrowedPythonObject(fromReturnedPointer: keyPtr),
                         value: borrowedPythonObject(fromReturnedPointer: valuePtr)  )
                 } )
