@@ -84,6 +84,20 @@ extension PythonInterpreter {
     }
     
     // This requires the GIL
+    private func deleteItem(atKey key: UnsafeMutableRawPointer, fromDict dict: UnsafeMutableRawPointer, onError throwError: () throws -> Never) throws {
+        let result = api.pythonObject_DelItem(dict, key)
+        if result == -1 {
+            try throwError()
+        }
+    }
+    
+    // This requires the GIL
+    // PyMapping_HasKey always succeeds.  Errors are trapped by Python itself so no throws
+    private func hasKey(_ key: UnsafeMutableRawPointer, inDict dict: UnsafeMutableRawPointer) -> Bool {
+        api.pythonMapping_HasKey(dict, key)
+    }
+    
+    // This requires the GIL
     private func isDict(_ objPtr: UnsafeMutableRawPointer, onError throwError: () throws -> Never ) throws -> Bool  {
         switch api.pythonObject_IsInstance(objPtr, api.PyDict_Type) {
         case 0: return false
@@ -181,6 +195,52 @@ extension PythonInterpreter {
             throw PythonError.dictionaryConversionFailed(expected: "dict", actual: nil)
         }
         return try getSizeOf(dictionary: objPtr, onError: { try throwSafePythonError() } )
+    }
+    
+    internal func containsKey(_ key: PythonObject, inDict obj: PythonObject) async throws -> Bool {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let keyPtr = getRegisteredPointer(forPythonObject: key)!
+        return try await withGIL {
+            let isDict = try isDict(objPtr, onError: { try throwPythonError() } )
+            guard isDict else {
+                throw PythonError.dictionaryConversionFailed(expected: "dict", actual: nil)
+            }
+            return hasKey(keyPtr, inDict: objPtr)
+        }
+    }
+    
+    internal func deleteItem(fromDict obj: PythonObject, key: PythonObject) async throws {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let keyPtr = getRegisteredPointer(forPythonObject: key)!
+        try await withGIL {
+            let isDict = try isDict(objPtr, onError: { try throwPythonError() } )
+            guard isDict else {
+                throw PythonError.dictionaryConversionFailed(expected: "dict", actual: nil)
+            }
+            try deleteItem(atKey: keyPtr, fromDict: objPtr, onError: { try throwPythonError() })
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    internal func syncContainsKey(_ key: PythonInterpreter.SafePythonObject, inDict obj: PythonInterpreter.SafePythonObject) throws -> Bool {
+        let objPtr = getRegisteredPointer(forSafeObj: obj)
+        let keyPtr = getRegisteredPointer(forSafeObj: key)
+        let isDict = try isDict(objPtr, onError: { try throwSafePythonError() } )
+        guard isDict else {
+            throw PythonError.dictionaryConversionFailed(expected: "dict", actual: nil)
+        }
+        return hasKey(keyPtr, inDict: objPtr)
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    internal func syncDeleteItem(fromDict obj: PythonInterpreter.SafePythonObject, key: PythonInterpreter.SafePythonObject) throws {
+        let objPtr = getRegisteredPointer(forSafeObj: obj)
+        let keyPtr = getRegisteredPointer(forSafeObj: key)
+        let isDict = try isDict(objPtr, onError: { try throwSafePythonError() } )
+        guard isDict else {
+            throw PythonError.dictionaryConversionFailed(expected: "dict", actual: nil)
+        }
+        try deleteItem(atKey: keyPtr, fromDict: objPtr, onError: { try throwSafePythonError() })
     }
     
     // MARK: Convert Dict Views To Swift Arrays

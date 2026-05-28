@@ -140,6 +140,22 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func deleteItem(key: SafePythonConvertible) throws {
+        try interpreter.assumeIsolated {
+            let keyObj = try key.toSafePythonObject(interpreter: $0)
+            try $0.syncDeleteItem(fromDict: self, key: keyObj)
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func containsKey(_ key: SafePythonConvertible) throws -> Bool {
+        try interpreter.assumeIsolated {
+            let keyObj = try key.toSafePythonObject(interpreter: $0)
+            return try $0.syncContainsKey(keyObj, inDict: self)
+        }
+    }
+    
     // MARK: Tuple Support
     
     /// Returns true if this safe Python object is a tuple.

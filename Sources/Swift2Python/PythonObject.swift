@@ -88,6 +88,14 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         try await interpreter.setItem(object: self, key: key.toPythonObject(interpreter: self.interpreter), newValue: newValue.toPythonObject(interpreter: self.interpreter))
     }
     
+    public func deleteItem(key: PendingPythonConvertible) async throws {
+        try await interpreter.deleteItem(fromDict: self, key: key.toPythonObject(interpreter: self.interpreter))
+    }
+    
+    public func containsKey(_ key: PendingPythonConvertible) async throws -> Bool {
+        try await interpreter.containsKey(key.toPythonObject(interpreter: self.interpreter), inDict: self)
+    }
+    
     //
     // a.call_a_function() can be implemented.
     public subscript(dynamicMember name: String) -> CallablePythonObject {
