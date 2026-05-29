@@ -94,6 +94,22 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Dictionary Support
     
+    /// Returns true if this safe Python object is a dictionary.
+    ///
+    /// Only use this property inside the synchronous, GIL-managed, reference-managed
+    /// local `withIsolatedContext` environment.
+    ///
+    /// ```swift
+    /// try await interpreter.withIsolatedContext { context in
+    ///     let object = try context.convertToSafePython(dictionary: ["name": "Ada"])
+    ///     if try object.isDict {
+    ///         let count = try object.dictCount
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// - Returns: `true` when this object is a Python dictionary; otherwise `false`.
+    /// - Throws: `PythonError` if Python raises while checking the object type.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public var isDict: Bool {
         get throws {
@@ -104,6 +120,21 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    /// Returns the number of entries in this safe Python dictionary.
+    ///
+    /// Only use this property inside the synchronous, GIL-managed, reference-managed
+    /// local `withIsolatedContext` environment.
+    ///
+    /// ```swift
+    /// try await interpreter.withIsolatedContext { context in
+    ///     let dict = try context.convertToSafePython(dictionary: ["name": "Ada"])
+    ///     let count = try dict.dictCount
+    /// }
+    /// ```
+    ///
+    /// - Returns: The number of key-value pairs in the dictionary.
+    /// - Throws: `PythonError.dictionaryConversionFailed` if this object is not a dictionary,
+    ///   or `PythonError` if Python raises while reading the dictionary size.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public var dictCount: Int {
         get throws {
@@ -113,6 +144,22 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    /// Returns this safe Python dictionary's keys as a Swift array of safe Python objects.
+    ///
+    /// Only use this property inside the synchronous, GIL-managed, reference-managed
+    /// local `withIsolatedContext` environment. Use this when you want an eager Swift array.
+    /// To preserve Python's view semantics, call Python's `keys()` method directly instead.
+    ///
+    /// ```swift
+    /// try await interpreter.withIsolatedContext { context in
+    ///     let dict = try context.convertToSafePython(dictionary: ["name": "Ada"])
+    ///     let keys = try dict.dictKeys
+    /// }
+    /// ```
+    ///
+    /// - Returns: A Swift array containing the dictionary keys as `SafePythonObject` values.
+    /// - Throws: `PythonError.dictionaryConversionFailed` if this object is not a dictionary,
+    ///   or `PythonError` if Python raises while reading the keys.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public var dictKeys: [PythonInterpreter.SafePythonObject] {
         get throws {
@@ -122,6 +169,22 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    /// Returns this safe Python dictionary's values as a Swift array of safe Python objects.
+    ///
+    /// Only use this property inside the synchronous, GIL-managed, reference-managed
+    /// local `withIsolatedContext` environment. Use this when you want an eager Swift array.
+    /// To preserve Python's view semantics, call Python's `values()` method directly instead.
+    ///
+    /// ```swift
+    /// try await interpreter.withIsolatedContext { context in
+    ///     let dict = try context.convertToSafePython(dictionary: ["name": "Ada"])
+    ///     let values = try dict.dictValues
+    /// }
+    /// ```
+    ///
+    /// - Returns: A Swift array containing the dictionary values as `SafePythonObject` values.
+    /// - Throws: `PythonError.dictionaryConversionFailed` if this object is not a dictionary,
+    ///   or `PythonError` if Python raises while reading the values.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public var dictValues: [PythonInterpreter.SafePythonObject] {
         get throws {
@@ -131,6 +194,22 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    /// Returns this safe Python dictionary's key-value pairs as a Swift array.
+    ///
+    /// Only use this property inside the synchronous, GIL-managed, reference-managed
+    /// local `withIsolatedContext` environment. Use this when you want an eager Swift array.
+    /// To preserve Python's view semantics, call Python's `items()` method directly instead.
+    ///
+    /// ```swift
+    /// try await interpreter.withIsolatedContext { context in
+    ///     let dict = try context.convertToSafePython(dictionary: ["name": "Ada"])
+    ///     let items = try dict.dictItems
+    /// }
+    /// ```
+    ///
+    /// - Returns: A Swift array of `(key: SafePythonObject, value: SafePythonObject)` pairs.
+    /// - Throws: `PythonError.dictionaryConversionFailed` if this object is not a dictionary,
+    ///   or `PythonError` if Python raises while reading the items.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public var dictItems: [(key: PythonInterpreter.SafePythonObject, value: PythonInterpreter.SafePythonObject)] {
         get throws {
@@ -140,6 +219,23 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    /// Deletes a key from this safe Python dictionary.
+    ///
+    /// Only use this method inside the synchronous, GIL-managed, reference-managed
+    /// local `withIsolatedContext` environment. This helper validates that this
+    /// object is a Python dictionary before deleting the item.
+    ///
+    /// ```swift
+    /// try await interpreter.withIsolatedContext { context in
+    ///     let dict = try context.convertToSafePython(dictionary: ["name": "Ada"])
+    ///     try dict.deleteItem(key: "name")
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - key: The dictionary key to delete.
+    /// - Throws: `PythonError.dictionaryConversionFailed` if this object is not a dictionary,
+    ///   or `PythonError` if Python raises while deleting the key.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func deleteItem(key: SafePythonConvertible) throws {
         try interpreter.assumeIsolated {
@@ -148,6 +244,26 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    /// Returns true if this safe Python dictionary contains the given key.
+    ///
+    /// Only use this method inside the synchronous, GIL-managed, reference-managed
+    /// local `withIsolatedContext` environment. This helper validates that this
+    /// object is a Python dictionary before checking key membership.
+    ///
+    /// ```swift
+    /// try await interpreter.withIsolatedContext { context in
+    ///     let dict = try context.convertToSafePython(dictionary: ["name": "Ada"])
+    ///     if try dict.containsKey("name") {
+    ///         print("name is present")
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - key: The dictionary key to check.
+    /// - Returns: `true` when the key is present; otherwise `false`.
+    /// - Throws: `PythonError.dictionaryConversionFailed` if this object is not a dictionary,
+    ///   or `PythonError` if Python raises while checking key membership.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func containsKey(_ key: SafePythonConvertible) throws -> Bool {
         try interpreter.assumeIsolated {

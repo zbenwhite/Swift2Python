@@ -88,10 +88,41 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         try await interpreter.setItem(object: self, key: key.toPythonObject(interpreter: self.interpreter), newValue: newValue.toPythonObject(interpreter: self.interpreter))
     }
     
+    /// Deletes a key from this Python dictionary.
+    ///
+    /// Use `await` for correctly managed Swift and Python concurrency. Reference
+    /// counting and GIL-handling are automatic. This helper validates that this
+    /// object is a Python dictionary before deleting the item.
+    ///
+    /// ```swift
+    /// try await dict.deleteItem(key: "name")
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - key: The dictionary key to delete.
+    /// - Throws: `PythonError.dictionaryConversionFailed` if this object is not a dictionary,
+    ///   or `PythonError` if Python raises while deleting the key.
     public func deleteItem(key: PendingPythonConvertible) async throws {
         try await interpreter.deleteItem(fromDict: self, key: key.toPythonObject(interpreter: self.interpreter))
     }
     
+    /// Returns true if this Python dictionary contains the given key.
+    ///
+    /// Use `await` for correctly managed Swift and Python concurrency. Reference
+    /// counting and GIL-handling are automatic. This helper validates that this
+    /// object is a Python dictionary before checking key membership.
+    ///
+    /// ```swift
+    /// if try await dict.containsKey("name") {
+    ///     print("name is present")
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - key: The dictionary key to check.
+    /// - Returns: `true` when the key is present; otherwise `false`.
+    /// - Throws: `PythonError.dictionaryConversionFailed` if this object is not a dictionary,
+    ///   or `PythonError` if Python raises while checking key membership.
     public func containsKey(_ key: PendingPythonConvertible) async throws -> Bool {
         try await interpreter.containsKey(key.toPythonObject(interpreter: self.interpreter), inDict: self)
     }
@@ -158,22 +189,93 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     
     // MARK: Dict support
     
+    /// Returns true if this Python object is a dictionary.
+    ///
+    /// Use `await` for correctly managed Swift and Python concurrency. Reference
+    /// counting and GIL-handling are automatic.
+    ///
+    /// ```swift
+    /// if try await object.isDict() {
+    ///     let count = try await object.dictCount()
+    /// }
+    /// ```
+    ///
+    /// - Returns: `true` when this object is a Python dictionary; otherwise `false`.
+    /// - Throws: `PythonError` if Python raises while checking the object type.
     public func isDict() async throws -> Bool {
         return try await interpreter.isDict(self)
     }
     
+    /// Returns the number of entries in this Python dictionary.
+    ///
+    /// Use this when you expect the object to be a dictionary and want an error if it is not one.
+    ///
+    /// ```swift
+    /// let count = try await dict.dictCount()
+    /// ```
+    ///
+    /// - Returns: The number of key-value pairs in the dictionary.
+    /// - Throws: `PythonError.dictionaryConversionFailed` if this object is not a dictionary,
+    ///   or `PythonError` if Python raises while reading the dictionary size.
     public func dictCount() async throws -> Int {
         return try await interpreter.getDictCount(self)
     }
     
+    /// Returns this Python dictionary's keys as a Swift array of Python objects.
+    ///
+    /// Use this when you want an eager Swift array. To preserve Python's view semantics,
+    /// call Python's `keys()` method directly instead.
+    ///
+    /// ```swift
+    /// let keys = try await dict.dictKeys()
+    /// for key in keys {
+    ///     print(try await String(key))
+    /// }
+    /// ```
+    ///
+    /// - Returns: A Swift array containing the dictionary keys as `PythonObject` values.
+    /// - Throws: `PythonError.dictionaryConversionFailed` if this object is not a dictionary,
+    ///   or `PythonError` if Python raises while reading the keys.
     public func dictKeys() async throws -> [PythonObject] {
         return try await interpreter.dictKeys(self)
     }
     
+    /// Returns this Python dictionary's values as a Swift array of Python objects.
+    ///
+    /// Use this when you want an eager Swift array. To preserve Python's view semantics,
+    /// call Python's `values()` method directly instead.
+    ///
+    /// ```swift
+    /// let values = try await dict.dictValues()
+    /// for value in values {
+    ///     print(try await String(value))
+    /// }
+    /// ```
+    ///
+    /// - Returns: A Swift array containing the dictionary values as `PythonObject` values.
+    /// - Throws: `PythonError.dictionaryConversionFailed` if this object is not a dictionary,
+    ///   or `PythonError` if Python raises while reading the values.
     public func dictValues() async throws -> [PythonObject] {
         return try await interpreter.dictValues(self)
     }
     
+    /// Returns this Python dictionary's key-value pairs as a Swift array.
+    ///
+    /// Use this when you want an eager Swift array. To preserve Python's view semantics,
+    /// call Python's `items()` method directly instead.
+    ///
+    /// ```swift
+    /// let items = try await dict.dictItems()
+    /// for item in items {
+    ///     let key = try await String(item.key)
+    ///     let value = try await Int(item.value)
+    ///     print(key, value)
+    /// }
+    /// ```
+    ///
+    /// - Returns: A Swift array of `(key: PythonObject, value: PythonObject)` pairs.
+    /// - Throws: `PythonError.dictionaryConversionFailed` if this object is not a dictionary,
+    ///   or `PythonError` if Python raises while reading the items.
     public func dictItems() async throws -> [(key: PythonObject, value: PythonObject)] {
         return try await interpreter.dictItems(self)
     }

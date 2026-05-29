@@ -13,3 +13,4 @@ Use the async APIs for normal Swift concurrency code. Use safe objects inside an
 ### Containers
 
 - <doc:Tuples>
+- <doc:Dictionaries>

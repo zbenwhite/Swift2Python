@@ -188,3 +188,235 @@ Do not add these unless the user explicitly requests them:
 ### Release Completeness
 
 Tuple support should be considered complete for a 1.0 release. It has async APIs, safe APIs, tuple creation, tuple inspection, fixed-size unpacking, dynamic array conversion, tuple-specific errors, unit tests, and DocC documentation.
+
+## Dictionaries
+
+Dictionary support has explicit stable-ABI helpers for dictionary creation, inspection, key/value/item extraction, membership, and deletion. Prefer those helpers when the user is working with dictionaries as dictionaries. Use normal Python method calls when the user needs Python-native dict view objects or Python methods such as `get`, `pop`, or `update`.
+
+### What Dictionary APIs Exist
+
+Async ``PythonObject`` dictionary APIs:
+
+```swift
+try await object.isDict()
+try await dict.dictCount()
+try await dict.dictKeys()
+try await dict.dictValues()
+try await dict.dictItems()
+try await dict.containsKey("name")
+try await dict.deleteItem(key: "name")
+try await dict.getItem(key: "name")
+try await dict.setItem(key: "name", newValue: "Ada")
+```
+
+Dictionary creation from Swift dictionaries:
+
+```swift
+let dict = try await interpreter.convertToPython(dictionary: [
+    "name": "Ada",
+    "count": 3
+])
+
+let heterogeneous: [String: any PendingPythonConvertible] = [
+    "name": "Ada",
+    "count": 3,
+    "active": true
+]
+let heterogeneousDict = try await interpreter.convertToPython(dictionary: heterogeneous)
+```
+
+Safe dictionary APIs inside `withIsolatedContext`:
+
+```swift
+try dict.isDict
+try dict.dictCount
+try dict.dictKeys
+try dict.dictValues
+try dict.dictItems
+try dict.containsKey("name")
+try dict.deleteItem(key: "name")
+```
+
+Safe dictionary creation:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let dict = try context.convertToSafePython(dictionary: [
+        "name": "Ada",
+        "count": 3
+    ])
+}
+```
+
+### Preferred Async Patterns
+
+Create dictionaries from Swift dictionaries:
+
+```swift
+let dict = try await interpreter.convertToPython(dictionary: [
+    "one": 1,
+    "two": 2
+])
+```
+
+Read dictionary keys, values, and items as Swift arrays of Python objects:
+
+```swift
+let keys = try await dict.dictKeys()
+for key in keys {
+    print(try await String(key))
+}
+
+let items = try await dict.dictItems()
+for item in items {
+    let key = try await String(item.key)
+    let value = try await Int(item.value)
+    print(key, value)
+}
+```
+
+Use generic item APIs for lookup and assignment:
+
+```swift
+let name = try await dict.getItem(key: "name")
+try await dict.setItem(key: "count", newValue: 4)
+```
+
+Use dictionary-specific membership and deletion helpers:
+
+```swift
+if try await dict.containsKey("name") {
+    try await dict.deleteItem(key: "name")
+}
+```
+
+### Python-Native Dictionary Methods
+
+Use normal Python method calls when the user wants Python's native dictionary behavior:
+
+```swift
+let keysView = try await dict.keys()
+let valuesView = try await dict.values()
+let itemsView = try await dict.items()
+```
+
+Python's `keys()`, `values()`, and `items()` return view objects. Convert them with builtins when a list is needed:
+
+```swift
+let keysList = try await interpreter.builtins.list(keysView)
+let keys = try await keysList.asArray()
+```
+
+Use explicit dynamic-member syntax when a Python method name conflicts with a Swift helper or overload, or when passing multiple arguments is clearer:
+
+```swift
+let fallback = try await dict[dynamicMember: "get"]("missing", "fallback")
+let popped = try await dict.pop("name")
+_ = try await dict.update(["city": "London"])
+```
+
+Do not create wrapper APIs for every Python dict method by default. Python-native calls cover methods such as `clear`, `copy`, `fromkeys`, `get`, `items`, `keys`, `pop`, `popitem`, `setdefault`, `update`, and `values`.
+
+### Preferred Safe Patterns
+
+Use safe dictionary APIs only inside `withIsolatedContext`:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let dict = try context.convertToSafePython(dictionary: [
+        "name": "Ada",
+        "count": 3
+    ])
+
+    let count = try dict.dictCount
+    let name = try String(dict["name"])
+    print(count, name)
+}
+```
+
+Use safe array helpers for keys, values, and items:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let dict = try context.convertToSafePython(dictionary: ["one": 1, "two": 2])
+
+    let keys = try dict.dictKeys
+    let values = try dict.dictValues
+    let items = try dict.dictItems
+
+    print(keys.count, values.count, items.count)
+}
+```
+
+Use safe Python-native methods when Python view semantics are needed:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let dict = try context.convertToSafePython(dictionary: ["name": "Ada"])
+
+    let keysView = try dict.keys()
+    let keysList = try context.builtins.list(keysView)
+    print(keysList)
+}
+```
+
+If a Python dictionary method collides with a Swift helper name, call it through explicit dynamic-member syntax:
+
+```swift
+let itemsView = try dict[dynamicMember: "items"]()
+let fallback = try dict[dynamicMember: "get"]("missing", "fallback")
+```
+
+### Error Behavior
+
+Async dictionary helpers throw:
+
+- `PythonError.dictionaryConversionFailed(expected:actual:)` when the object is not a dictionary.
+- `PythonError.pythonException` when Python raises while performing dictionary operations, including deleting a missing key.
+
+Safe dictionary helpers throw:
+
+- `PythonError.dictionaryConversionFailed(expected:actual:)` when the object is not a dictionary.
+- `PythonError.safePythonException` when Python raises while performing dictionary operations, including deleting a missing key.
+
+Safe dictionary helpers throw and return non-optional values. Do not write safe dictionary code as if keys, values, or items return optionals:
+
+```swift
+let items = try dict.dictItems
+```
+
+Do not write:
+
+```swift
+if let items = try dict.dictItems { }
+```
+
+### Dictionary View Guidance
+
+Use Swift2Python's dictionary helpers when the intended result is a Swift array:
+
+```swift
+let keys = try await dict.dictKeys()
+```
+
+Use Python's dictionary methods when the intended result is a Python view object:
+
+```swift
+let keysView = try await dict.keys()
+```
+
+Do not treat these as interchangeable. The helper eagerly returns Swift arrays of Swift2Python objects; Python methods return live Python view objects.
+
+### What Not To Add For Dictionaries
+
+Do not add these unless the user explicitly requests them:
+
+- Wrapper APIs for every Python dict method.
+- A `clear()` wrapper. Users can call Python's `dict.clear()` directly, and `PyDict_Clear` is not needed for the core API.
+- A `pop()` wrapper. Users can call `try await dict.pop("key")` or `try dict.pop("key")` in safe context.
+- Dedicated wrappers for `keys()`, `values()`, or `items()` view objects. Existing Python method calls cover this.
+- Optional safe dictionary helpers. The main safe dictionary API throws.
+
+### Release Completeness
+
+Dictionary support should be considered close to release-ready when it has async APIs, safe APIs, dictionary creation, dictionary inspection, key/value/item extraction, membership, deletion, Python-native method examples, unit tests, and DocC documentation.

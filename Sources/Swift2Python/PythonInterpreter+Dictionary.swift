@@ -13,6 +13,22 @@ extension PythonInterpreter {
     
     // MARK: Swift Dict to Python
     
+    /// Create a PythonObject dictionary from a Swift dictionary.
+    ///
+    /// Use `await` for correctly managed Swift and Python concurrency. Reference
+    /// counting and GIL-handling are automatic.
+    ///
+    /// ```swift
+    /// let dict = try await interpreter.convertToPython(dictionary: [
+    ///     "name": "Ada",
+    ///     "count": 3
+    /// ])
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - dictionary: A Swift dictionary whose keys and values conform to `PendingPythonConvertible`.
+    /// - Returns: A `PythonObject` representing a Python dictionary.
+    /// - Throws: `PythonError` if dictionary creation, key conversion, value conversion, or item insertion fails.
     public func convertToPython<K, V>(dictionary: [K: V]) async throws -> PythonObject
             where K: PendingPythonConvertible & Hashable, V: PendingPythonConvertible {
         let dictPtr = try await withGIL { try newPythonDict(orElse: { try throwPythonError() }) }
@@ -26,6 +42,24 @@ extension PythonInterpreter {
         return newPythonObject(fromReturnedPointer: dictPtr)
     }
     
+    /// Create a PythonObject dictionary from a heterogeneous Swift dictionary with string keys.
+    ///
+    /// Use this overload when dictionary values have different Swift types but all values
+    /// conform to `PendingPythonConvertible`.
+    ///
+    /// ```swift
+    /// let values: [String: any PendingPythonConvertible] = [
+    ///     "name": "Ada",
+    ///     "count": 3,
+    ///     "active": true
+    /// ]
+    /// let dict = try await interpreter.convertToPython(dictionary: values)
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - dictionary: A string-keyed Swift dictionary whose values conform to `PendingPythonConvertible`.
+    /// - Returns: A `PythonObject` representing a Python dictionary.
+    /// - Throws: `PythonError` if dictionary creation, key conversion, value conversion, or item insertion fails.
     public func convertToPython(dictionary: [String: any PendingPythonConvertible]) async throws -> PythonObject {
         let dictPtr = try await withGIL { try newPythonDict(orElse: { try throwPythonError() }) }
         for (key, value) in dictionary {
@@ -39,6 +73,24 @@ extension PythonInterpreter {
     }
     
     
+    /// Create a SafePythonObject dictionary from a Swift dictionary.
+    ///
+    /// Only for use inside the synchronous, GIL-managed, reference-managed local
+    /// `withIsolatedContext` environment.
+    ///
+    /// ```swift
+    /// try await interpreter.withIsolatedContext { context in
+    ///     let dict = try context.convertToSafePython(dictionary: [
+    ///         "name": "Ada",
+    ///         "count": 3
+    ///     ])
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - dictionary: A Swift dictionary whose keys and values conform to `SafePythonConvertible`.
+    /// - Returns: A `SafePythonObject` representing a Python dictionary.
+    /// - Throws: `PythonError` if dictionary creation, key conversion, value conversion, or item insertion fails.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func convertToSafePython<K, V>(dictionary: [K: V]) throws -> SafePythonObject
     where K: SafePythonConvertible & Hashable, V: SafePythonConvertible {
@@ -53,6 +105,27 @@ extension PythonInterpreter {
         return newSafePythonObject(fromReturnedPointer: dictPtr)
     }
     
+    /// Create a SafePythonObject dictionary from a heterogeneous Swift dictionary with string keys.
+    ///
+    /// Only for use inside the synchronous, GIL-managed, reference-managed local
+    /// `withIsolatedContext` environment. Use this overload when dictionary values
+    /// have different Swift types but all values conform to `SafePythonConvertible`.
+    ///
+    /// ```swift
+    /// try await interpreter.withIsolatedContext { context in
+    ///     let values: [String: any SafePythonConvertible] = [
+    ///         "name": "Ada",
+    ///         "count": 3,
+    ///         "active": true
+    ///     ]
+    ///     let dict = try context.convertToSafePython(dictionary: values)
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - dictionary: A string-keyed Swift dictionary whose values conform to `SafePythonConvertible`.
+    /// - Returns: A `SafePythonObject` representing a Python dictionary.
+    /// - Throws: `PythonError` if dictionary creation, key conversion, value conversion, or item insertion fails.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func convertToSafePython(dictionary: [String: any SafePythonConvertible]) throws -> SafePythonObject {
         let dictPtr = try newPythonDict(orElse: { try throwSafePythonError() })
