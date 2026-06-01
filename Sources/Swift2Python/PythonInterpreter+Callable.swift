@@ -41,6 +41,9 @@ extension PythonInterpreter {
                 resultPtr = api.PyObject_Call(callable, args!, kwargs)
             }
         }
+        if resultPtr == nil {
+            try throwError()
+        }
         return resultPtr!
     }
     
