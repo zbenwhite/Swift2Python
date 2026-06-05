@@ -311,6 +311,10 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         return try await interpreter.setListItem(value, at: index , in: self)
         
     }
+    
+    public func listDelItem(at index: Int) async throws {
+        try await interpreter.delListItem(at: index, from: self)
+    }
 
     // MARK: Tuple support
     

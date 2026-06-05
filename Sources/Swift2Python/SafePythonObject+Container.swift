@@ -272,6 +272,70 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    // MARK: List Support
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public var isList: Bool {
+        get throws {
+            try interpreter.assumeIsolated {
+                try $0.syncIsList(self)
+            }
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public var listCount: Int {
+        get throws {
+            try interpreter.assumeIsolated {
+                try $0.syncListCount(self)
+            }
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public var listArray: [PythonInterpreter.SafePythonObject] {
+        get throws {
+            try interpreter.assumeIsolated {
+                try $0.syncListArray(self)
+            }
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func listItem(at index: Int) throws -> PythonInterpreter.SafePythonObject {
+        try interpreter.assumeIsolated {
+            try $0.syncListItem(at: index, in: self)
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func listAppendItem(_ item: any SafePythonConvertible) throws {
+        try interpreter.assumeIsolated {
+            try $0.syncAppendListItem(item, to: self)
+        }
+    }
+
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func listInsertItem(_ item: any SafePythonConvertible, at index: Int) throws {
+        try interpreter.assumeIsolated {
+            try $0.syncInsertListItem(item, at: index, to: self)
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func listSetItem(at index: Int, to value: any SafePythonConvertible) throws {
+        try interpreter.assumeIsolated {
+            try $0.syncSetListItem(value, at: index , in: self)
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func deleteItem(at index: Int) throws {
+        try interpreter.assumeIsolated {
+            try $0.syncDeleteItem(fromList: self, at: index)
+        }
+    }
+    
     // MARK: Tuple Support
     
     /// Returns true if this safe Python object is a tuple.
