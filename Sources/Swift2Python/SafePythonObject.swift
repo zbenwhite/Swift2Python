@@ -172,6 +172,33 @@ extension PythonInterpreter {
             }
         }
         
+        //
+        // a[start:stop:step]
+        public subscript(slice: PythonSlice) -> SafePythonObject {
+            get {
+                let localInterpreter = interpreter
+                return localInterpreter.assumeIsolated {
+                    do {
+                        let sliceObject = try $0.convertToSafePython(slice: slice)
+                        return try $0.syncGetObjectItem(obj: self, key: [sliceObject])
+                    } catch {
+                        fatalError("Failed to get slice: \(error)")
+                    }
+                }
+            }
+            set {
+                let localInterpreter = interpreter
+                return localInterpreter.assumeIsolated {
+                    do {
+                        let sliceObject = try $0.convertToSafePython(slice: slice)
+                        try $0.syncSetObjectItem(obj: self, key: [sliceObject], newValue: newValue)
+                    } catch {
+                        fatalError("Failed to set slice: \(error)")
+                    }
+                }
+            }
+        }
+        
         // MARK: Callable support
         
         public func callAsFunction() throws -> SafePythonObject {
