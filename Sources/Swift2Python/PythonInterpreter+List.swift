@@ -13,6 +13,22 @@ extension PythonInterpreter {
     
     // MARK: Convert To Python List
     
+    /// Create a PythonObject list from a Swift array.
+    ///
+    /// Use `await` for correctly managed Swift and Python concurrency. Reference
+    /// counting and GIL-handling are automatic.
+    ///
+    /// ```swift
+    /// let list = try await interpreter.convertToPython(array: [1, 2, 3])
+    /// ```
+    ///
+    /// Use this overload for homogeneous arrays and for heterogeneous arrays whose
+    /// elements are stored as `any PendingPythonConvertible`.
+    ///
+    /// - Parameters:
+    ///   - array: A Swift array whose elements conform to `PendingPythonConvertible`.
+    /// - Returns: A `PythonObject` representing a Python list.
+    /// - Throws: `PythonError` if list creation or element conversion fails.
     public func convertToPython(array: [any PendingPythonConvertible]) async throws -> PythonObject {
         let listPtr = try await withGIL {
             try newPythonList(ofSize: array.count, orElse: { try throwPythonError() })
@@ -28,6 +44,24 @@ extension PythonInterpreter {
     }
     
     
+    /// Create a SafePythonObject list from a Swift array.
+    ///
+    /// Only for use inside the synchronous, GIL-managed, reference-managed local
+    /// `withIsolatedContext` environment.
+    ///
+    /// ```swift
+    /// try await interpreter.withIsolatedContext { context in
+    ///     let list = try context.convertToSafePython(array: [1, 2, 3])
+    /// }
+    /// ```
+    ///
+    /// Use this overload for homogeneous arrays and for heterogeneous arrays whose
+    /// elements are stored as `any SafePythonConvertible`.
+    ///
+    /// - Parameters:
+    ///   - array: A Swift array whose elements conform to `SafePythonConvertible`.
+    /// - Returns: A `SafePythonObject` representing a Python list.
+    /// - Throws: `PythonError` if list creation or element conversion fails.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func convertToSafePython(array: [any SafePythonConvertible]) throws -> PythonInterpreter.SafePythonObject {
         let listPtr = try newPythonList(ofSize: array.count, orElse: { try throwSafePythonError() })

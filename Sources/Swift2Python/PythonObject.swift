@@ -282,36 +282,136 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     
     // MARK: List support
     
+    /// Returns this Python list's elements as a Swift array.
+    ///
+    /// Use this when you want an eager Swift array of `PythonObject` values. To keep
+    /// working with the original Python list, use list item helpers or Python list
+    /// methods directly instead.
+    ///
+    /// ```swift
+    /// let elements = try await list.asArray()
+    /// for element in elements {
+    ///     print(try await Int(element))
+    /// }
+    /// ```
+    ///
+    /// - Returns: A Swift array containing this Python list's elements.
+    /// - Throws: `PythonError.listConversionFailed` if this object is not a list,
+    ///   or `PythonError` if Python raises while reading the list.
     public func asArray() async throws -> [PythonObject] {
         return try await interpreter.toArray(self)
     }
     
+    /// Returns true if this Python object is a list.
+    ///
+    /// Use `await` for correctly managed Swift and Python concurrency. Reference
+    /// counting and GIL-handling are automatic.
+    ///
+    /// ```swift
+    /// if try await object.isList() {
+    ///     let count = try await object.listCount()
+    /// }
+    /// ```
+    ///
+    /// - Returns: `true` when this object is a Python list; otherwise `false`.
+    /// - Throws: `PythonError` if Python raises while checking the object type.
     public func isList() async throws -> Bool {
         return try await interpreter.isList(self)
     }
     
+    /// Returns the number of elements in this Python list.
+    ///
+    /// ```swift
+    /// let count = try await list.listCount()
+    /// ```
+    ///
+    /// - Returns: The list length.
+    /// - Throws: `PythonError.listConversionFailed` if this object is not a list,
+    ///   or `PythonError` if Python raises while reading the list length.
     public func listCount() async throws -> Int {
         return try await interpreter.getListCount(self)
     }
     
+    /// Returns the list element at the specified index.
+    ///
+    /// Indexes are zero-based. Negative indexes use Python list semantics, so `-1`
+    /// returns the last element.
+    ///
+    /// ```swift
+    /// let first = try await list.listItem(at: 0)
+    /// let last = try await list.listItem(at: -1)
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - index: The Python list index to read.
+    /// - Returns: The element at `index`.
+    /// - Throws: `PythonError.listConversionFailed` if this object is not a list,
+    ///   or `PythonError.pythonException` if Python raises, including out-of-bounds indexes.
     public func listItem(at index: Int) async throws -> PythonObject {
         return try await interpreter.listItem(at: index, in: self)
     }
     
+    /// Appends an item to this Python list.
+    ///
+    /// ```swift
+    /// try await list.listAppendItem("new value")
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - item: The value to append. It is converted to a Python object before insertion.
+    /// - Throws: `PythonError.listConversionFailed` if this object is not a list,
+    ///   or `PythonError` if conversion or append fails.
     public func listAppendItem(_ item: any PendingPythonConvertible) async throws {
         return try await interpreter.appendListItem(item, to: self)
-        
     }
 
+    /// Inserts an item into this Python list at the specified index.
+    ///
+    /// This follows Python's `list.insert` behavior for indexes outside the list bounds.
+    ///
+    /// ```swift
+    /// try await list.listInsertItem("new value", at: 1)
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - item: The value to insert. It is converted to a Python object before insertion.
+    ///   - index: The index where the value should be inserted.
+    /// - Throws: `PythonError.listConversionFailed` if this object is not a list,
+    ///   or `PythonError` if conversion or insertion fails.
     public func listInsertItem(_ item: any PendingPythonConvertible, at index: Int) async throws {
         return try await interpreter.insertListItem(item, at: index, to: self)
     }
 
+    /// Replaces the list element at the specified index.
+    ///
+    /// Indexes are zero-based. Negative indexes use Python list semantics, so `-1`
+    /// replaces the last element.
+    ///
+    /// ```swift
+    /// try await list.listSetItem(at: -1, to: "replacement")
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - index: The Python list index to replace.
+    ///   - value: The new value. It is converted to a Python object before assignment.
+    /// - Throws: `PythonError.listConversionFailed` if this object is not a list,
+    ///   or `PythonError.pythonException` if Python raises, including out-of-bounds indexes.
     public func listSetItem(at index: Int, to value: any PendingPythonConvertible) async throws {
         return try await interpreter.setListItem(value, at: index , in: self)
-        
     }
     
+    /// Deletes the list element at the specified index.
+    ///
+    /// Indexes are interpreted by Python, including negative indexes such as `-1`.
+    ///
+    /// ```swift
+    /// try await list.listDeleteItem(at: -1)
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - index: The Python list index to delete.
+    /// - Throws: `PythonError.listConversionFailed` if this object is not a list,
+    ///   or `PythonError.pythonException` if Python raises, including out-of-bounds indexes.
     public func listDeleteItem(at index: Int) async throws {
         try await interpreter.delListItem(at: index, from: self)
     }

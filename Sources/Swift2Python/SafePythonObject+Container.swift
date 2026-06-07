@@ -274,6 +274,22 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: List Support
     
+    /// Returns true if this safe Python object is a list.
+    ///
+    /// Only use this property inside the synchronous, GIL-managed, reference-managed
+    /// local `withIsolatedContext` environment.
+    ///
+    /// ```swift
+    /// try await interpreter.withIsolatedContext { context in
+    ///     let object = try context.convertToSafePython(array: [1, 2, 3])
+    ///     if try object.isList {
+    ///         let count = try object.listCount
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// - Returns: `true` when this object is a Python list; otherwise `false`.
+    /// - Throws: `PythonError` if Python raises while checking the object type.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public var isList: Bool {
         get throws {
@@ -283,6 +299,13 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    /// Returns the number of elements in this safe Python list.
+    ///
+    /// Only use this property inside `withIsolatedContext`.
+    ///
+    /// - Returns: The list length.
+    /// - Throws: `PythonError.listConversionFailed` if this object is not a list,
+    ///   or `PythonError` if Python raises while reading the list length.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public var listCount: Int {
         get throws {
@@ -292,6 +315,22 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    /// Returns this safe Python list's elements as a Swift array.
+    ///
+    /// Use this when you want an eager Swift array of `SafePythonObject` values.
+    /// Only use this property inside `withIsolatedContext`.
+    ///
+    /// ```swift
+    /// try await interpreter.withIsolatedContext { context in
+    ///     let list = try context.convertToSafePython(array: [1, 2, 3])
+    ///     let elements = try list.listArray
+    ///     print(elements.count)
+    /// }
+    /// ```
+    ///
+    /// - Returns: A Swift array containing this Python list's elements.
+    /// - Throws: `PythonError.listConversionFailed` if this object is not a list,
+    ///   or `PythonError` if Python raises while reading the list.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public var listArray: [PythonInterpreter.SafePythonObject] {
         get throws {
@@ -301,6 +340,16 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    /// Returns the list element at the specified index.
+    ///
+    /// Indexes are zero-based. Negative indexes use Python list semantics, so `-1`
+    /// returns the last element. Only use this method inside `withIsolatedContext`.
+    ///
+    /// - Parameters:
+    ///   - index: The Python list index to read.
+    /// - Returns: The element at `index`.
+    /// - Throws: `PythonError.listConversionFailed` if this object is not a list,
+    ///   or `PythonError.safePythonException` if Python raises, including out-of-bounds indexes.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func listItem(at index: Int) throws -> PythonInterpreter.SafePythonObject {
         try interpreter.assumeIsolated {
@@ -308,6 +357,14 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    /// Appends an item to this safe Python list.
+    ///
+    /// Only use this method inside `withIsolatedContext`.
+    ///
+    /// - Parameters:
+    ///   - item: The value to append. It is converted to a Python object before insertion.
+    /// - Throws: `PythonError.listConversionFailed` if this object is not a list,
+    ///   or `PythonError` if conversion or append fails.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func listAppendItem(_ item: any SafePythonConvertible) throws {
         try interpreter.assumeIsolated {
@@ -315,6 +372,16 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
 
+    /// Inserts an item into this safe Python list at the specified index.
+    ///
+    /// This follows Python's `list.insert` behavior for indexes outside the list bounds.
+    /// Only use this method inside `withIsolatedContext`.
+    ///
+    /// - Parameters:
+    ///   - item: The value to insert. It is converted to a Python object before insertion.
+    ///   - index: The index where the value should be inserted.
+    /// - Throws: `PythonError.listConversionFailed` if this object is not a list,
+    ///   or `PythonError` if conversion or insertion fails.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func listInsertItem(_ item: any SafePythonConvertible, at index: Int) throws {
         try interpreter.assumeIsolated {
@@ -322,6 +389,16 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    /// Replaces the list element at the specified index.
+    ///
+    /// Indexes are zero-based. Negative indexes use Python list semantics, so `-1`
+    /// replaces the last element. Only use this method inside `withIsolatedContext`.
+    ///
+    /// - Parameters:
+    ///   - index: The Python list index to replace.
+    ///   - value: The new value. It is converted to a Python object before assignment.
+    /// - Throws: `PythonError.listConversionFailed` if this object is not a list,
+    ///   or `PythonError.safePythonException` if Python raises, including out-of-bounds indexes.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func listSetItem(at index: Int, to value: any SafePythonConvertible) throws {
         try interpreter.assumeIsolated {
@@ -329,6 +406,15 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    /// Deletes the list element at the specified index.
+    ///
+    /// Indexes are interpreted by Python, including negative indexes such as `-1`.
+    /// Only use this method inside `withIsolatedContext`.
+    ///
+    /// - Parameters:
+    ///   - index: The Python list index to delete.
+    /// - Throws: `PythonError.listConversionFailed` if this object is not a list,
+    ///   or `PythonError.safePythonException` if Python raises, including out-of-bounds indexes.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func listDeleteItem(at index: Int) throws {
         try interpreter.assumeIsolated {

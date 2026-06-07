@@ -23,12 +23,38 @@ public struct PythonSlice: Sendable {
     public let stop: Int?
     public let step: Int?
 
+    /// Creates a Python slice descriptor.
+    ///
+    /// `nil` represents Python's omitted slice bound, equivalent to `None` in
+    /// `slice(start, stop, step)`.
+    ///
+    /// ```swift
+    /// let middle = PythonSlice(1, 3)
+    /// let everyOther = PythonSlice(nil, nil, step: 2)
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - start: The optional start index.
+    ///   - stop: The optional stop index.
+    ///   - step: The optional step value.
     public init(_ start: Int? = nil, _ stop: Int? = nil, step: Int? = nil) {
         self.start = start
         self.stop = stop
         self.step = step
     }
 
+    /// Creates a Python slice descriptor for use with `SafePythonObject` subscript syntax.
+    ///
+    /// ```swift
+    /// let middle = list[.slice(1, 3)]
+    /// list[.slice(1, 3)] = replacement
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - start: The optional start index.
+    ///   - stop: The optional stop index.
+    ///   - step: The optional step value.
+    /// - Returns: A `PythonSlice` value.
     public static func slice(_ start: Int? = nil, _ stop: Int? = nil, step: Int? = nil) -> PythonSlice {
         PythonSlice(start, stop, step: step)
     }
