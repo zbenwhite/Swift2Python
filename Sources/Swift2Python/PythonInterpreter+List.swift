@@ -68,6 +68,15 @@ extension PythonInterpreter {
     }
     
     // This requires the GIL
+    private func normalizeListIndex(_ index: Int, inList list: UnsafeMutableRawPointer, onError throwError: () throws -> Never) throws -> Int {
+        if index >= 0 {
+            return index
+        }
+        let count = try getSizeOf(list: list, onError: throwError)
+        return count + index
+    }
+    
+    // This requires the GIL
     private func setItem(_ item: UnsafeMutableRawPointer, onList: UnsafeMutableRawPointer, atIndex: Int, orElse throwError: () throws -> Never) throws {
         
         // PyList_SetItem is a special case for reference handling.  Python "steals"
@@ -249,7 +258,8 @@ extension PythonInterpreter {
                 throw PythonError.listConversionFailed(expected: "list", actual: nil)
             }
             
-            let ptr = try getItemAt(index: index, fromList: objPtr, onError: { try throwPythonError() } )
+            let normalizedIndex = try normalizeListIndex(index, inList: objPtr, onError: { try throwPythonError() })
+            let ptr = try getItemAt(index: normalizedIndex, fromList: objPtr, onError: { try throwPythonError() } )
             return borrowedPythonObject(fromReturnedPointer: ptr)
         }
     }
@@ -262,7 +272,8 @@ extension PythonInterpreter {
             throw PythonError.listConversionFailed(expected: "list", actual: nil)
         }
         
-        let ptr = try getItemAt(index: index, fromList: objPtr, onError: { try throwSafePythonError() } )
+        let normalizedIndex = try normalizeListIndex(index, inList: objPtr, onError: { try throwSafePythonError() })
+        let ptr = try getItemAt(index: normalizedIndex, fromList: objPtr, onError: { try throwSafePythonError() } )
         return borrowedSafePythonObject(fromReturnedPointer: ptr)
     }
     
@@ -275,7 +286,8 @@ extension PythonInterpreter {
             guard isList else {
                 throw PythonError.listConversionFailed(expected: "list", actual: nil)
             }
-            try setItem(itemPtr, onList: listPtr, atIndex: index, orElse: { try throwPythonError() })
+            let normalizedIndex = try normalizeListIndex(index, inList: listPtr, onError: { try throwPythonError() })
+            try setItem(itemPtr, onList: listPtr, atIndex: normalizedIndex, orElse: { try throwPythonError() })
         }
     }
     
@@ -288,7 +300,8 @@ extension PythonInterpreter {
         guard isList else {
             throw PythonError.listConversionFailed(expected: "list", actual: nil)
         }
-        try setItem(itemPtr, onList: listPtr, atIndex: index, orElse: { try throwSafePythonError() })
+        let normalizedIndex = try normalizeListIndex(index, inList: listPtr, onError: { try throwSafePythonError() })
+        try setItem(itemPtr, onList: listPtr, atIndex: normalizedIndex, orElse: { try throwSafePythonError() })
     }
     
     internal func delListItem(at index: Int, from list: PythonObject) async throws {
