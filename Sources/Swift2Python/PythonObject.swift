@@ -312,7 +312,7 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         
     }
     
-    public func listDelItem(at index: Int) async throws {
+    public func listDeleteItem(at index: Int) async throws {
         try await interpreter.delListItem(at: index, from: self)
     }
 
@@ -350,6 +350,7 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     public func tupleCount() async throws -> Int {
         return try await interpreter.getTupleCount(self)
     }
+    
     /// Converts this Python tuple to a Swift array of PythonObject elements.
     ///
     /// Use this when the tuple length is dynamic. The returned array contains

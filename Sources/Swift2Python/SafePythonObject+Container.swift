@@ -330,7 +330,7 @@ extension PythonInterpreter.SafePythonObject {
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    public func deleteItem(at index: Int) throws {
+    public func listDeleteItem(at index: Int) throws {
         try interpreter.assumeIsolated {
             try $0.syncDeleteItem(fromList: self, at: index)
         }
