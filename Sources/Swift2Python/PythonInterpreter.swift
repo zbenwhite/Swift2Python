@@ -460,10 +460,10 @@ public actor PythonInterpreter {
         case 0:
             fatalError("Subscript with zero keys is not valid")
         case 1:
-            let pyKey = try! key[0].toSafePythonObject(interpreter: self)
+            let pyKey = try key[0].toSafePythonObject(interpreter: self)
             pyKeyPtr = getRegisteredPointer(forSafeObj: pyKey)
         default:
-            pyKeyPtr = try! syncCreateTuplePtr(from: key)
+            pyKeyPtr = try syncCreateTuplePtr(from: key)
         }
         
         let objPtr = getRegisteredPointer(forSafeObj:obj)
@@ -480,15 +480,15 @@ public actor PythonInterpreter {
         case 0:
             fatalError("Subscript with zero keys is not valid")
         case 1:
-            let pyKey = try! key[0].toSafePythonObject(interpreter: self)
+            let pyKey = try key[0].toSafePythonObject(interpreter: self)
             pyKeyPtr = getRegisteredPointer(forSafeObj: pyKey)
         default:
-            pyKeyPtr = try! syncCreateTuplePtr(from: key)
+            pyKeyPtr = try syncCreateTuplePtr(from: key)
         }
         
         let objPtr = getRegisteredPointer(forSafeObj:obj)
         
-        let newValuePyObj = try! newValue.toSafePythonObject(interpreter: self)
+        let newValuePyObj = try newValue.toSafePythonObject(interpreter: self)
         let newValuePtr = getRegisteredPointer(forSafeObj: newValuePyObj)
         
         try setItemWith(key: pyKeyPtr, onObject: objPtr, to: newValuePtr, onError: { try throwSafePythonError() } )

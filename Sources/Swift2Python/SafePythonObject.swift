@@ -114,6 +114,41 @@ extension PythonInterpreter {
             }
         }
         
+        // MARK: Explicit throwing access
+        
+        // a.name
+        public func get(attr: String) throws -> SafePythonObject {
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                try $0.syncGetObjectAttribute(self, attr)
+            }
+        }
+        
+        // a.name = value
+        public func set(attr: String, value: any SafePythonConvertible) throws {
+            let localInterpreter = interpreter
+            try localInterpreter.assumeIsolated {
+                let realValue = try value.toSafePythonObject(interpreter: $0)
+                try $0.syncSetObjectAttribute(self, attr, realValue)
+            }
+        }
+        
+        // a[key]
+        public func getItem(key: any SafePythonConvertible) throws -> SafePythonObject {
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                try $0.syncGetObjectItem(obj: self, key: [key])
+            }
+        }
+        
+        // a[key] = value
+        public func setItem(key: any SafePythonConvertible, newValue: any SafePythonConvertible) throws {
+            let localInterpreter = interpreter
+            try localInterpreter.assumeIsolated {
+                try $0.syncSetObjectItem(obj: self, key: [key], newValue: newValue)
+            }
+        }
+        
         // MARK: @dynamicMemberLookup
         
         //
