@@ -420,3 +420,227 @@ Do not add these unless the user explicitly requests them:
 ### Release Completeness
 
 Dictionary support should be considered close to release-ready when it has async APIs, safe APIs, dictionary creation, dictionary inspection, key/value/item extraction, membership, deletion, Python-native method examples, unit tests, and DocC documentation.
+
+## Lists
+
+List support has explicit helpers for list creation, inspection, length, array conversion, item access, and item mutation. Prefer those helpers when the user is treating an object as a list. Use normal Python method calls for Python-native list behavior such as `pop`, `reverse`, `sort`, `copy`, `clear`, `count`, `index`, `remove`, and `extend`.
+
+### What List APIs Exist
+
+Async ``PythonObject`` list APIs:
+
+```swift
+try await object.isList()
+try await list.listCount()
+try await list.asArray()
+try await list.listItem(at: 0)
+try await list.listItem(at: -1)
+try await list.listSetItem(at: -1, to: "value")
+try await list.listAppendItem("value")
+try await list.listInsertItem("value", at: 1)
+try await list.listDeleteItem(at: -1)
+try await list.getItem(key: 0)
+try await list.setItem(key: 0, newValue: "value")
+```
+
+List creation from Swift arrays:
+
+```swift
+let list = try await interpreter.convertToPython(array: [1, 2, 3])
+
+let heterogeneous: [any PendingPythonConvertible] = ["name", 3, true]
+let heterogeneousList = try await interpreter.convertToPython(array: heterogeneous)
+```
+
+Safe list APIs inside `withIsolatedContext`:
+
+```swift
+try list.isList
+try list.listCount
+try list.listArray
+try list.listItem(at: 0)
+try list.listItem(at: -1)
+try list.listSetItem(at: -1, to: "value")
+try list.listAppendItem("value")
+try list.listInsertItem("value", at: 1)
+try list.listDeleteItem(at: -1)
+try list.getItem(key: 0)
+try list.setItem(key: 0, newValue: "value")
+```
+
+Safe list creation:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let list = try context.convertToSafePython(array: [1, 2, 3])
+}
+```
+
+Safe convenience subscripts:
+
+```swift
+let first = list[0]
+let last = list[-1]
+list[1] = "value"
+
+let middle = list[.slice(1, 3)]
+list[.slice(1, 3)] = replacement
+```
+
+### Preferred Async Patterns
+
+Create lists from Swift arrays:
+
+```swift
+let list = try await interpreter.convertToPython(array: [1, 2, 3])
+```
+
+Read and mutate items with list helpers when the object is expected to be a Python list:
+
+```swift
+let last = try await list.listItem(at: -1)
+try await list.listSetItem(at: -1, to: "replacement")
+try await list.listAppendItem("tail")
+try await list.listDeleteItem(at: -1)
+```
+
+Convert a Python list to a Swift array when eager Swift iteration is wanted:
+
+```swift
+let elements = try await list.asArray()
+for element in elements {
+    print(try await Int(element))
+}
+```
+
+Use `builtins.slice` plus generic item access for async slicing. Swift cannot use `await` in subscript access for `PythonObject`:
+
+```swift
+let slice = try await interpreter.builtins.slice(1, 3)
+let middle = try await list.getItem(key: slice)
+try await list.setItem(key: slice, newValue: replacement)
+```
+
+Convert a Python list to a tuple with Python's own constructor:
+
+```swift
+let tuple = try await interpreter.builtins.tuple(list)
+```
+
+Do not add a `listAsTuple()` helper. Python's `tuple` constructor works for any iterable.
+
+### Python-Native List Methods
+
+Use direct Python method calls for normal list methods:
+
+```swift
+try await list.append(4)
+let popped = try await list.pop()
+try await list.reverse()
+try await list.sort()
+let copy = try await list.copy()
+try await list.clear()
+try await list.extend([1, 2, 3])
+try await list.remove(2)
+let index = try await list.index(3)
+```
+
+If a Python method name conflicts with a Swift helper or property, call it through explicit dynamic-member syntax:
+
+```swift
+let occurrences = try await list[dynamicMember: "count"](2)
+```
+
+Do not create wrapper APIs for every Python list method by default. Python-native calls cover methods such as `append`, `clear`, `copy`, `count`, `extend`, `index`, `insert`, `pop`, `remove`, `reverse`, and `sort`.
+
+### Preferred Safe Patterns
+
+Use safe list APIs only inside `withIsolatedContext`:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let list = try context.convertToSafePython(array: [1, 2, 3])
+
+    let count = try list.listCount
+    let last = try list.listItem(at: -1)
+    try list.listSetItem(at: 0, to: 10)
+
+    print(count, last)
+}
+```
+
+Use safe subscript syntax for concise code when trapping on Python errors is acceptable:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let list = try context.convertToSafePython(array: [0, 1, 2, 3])
+
+    let last = list[-1]
+    list[1] = 20
+
+    let middle = list[.slice(1, 3)]
+    list[.slice(1, 3)] = try context.convertToSafePython(array: [10, 20])
+
+    print(last, middle)
+}
+```
+
+Use explicit throwing item methods for robust safe code:
+
+```swift
+let value = try list.getItem(key: -1)
+try list.setItem(key: PythonSlice(1, 3), newValue: replacement)
+```
+
+### Error Behavior
+
+Async list helpers throw:
+
+- `PythonError.listConversionFailed(expected:actual:)` when the object is not a list.
+- `PythonError.pythonException` when Python raises while performing list operations, including out-of-bounds item access or invalid slice assignment.
+
+Safe list helpers throw:
+
+- `PythonError.listConversionFailed(expected:actual:)` when the object is not a list.
+- `PythonError.safePythonException` when Python raises while performing list operations, including out-of-bounds item access or invalid slice assignment.
+
+Safe subscript access and assignment cannot throw because Swift subscripts are not `throws` in this design. They trap on Python errors. Tell users to call `getItem(key:)` and `setItem(key:newValue:)` when they need recoverable error handling.
+
+### Slice Guidance
+
+For async ``PythonObject`` slicing, use Python's `slice` constructor through builtins:
+
+```swift
+let slice = try await interpreter.builtins.slice(1, 3)
+let result = try await list.getItem(key: slice)
+```
+
+For safe slicing, use ``PythonSlice`` and subscript syntax:
+
+```swift
+let result = list[.slice(1, 3)]
+let tail = list[.slice(2, nil)]
+let reversed = list[.slice(nil, nil, step: -1)]
+```
+
+Use `PythonSlice` directly when passing slices to throwing safe item APIs:
+
+```swift
+try list.setItem(key: PythonSlice(1, 3), newValue: replacement)
+```
+
+### What Not To Add For Lists
+
+Do not add these unless the user explicitly requests them:
+
+- Wrapper APIs for every Python list method.
+- `listAsTuple()` or `tupleFromList()` wrappers.
+- A `reverse()` wrapper. Users can call `list.reverse()` directly.
+- A `pop()` wrapper. Users can call `list.pop()` directly.
+- A `sort()` wrapper. Users can call `list.sort()` directly.
+- Separate async subscript slicing for `PythonObject`; use `builtins.slice` and `getItem`/`setItem` because Swift cannot use `await` with subscript syntax.
+- Optional safe list helpers. The main safe list API throws.
+
+### Release Completeness
+
+List support should be considered complete for a 1.0 release when it has async APIs, safe APIs, list creation, list inspection, array conversion, item access and mutation, negative indexing, safe slice syntax, async slice examples through `builtins.slice`, Python-native method examples, unit tests, and DocC documentation.
