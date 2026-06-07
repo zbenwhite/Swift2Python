@@ -390,6 +390,43 @@ struct ListTests {
         }
     }
     
+    @Test("LIS_014A: SafePythonObject list concatenation with +")
+    func safeListConcatenationWithPlusOperator() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let left = try isolatedInterpreter.convertToSafePython(array: [1, 2])
+            let right = try isolatedInterpreter.convertToSafePython(array: [3])
+            
+            let combined = left + right
+            #expect(try safeInts(from: combined) == [1, 2, 3])
+            #expect(try safeInts(from: left) == [1, 2])
+            #expect(try safeInts(from: right) == [3])
+        }
+    }
+    
+    @Test("LIS_014B: PythonObject list can be bound and mutated as SafePythonObject")
+    func asyncListBoundIntoSafeContextKeepsIdentity() async throws {
+        let list = try await interpreter.convertToPython(array: [1, 2])
+        
+        try await list.listAppendItem(3)
+        #expect(try await asyncInts(from: list) == [1, 2, 3])
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            var safeList = isolatedInterpreter.bind(pythonObject: list)
+            
+            #expect(try safeInts(from: safeList) == [1, 2, 3])
+            try safeList.listSetItem(at: 0, to: 10)
+            try safeList.listAppendItem(4)
+            _ = try safeList.extend(isolatedInterpreter.convertToSafePython(array: [5, 6]))
+            safeList[.slice(1, 3)] = try isolatedInterpreter.convertToSafePython(array: [20, 30])
+            
+            #expect(try safeInts(from: safeList) == [10, 20, 30, 4, 5, 6])
+        }
+        
+        #expect(try await asyncInts(from: list) == [10, 20, 30, 4, 5, 6])
+        try await list.listDeleteItem(at: -1)
+        #expect(try await asyncInts(from: list) == [10, 20, 30, 4, 5])
+    }
+    
     @Test("LIS_015: SafePythonObject list conversions with heterogeneous values")
     func safeHeterogeneousListConversion() async throws {
         try await interpreter.withIsolatedContext { isolatedInterpreter in
