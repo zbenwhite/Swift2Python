@@ -110,9 +110,28 @@ struct ListTests {
         let sliced = try await list.getItem(key: slice)
         #expect(try await asyncInts(from: sliced) == [2, 3, 4])
         
+        let rangeSliced = try await list.getItem(key: 1..<4)
+        #expect(try await asyncInts(from: rangeSliced) == [2, 3, 4])
+        
+        let closedRangeSliced = try await list.getItem(key: 1...3)
+        #expect(try await asyncInts(from: closedRangeSliced) == [2, 3, 4])
+        
+        let partialFromSliced = try await list.getItem(key: 2...)
+        #expect(try await asyncInts(from: partialFromSliced) == [3, 4, 5])
+        
+        let partialUpToSliced = try await list.getItem(key: ..<3)
+        #expect(try await asyncInts(from: partialUpToSliced) == [10, 2, 3])
+        
+        let partialThroughSliced = try await list.getItem(key: ...2)
+        #expect(try await asyncInts(from: partialThroughSliced) == [10, 2, 3])
+        
         let replacement = try await interpreter.convertToPython(array: [20, 30])
         try await list.setItem(key: slice, newValue: replacement)
         #expect(try await asyncInts(from: list) == [10, 20, 30, 5])
+        
+        let rangeReplacement = try await interpreter.convertToPython(array: [200, 300, 400])
+        try await list.setItem(key: 1..<3, newValue: rangeReplacement)
+        #expect(try await asyncInts(from: list) == [10, 200, 300, 400, 5])
     }
     
     @Test("LIS_005: PythonObject normal Python list methods")
@@ -342,11 +361,26 @@ struct ListTests {
             let reversed = list[.slice(nil, nil, step: -1)]
             #expect(try safeInts(from: reversed) == [50, 4, 3, 2, 10])
             
+            let rangeSliced = list[1..<4]
+            #expect(try safeInts(from: rangeSliced) == [2, 3, 4])
+            
+            let closedRangeSliced = list[1...3]
+            #expect(try safeInts(from: closedRangeSliced) == [2, 3, 4])
+            
+            let partialFromSliced = list[2...]
+            #expect(try safeInts(from: partialFromSliced) == [3, 4, 50])
+            
+            let partialUpToSliced = list[..<3]
+            #expect(try safeInts(from: partialUpToSliced) == [10, 2, 3])
+            
+            let partialThroughSliced = list[...2]
+            #expect(try safeInts(from: partialThroughSliced) == [10, 2, 3])
+            
             list[.slice(1, 4)] = try isolatedInterpreter.convertToSafePython(array: [20, 30])
             #expect(try safeInts(from: list) == [10, 20, 30, 50])
             
             let replacement = try isolatedInterpreter.convertToSafePython(array: [200, 300, 400])
-            try list.setItem(key: PythonSlice(1, 3), newValue: replacement)
+            try list.setItem(key: 1..<3, newValue: replacement)
             #expect(try safeInts(from: list) == [10, 200, 300, 400, 50])
         }
     }

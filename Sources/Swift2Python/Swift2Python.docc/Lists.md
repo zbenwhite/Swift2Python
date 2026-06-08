@@ -134,41 +134,55 @@ try list.setItem(key: 1, newValue: 20)
 
 ## Slicing Lists
 
-For async `PythonObject` values, create a Python `slice` object with `interpreter.builtins.slice` and use generic item access:
+Use Swift ranges for ordinary slicing. Swift2Python converts `Range<Int>` and partial `Int` ranges to Python `slice` objects:
 
 ```swift
-let slice = try await interpreter.builtins.slice(1, 3)
-let middle = try await list.getItem(key: slice)
+let middle = try await list.getItem(key: 1..<4)
+let inclusiveMiddle = try await list.getItem(key: 1...3)
+let tail = try await list.getItem(key: 2...)
+let prefix = try await list.getItem(key: ..<3)
+let inclusivePrefix = try await list.getItem(key: ...2)
 
 let replacement = try await interpreter.convertToPython(array: [20, 30])
-try await list.setItem(key: slice, newValue: replacement)
+try await list.setItem(key: 1..<3, newValue: replacement)
 ```
 
-For `SafePythonObject`, use ``PythonSlice`` with subscript syntax:
+For `SafePythonObject`, the same ranges work with subscript syntax inside `withIsolatedContext`:
 
 ```swift
 try await interpreter.withIsolatedContext { context in
-    let list = try context.convertToSafePython(array: [0, 1, 2, 3, 4])
+    var list = try context.convertToSafePython(array: [0, 1, 2, 3, 4])
 
-    let middle = list[.slice(1, 4)]
-    list[.slice(1, 3)] = try context.convertToSafePython(array: [10, 20])
+    let middle = list[1..<4]
+    let tail = list[2...]
+    list[1...2] = try context.convertToSafePython(array: [10, 20])
 
-    print(middle)
+    print(middle, tail)
 }
 ```
 
-Use `nil` for omitted Python slice bounds:
+Use ``PythonSlice`` when you need a Python slice that Swift ranges cannot express, such as a stepped or reversed slice:
 
 ```swift
-let tail = list[.slice(2, nil)]
+let everyOther = list[.slice(nil, nil, step: 2)]
 let reversed = list[.slice(nil, nil, step: -1)]
 ```
 
-For recoverable slice assignment errors, use ``PythonInterpreter/SafePythonObject/setItem(key:newValue:)``:
+For async `PythonObject` values, ``PythonSlice`` and Python's own `builtins.slice` can also be used with generic item access:
+
+```swift
+let swiftSlice = PythonSlice(1, 4)
+let middle = try await list.getItem(key: swiftSlice)
+
+let pythonSlice = try await interpreter.builtins.slice(1, 4)
+let sameMiddle = try await list.getItem(key: pythonSlice)
+```
+
+For recoverable safe slice assignment errors, use ``PythonInterpreter/SafePythonObject/setItem(key:newValue:)``:
 
 ```swift
 try list.setItem(
-    key: PythonSlice(1, 3),
+    key: 1..<3,
     newValue: try context.convertToSafePython(array: [10, 20])
 )
 ```

@@ -60,6 +60,12 @@ public struct PythonSlice: Sendable {
     }
 }
 
+extension PythonSlice: PendingPythonConvertible {
+    public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        try await interpreter.convertToPython(slice: self)
+    }
+}
+
 extension PythonSlice: SafePythonConvertible {
     public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
         try interpreter.assumeIsolated { context in
@@ -69,12 +75,33 @@ extension PythonSlice: SafePythonConvertible {
 }
 
 extension PythonInterpreter {
+    internal func convertToPython(slice: PythonSlice) async throws -> PythonObject {
+        let start = try await pythonObjectOrNone(slice.start)
+        let stop = try await pythonObjectOrNone(slice.stop)
+        let step = try await pythonObjectOrNone(slice.step)
+        let builtins = try await getBuiltins()
+        return try await builtins.slice(start, stop, step)
+    }
+
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func convertToSafePython(slice: PythonSlice) throws -> SafePythonObject {
         let start = try safePythonObjectOrNone(slice.start)
         let stop = try safePythonObjectOrNone(slice.stop)
         let step = try safePythonObjectOrNone(slice.step)
         return try syncCall(callable: builtins.slice, args: [start, stop, step])
+    }
+
+    private func pythonObjectOrNone(_ value: Int?) async throws -> PythonObject {
+        if let value {
+            return try await convertToPython(int: Int64(value))
+        }
+
+        return try await withGIL {
+            guard let nonePtr = api._Py_NoneStruct else {
+                throw PythonError.nullPointer("Could not resolve Py_None")
+            }
+            return borrowedPythonObject(fromReturnedPointer: nonePtr)
+        }
     }
 
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")

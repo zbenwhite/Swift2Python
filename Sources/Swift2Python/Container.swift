@@ -99,26 +99,104 @@ extension Dictionary : SafePythonConvertible where Key : SafePythonConvertible &
     }
 }
 
-extension Range : PendingPythonConvertible where Bound : PendingPythonConvertible {
+extension Range : PendingPythonConvertible where Bound == Int {
+    /// Converts this Swift range to a Python `slice` object.
+    ///
+    /// The range's `lowerBound` becomes the slice start, and its exclusive
+    /// `upperBound` becomes the slice stop.
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
-        // TODO: NOT WRITTEN
-        fatalError("placeholder")
-        //try await interpreter.convertRangeToPython(self)
+        try await PythonSlice(lowerBound, upperBound).toPythonObject(interpreter: interpreter)
     }
 }
 
-extension PartialRangeFrom : PendingPythonConvertible where Bound : PendingPythonConvertible {
-    public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
-        // TODO: NOT WRITTEN
-        fatalError("placeholder")
-        //try await interpreter.convertPartialRangeToPython(self)
+extension Range : SafePythonConvertible where Bound == Int {
+    /// Converts this Swift range to a safe Python `slice` object.
+    ///
+    /// This lets ranges be used directly with `SafePythonObject` item access.
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try PythonSlice(lowerBound, upperBound).toSafePythonObject(interpreter: interpreter)
     }
 }
 
-extension PartialRangeUpTo : PendingPythonConvertible where Bound : PendingPythonConvertible {
+extension ClosedRange : PendingPythonConvertible where Bound == Int {
+    /// Converts this Swift closed range to a Python `slice` object.
+    ///
+    /// Python slices use an exclusive stop value, so `1...3` becomes
+    /// `slice(1, 4)`.
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
-        // TODO: NOT WRITTEN
-        fatalError("placeholder")
-        //try await interpreter.convertPartialRangeToPython(self)
+        try await PythonSlice(lowerBound, exclusiveStop(after: upperBound, sourceType: "ClosedRange<Int>")).toPythonObject(interpreter: interpreter)
     }
+}
+
+extension ClosedRange : SafePythonConvertible where Bound == Int {
+    /// Converts this Swift closed range to a safe Python `slice` object.
+    ///
+    /// Python slices use an exclusive stop value, so `1...3` becomes
+    /// `slice(1, 4)`.
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try PythonSlice(lowerBound, exclusiveStop(after: upperBound, sourceType: "ClosedRange<Int>")).toSafePythonObject(interpreter: interpreter)
+    }
+}
+
+extension PartialRangeFrom : PendingPythonConvertible where Bound == Int {
+    /// Converts this Swift partial range to a Python `slice` object.
+    ///
+    /// `2...` becomes `slice(2, None)`.
+    public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        try await PythonSlice(lowerBound, nil).toPythonObject(interpreter: interpreter)
+    }
+}
+
+extension PartialRangeFrom : SafePythonConvertible where Bound == Int {
+    /// Converts this Swift partial range to a safe Python `slice` object.
+    ///
+    /// `2...` becomes `slice(2, None)`.
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try PythonSlice(lowerBound, nil).toSafePythonObject(interpreter: interpreter)
+    }
+}
+
+extension PartialRangeUpTo : PendingPythonConvertible where Bound == Int {
+    /// Converts this Swift partial range to a Python `slice` object.
+    ///
+    /// `..<3` becomes `slice(None, 3)`.
+    public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        try await PythonSlice(nil, upperBound).toPythonObject(interpreter: interpreter)
+    }
+}
+
+extension PartialRangeUpTo : SafePythonConvertible where Bound == Int {
+    /// Converts this Swift partial range to a safe Python `slice` object.
+    ///
+    /// `..<3` becomes `slice(None, 3)`.
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try PythonSlice(nil, upperBound).toSafePythonObject(interpreter: interpreter)
+    }
+}
+
+extension PartialRangeThrough : PendingPythonConvertible where Bound == Int {
+    /// Converts this Swift partial closed range to a Python `slice` object.
+    ///
+    /// Python slices use an exclusive stop value, so `...2` becomes
+    /// `slice(None, 3)`.
+    public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        try await PythonSlice(nil, exclusiveStop(after: upperBound, sourceType: "PartialRangeThrough<Int>")).toPythonObject(interpreter: interpreter)
+    }
+}
+
+extension PartialRangeThrough : SafePythonConvertible where Bound == Int {
+    /// Converts this Swift partial closed range to a safe Python `slice` object.
+    ///
+    /// Python slices use an exclusive stop value, so `...2` becomes
+    /// `slice(None, 3)`.
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try PythonSlice(nil, exclusiveStop(after: upperBound, sourceType: "PartialRangeThrough<Int>")).toSafePythonObject(interpreter: interpreter)
+    }
+}
+
+private func exclusiveStop(after value: Int, sourceType: String) throws -> Int {
+    guard value < Int.max else {
+        throw PythonError.conversionOverflow(value: String(value), sourceType: sourceType, targetType: "Python slice stop")
+    }
+    return value + 1
 }

@@ -483,8 +483,10 @@ let first = list[0]
 let last = list[-1]
 list[1] = "value"
 
-let middle = list[.slice(1, 3)]
-list[.slice(1, 3)] = replacement
+let middle = list[1..<3]
+let tail = list[2...]
+list[1...2] = replacement
+let reversed = list[.slice(nil, nil, step: -1)]
 ```
 
 ### Preferred Async Patterns
@@ -513,12 +515,21 @@ for element in elements {
 }
 ```
 
-Use `builtins.slice` plus generic item access for async slicing. Swift cannot use `await` in subscript access for `PythonObject`:
+Use Swift ranges plus generic item access for ordinary async slicing. Swift cannot use `await` in subscript access for `PythonObject`:
 
 ```swift
+let middle = try await list.getItem(key: 1..<3)
+let inclusiveMiddle = try await list.getItem(key: 1...2)
+let tail = try await list.getItem(key: 2...)
+try await list.setItem(key: 1..<3, newValue: replacement)
+```
+
+Use `PythonSlice` or `builtins.slice` when a Swift range cannot express the slice, such as a stepped or reversed slice:
+
+```swift
+let reversed = try await list.getItem(key: PythonSlice(nil, nil, step: -1))
 let slice = try await interpreter.builtins.slice(1, 3)
-let middle = try await list.getItem(key: slice)
-try await list.setItem(key: slice, newValue: replacement)
+let sameMiddle = try await list.getItem(key: slice)
 ```
 
 Convert a Python list to a tuple with Python's own constructor:
@@ -569,19 +580,20 @@ try await interpreter.withIsolatedContext { context in
 }
 ```
 
-Use safe subscript syntax for concise code when trapping on Python errors is acceptable:
+Use safe subscript syntax for concise code when trapping on Python errors is acceptable. Prefer Swift ranges for ordinary slicing:
 
 ```swift
 try await interpreter.withIsolatedContext { context in
-    let list = try context.convertToSafePython(array: [0, 1, 2, 3])
+    var list = try context.convertToSafePython(array: [0, 1, 2, 3])
 
     let last = list[-1]
     list[1] = 20
 
-    let middle = list[.slice(1, 3)]
-    list[.slice(1, 3)] = try context.convertToSafePython(array: [10, 20])
+    let middle = list[1..<3]
+    let tail = list[2...]
+    list[1...2] = try context.convertToSafePython(array: [10, 20])
 
-    print(last, middle)
+    print(last, middle, tail)
 }
 ```
 
@@ -589,7 +601,8 @@ Use explicit throwing item methods for robust safe code:
 
 ```swift
 let value = try list.getItem(key: -1)
-try list.setItem(key: PythonSlice(1, 3), newValue: replacement)
+let middle = try list.getItem(key: 1..<3)
+try list.setItem(key: 1..<3, newValue: replacement)
 ```
 
 ### Error Behavior
@@ -608,24 +621,30 @@ Safe subscript access and assignment cannot throw because Swift subscripts are n
 
 ### Slice Guidance
 
-For async ``PythonObject`` slicing, use Python's `slice` constructor through builtins:
+For async ``PythonObject`` slicing, prefer Swift ranges with generic item access:
 
 ```swift
-let slice = try await interpreter.builtins.slice(1, 3)
-let result = try await list.getItem(key: slice)
+let result = try await list.getItem(key: 1..<3)
+let tail = try await list.getItem(key: 2...)
+let prefix = try await list.getItem(key: ..<3)
+try await list.setItem(key: 1...2, newValue: replacement)
 ```
 
-For safe slicing, use ``PythonSlice`` and subscript syntax:
+For safe slicing, prefer Swift ranges with subscript syntax:
 
 ```swift
-let result = list[.slice(1, 3)]
-let tail = list[.slice(2, nil)]
+let result = list[1..<3]
+let tail = list[2...]
+let prefix = list[..<3]
+list[1...2] = replacement
+```
+
+Supported Swift range keys are `Range<Int>`, `ClosedRange<Int>`, `PartialRangeFrom<Int>`, `PartialRangeUpTo<Int>`, and `PartialRangeThrough<Int>`. Closed ranges are converted to Python's exclusive stop convention, so `1...2` becomes `slice(1, 3)`.
+
+Use ``PythonSlice`` when a Swift range cannot express the slice:
+
+```swift
 let reversed = list[.slice(nil, nil, step: -1)]
-```
-
-Use `PythonSlice` directly when passing slices to throwing safe item APIs:
-
-```swift
 try list.setItem(key: PythonSlice(1, 3), newValue: replacement)
 ```
 
@@ -638,9 +657,9 @@ Do not add these unless the user explicitly requests them:
 - A `reverse()` wrapper. Users can call `list.reverse()` directly.
 - A `pop()` wrapper. Users can call `list.pop()` directly.
 - A `sort()` wrapper. Users can call `list.sort()` directly.
-- Separate async subscript slicing for `PythonObject`; use `builtins.slice` and `getItem`/`setItem` because Swift cannot use `await` with subscript syntax.
+- Separate async subscript slicing for `PythonObject`; use Swift range keys or `PythonSlice` with `getItem`/`setItem` because Swift cannot use `await` with subscript syntax.
 - Optional safe list helpers. The main safe list API throws.
 
 ### Release Completeness
 
-List support should be considered complete for a 1.0 release when it has async APIs, safe APIs, list creation, list inspection, array conversion, item access and mutation, negative indexing, safe slice syntax, async slice examples through `builtins.slice`, Python-native method examples, unit tests, and DocC documentation.
+List support should be considered complete for a 1.0 release when it has async APIs, safe APIs, list creation, list inspection, array conversion, item access and mutation, negative indexing, Swift range slicing, `PythonSlice` support for stepped slices, Python-native method examples, unit tests, and DocC documentation.
