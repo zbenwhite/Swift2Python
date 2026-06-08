@@ -72,7 +72,95 @@ extension PythonInterpreter {
         return newSafePythonObject(fromReturnedPointer: setPtr)
     }
     
+    // MARK: Async Set Support
+    
+    internal func isSet(_ obj: PythonObject) async throws -> Bool {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL { try isSet(objPtr, onError: { try throwPythonError() }) }
+    }
+    
+    internal func isFrozenSet(_ obj: PythonObject) async throws -> Bool {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL { try isFrozenSet(objPtr, onError: { try throwPythonError() }) }
+    }
+    
+    internal func isAnySet(_ obj: PythonObject) async throws -> Bool {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL { try isAnySet(objPtr, onError: { try throwPythonError() }) }
+    }
+    
+    internal func getSetCount(_ obj: PythonObject) async throws -> Int {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL {
+            guard try isAnySet(objPtr, onError: { try throwPythonError() }) else {
+                throw PythonError.setConversionFailed(expected: "set or frozenset", actual: nil)
+            }
+            return try getSizeOf(set: objPtr, onError: { try throwPythonError() })
+        }
+    }
+    
+    // MARK: Safe Set Support
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    internal func syncIsSet(_ obj: SafePythonObject) throws -> Bool {
+        let objPtr = getRegisteredPointer(forSafeObj: obj)
+        return try isSet(objPtr, onError: { try throwSafePythonError() })
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    internal func syncIsFrozenSet(_ obj: SafePythonObject) throws -> Bool {
+        let objPtr = getRegisteredPointer(forSafeObj: obj)
+        return try isFrozenSet(objPtr, onError: { try throwSafePythonError() })
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    internal func syncIsAnySet(_ obj: SafePythonObject) throws -> Bool {
+        let objPtr = getRegisteredPointer(forSafeObj: obj)
+        return try isAnySet(objPtr, onError: { try throwSafePythonError() })
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    internal func syncSetCount(_ obj: SafePythonObject) throws -> Int {
+        let objPtr = getRegisteredPointer(forSafeObj: obj)
+        guard try isAnySet(objPtr, onError: { try throwSafePythonError() }) else {
+            throw PythonError.setConversionFailed(expected: "set or frozenset", actual: nil)
+        }
+        return try getSizeOf(set: objPtr, onError: { try throwSafePythonError() })
+    }
+    
     // MARK: Python API Helpers
+    
+    // This requires the GIL.
+    private func isSet(_ objPtr: UnsafeMutableRawPointer, onError throwError: () throws -> Never) throws -> Bool {
+        switch api.pythonObject_IsInstance(objPtr, api.PySet_Type) {
+        case 0: return false
+        case 1: return true
+        default: try throwError()
+        }
+    }
+    
+    // This requires the GIL.
+    private func isFrozenSet(_ objPtr: UnsafeMutableRawPointer, onError throwError: () throws -> Never) throws -> Bool {
+        switch api.pythonObject_IsInstance(objPtr, api.PyFrozenSet_Type) {
+        case 0: return false
+        case 1: return true
+        default: try throwError()
+        }
+    }
+    
+    // This requires the GIL.
+    private func isAnySet(_ objPtr: UnsafeMutableRawPointer, onError throwError: () throws -> Never) throws -> Bool {
+        try isSet(objPtr, onError: throwError) || isFrozenSet(objPtr, onError: throwError)
+    }
+    
+    // This requires the GIL.
+    private func getSizeOf(set: UnsafeMutableRawPointer, onError throwError: () throws -> Never) throws -> Int {
+        let result = api.pythonSet_Size(set)
+        if result == -1 {
+            try throwError()
+        }
+        return result
+    }
     
     // This requires the GIL.
     private func newPythonSet(orElse throwError: () throws -> Never) throws -> UnsafeMutableRawPointer {

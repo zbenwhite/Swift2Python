@@ -416,6 +416,41 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         try await interpreter.delListItem(at: index, from: self)
     }
 
+    // MARK: Set support
+    
+    /// Returns true if this Python object is a set.
+    ///
+    /// - Returns: `true` when this object is a Python `set`; otherwise `false`.
+    /// - Throws: `PythonError` if Python raises while checking the object type.
+    public func isSet() async throws -> Bool {
+        try await interpreter.isSet(self)
+    }
+    
+    /// Returns true if this Python object is a frozenset.
+    ///
+    /// - Returns: `true` when this object is a Python `frozenset`; otherwise `false`.
+    /// - Throws: `PythonError` if Python raises while checking the object type.
+    public func isFrozenSet() async throws -> Bool {
+        try await interpreter.isFrozenSet(self)
+    }
+    
+    /// Returns true if this Python object is a set or frozenset.
+    ///
+    /// - Returns: `true` when this object is a Python `set` or `frozenset`; otherwise `false`.
+    /// - Throws: `PythonError` if Python raises while checking the object type.
+    public func isAnySet() async throws -> Bool {
+        try await interpreter.isAnySet(self)
+    }
+    
+    /// Returns the number of elements in this Python set or frozenset.
+    ///
+    /// - Returns: The set length.
+    /// - Throws: `PythonError.setConversionFailed` if this object is not a set or frozenset,
+    ///   or `PythonError` if Python raises while reading the set length.
+    public func setCount() async throws -> Int {
+        try await interpreter.getSetCount(self)
+    }
+    
     // MARK: Tuple support
     
     /// Returns true if this Python object is a tuple.

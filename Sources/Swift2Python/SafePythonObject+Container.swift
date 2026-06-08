@@ -92,6 +92,73 @@ extension PythonInterpreter.SafePythonObject {
         ItemsSequence(dictView: self)
     }
     
+    // MARK: Set Support
+    
+    /// Returns true if this safe Python object is a set.
+    ///
+    /// Only use this property inside the synchronous, GIL-managed, reference-managed
+    /// local `withIsolatedContext` environment.
+    ///
+    /// - Returns: `true` when this object is a Python `set`; otherwise `false`.
+    /// - Throws: `PythonError` if Python raises while checking the object type.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public var isSet: Bool {
+        get throws {
+            try interpreter.assumeIsolated {
+                try $0.syncIsSet(self)
+            }
+        }
+    }
+    
+    /// Returns true if this safe Python object is a frozenset.
+    ///
+    /// Only use this property inside the synchronous, GIL-managed, reference-managed
+    /// local `withIsolatedContext` environment.
+    ///
+    /// - Returns: `true` when this object is a Python `frozenset`; otherwise `false`.
+    /// - Throws: `PythonError` if Python raises while checking the object type.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public var isFrozenSet: Bool {
+        get throws {
+            try interpreter.assumeIsolated {
+                try $0.syncIsFrozenSet(self)
+            }
+        }
+    }
+    
+    /// Returns true if this safe Python object is a set or frozenset.
+    ///
+    /// Only use this property inside the synchronous, GIL-managed, reference-managed
+    /// local `withIsolatedContext` environment.
+    ///
+    /// - Returns: `true` when this object is a Python `set` or `frozenset`; otherwise `false`.
+    /// - Throws: `PythonError` if Python raises while checking the object type.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public var isAnySet: Bool {
+        get throws {
+            try interpreter.assumeIsolated {
+                try $0.syncIsAnySet(self)
+            }
+        }
+    }
+    
+    /// Returns the number of elements in this safe Python set or frozenset.
+    ///
+    /// Only use this property inside the synchronous, GIL-managed, reference-managed
+    /// local `withIsolatedContext` environment.
+    ///
+    /// - Returns: The set length.
+    /// - Throws: `PythonError.setConversionFailed` if this object is not a set or frozenset,
+    ///   or `PythonError` if Python raises while reading the set length.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public var setCount: Int {
+        get throws {
+            try interpreter.assumeIsolated {
+                try $0.syncSetCount(self)
+            }
+        }
+    }
+    
     // MARK: Dictionary Support
     
     /// Returns true if this safe Python object is a dictionary.

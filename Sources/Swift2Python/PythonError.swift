@@ -36,6 +36,7 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
     indirect case conversionType( value: String, sourceType: String, targetType: String, underlying: PythonError? = nil)
     case dictionaryConversionFailed(expected: String, actual: String?)
     case listConversionFailed(expected: String, actual: String?)
+    case setConversionFailed(expected: String, actual: String?)
     case tupleConversionFailed(expected: String, actual: String?)
     case tupleArityMismatch(expected: Int, actual: Int)
     case typeError(operation: String, opType1: String, opType2: String )
@@ -87,6 +88,12 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
                 return "List conversion failed: expected \(expected), got \(actual)"
             } else {
                 return "List conversion failed: expected \(expected)"
+            }
+        case .setConversionFailed(let expected, let actual):
+            if let actual {
+                return "Set conversion failed: expected \(expected), got \(actual)"
+            } else {
+                return "Set conversion failed: expected \(expected)"
             }
         case .tupleConversionFailed(let expected, let actual):
             if let actual {
