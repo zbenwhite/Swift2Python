@@ -79,6 +79,8 @@ extension PythonInterpreter {
         let PyObject_SetItem: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32)
         let PyObject_Str: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyRun_SimpleString: (@convention(c) (UnsafePointer<CChar>) -> Int32)
+        let PySet_Add: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32)
+        let PySet_New: (@convention(c) (UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?)
         let PyTuple_GetItem: (@convention(c) (UnsafeMutableRawPointer?, Int) -> UnsafeMutableRawPointer?)
         let PyTuple_New: (@convention(c) (Int) -> UnsafeMutableRawPointer?)
         let PyTuple_SetItem: (@convention(c) (UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Int32)
@@ -335,6 +337,16 @@ extension PythonInterpreter {
             return command.withCString { PyRun_SimpleString($0) }
         }
         
+        internal func pythonSet_Add(_ setPtr: UnsafeMutableRawPointer, _ keyPtr: UnsafeMutableRawPointer) -> Int32 {
+            logger.trace("CPython API Call: PySet_Add")
+            return PySet_Add(setPtr, keyPtr)
+        }
+        
+        internal func pythonSet_New(_ iterablePtr: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
+            logger.trace("CPython API Call: PySet_New")
+            return PySet_New(iterablePtr)
+        }
+        
         internal func pythonObject_IsInstance(_ object: UnsafeMutableRawPointer, _ classInfo: UnsafeMutableRawPointer) -> Int32 {
             logger.trace("CPython API Call: PyObject_IsInstance")
             return PyObject_IsInstance(object, classInfo)
@@ -558,6 +570,10 @@ extension PythonInterpreter {
                 "PyObject_Str", as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             PyRun_SimpleString: try await runtime.loadSendableSymbol(
                 "PyRun_SimpleString", as: (@convention(c) (UnsafePointer<CChar>) -> Int32).self).function,
+            PySet_Add: try await runtime.loadSendableSymbol(
+                "PySet_Add", as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32).self).function,
+            PySet_New: try await runtime.loadSendableSymbol(
+                "PySet_New", as: (@convention(c) (UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self).function,
             PyTuple_GetItem: try await runtime.loadSendableSymbol(
                 "PyTuple_GetItem", as: (@convention(c) (UnsafeMutableRawPointer?, Int) -> UnsafeMutableRawPointer?).self).function,
             PyTuple_New: try await runtime.loadSendableSymbol(

@@ -94,7 +94,59 @@ extension Dictionary : SafePythonConvertible where Key : SafePythonConvertible &
     /// - Throws: `PythonError` if dictionary creation, key conversion, value conversion, or item insertion fails.
     public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
         try interpreter.assumeIsolated {
-            try $0.convertToSafePython(dictionary:self)
+            try $0.convertToSafePython(dictionary: self)
+        }
+    }
+}
+
+extension Set: PendingPythonConvertible where Element: PendingPythonConvertible {
+    /// Converts this Swift set to a Python set.
+    ///
+    /// This conformance lets Swift sets be passed directly to async Swift2Python
+    /// APIs that accept `PendingPythonConvertible` values. Each element is converted
+    /// with its own `PendingPythonConvertible` conformance.
+    ///
+    /// ```swift
+    /// let set = try await Set([1, 2, 3]).toPythonObject(interpreter: interpreter)
+    /// _ = try await pythonFunction(Set([1, 2, 3]))
+    /// ```
+    ///
+    /// Swift set membership guarantees Swift hashability. Python may still reject
+    /// an element if the converted Python object is not hashable.
+    ///
+    /// - Parameters:
+    ///   - interpreter: The interpreter that owns the created Python set.
+    /// - Returns: A `PythonObject` representing a Python set.
+    /// - Throws: `PythonError` if set creation, element conversion, or element insertion fails.
+    public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        try await interpreter.convertToPython(set: self)
+    }
+}
+
+extension Set: SafePythonConvertible where Element: SafePythonConvertible {
+    /// Converts this Swift set to a safe Python set.
+    ///
+    /// This conformance lets Swift sets be passed directly to safe Swift2Python
+    /// APIs inside `withIsolatedContext`. Each element is converted with its own
+    /// `SafePythonConvertible` conformance.
+    ///
+    /// ```swift
+    /// try await interpreter.withIsolatedContext { context in
+    ///     let set = try Set([1, 2, 3]).toSafePythonObject(interpreter: context)
+    ///     _ = try pythonFunction(Set([1, 2, 3]))
+    /// }
+    /// ```
+    ///
+    /// Swift set membership guarantees Swift hashability. Python may still reject
+    /// an element if the converted Python object is not hashable.
+    ///
+    /// - Parameters:
+    ///   - interpreter: The isolated interpreter context that owns the created Python set.
+    /// - Returns: A `SafePythonObject` representing a Python set.
+    /// - Throws: `PythonError` if set creation, element conversion, or element insertion fails.
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try interpreter.assumeIsolated {
+            try $0.convertToSafePython(set: self)
         }
     }
 }
