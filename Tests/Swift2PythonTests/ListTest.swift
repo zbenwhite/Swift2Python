@@ -362,7 +362,7 @@ struct ListTests {
             _ = try list.append(4)
             #expect(try safeInts(from: list) == [3, 1, 2, 2, 4])
             
-            _ = try list.extend(isolatedInterpreter.convertToSafePython(array: [5, 6]))
+            _ = try list.extend([5, 6])
             #expect(try safeInts(from: list) == [3, 1, 2, 2, 4, 5, 6])
             
             _ = try list.remove(2)
