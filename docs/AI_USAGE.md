@@ -663,3 +663,207 @@ Do not add these unless the user explicitly requests them:
 ### Release Completeness
 
 List support should be considered complete for a 1.0 release when it has async APIs, safe APIs, list creation, list inspection, array conversion, item access and mutation, negative indexing, Swift range slicing, `PythonSlice` support for stepped slices, Python-native method examples, unit tests, and DocC documentation.
+
+## Sets
+
+Set support covers Python `set` and `frozenset`. Prefer explicit Swift2Python helpers for creation, type checks, counts, membership, mutable add/remove/discard, and eager array conversion. Use normal Python method calls for set algebra and less-common Python set operations.
+
+### What Set APIs Exist
+
+Async ``PythonObject`` set APIs:
+
+```swift
+try await object.isSet()
+try await object.isFrozenSet()
+try await object.isAnySet()
+try await set.setCount()
+try await set.asSetArray()
+try await set.setContains("value")
+try await set.setAdd("value")
+try await set.setRemove("value")
+try await set.setDiscard("value")
+```
+
+Set and frozenset creation from Swift sets:
+
+```swift
+let set = try await interpreter.convertToPython(set: Set([1, 2, 3]))
+let frozenSet = try await interpreter.convertToPython(frozenSet: Set([1, 2, 3]))
+```
+
+Swift `Set` conforms to `PendingPythonConvertible` and converts to a mutable Python `set`:
+
+```swift
+let set = try await Set(["red", "green"]).toPythonObject(interpreter: interpreter)
+```
+
+Safe set APIs inside `withIsolatedContext`:
+
+```swift
+try object.isSet
+try object.isFrozenSet
+try object.isAnySet
+try set.setCount
+try set.setArray
+try set.setContains("value")
+try set.setAdd("value")
+try set.setRemove("value")
+try set.setDiscard("value")
+```
+
+Safe set and frozenset creation:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let set = try context.convertToSafePython(set: Set([1, 2, 3]))
+    let frozenSet = try context.convertToSafePython(frozenSet: Set([1, 2, 3]))
+}
+```
+
+### Preferred Async Patterns
+
+Create a mutable Python set from a Swift set:
+
+```swift
+let set = try await interpreter.convertToPython(set: Set([1, 2, 3]))
+```
+
+Create a Python frozenset only with the explicit `frozenSet:` label:
+
+```swift
+let frozenSet = try await interpreter.convertToPython(frozenSet: Set([1, 2, 3]))
+```
+
+Check type and count:
+
+```swift
+if try await object.isAnySet() {
+    let count = try await object.setCount()
+    print(count)
+}
+```
+
+Convert to an eager Swift array of Python objects when needed. Treat the order as arbitrary because Python sets are unordered:
+
+```swift
+let elements = try await set.asSetArray()
+for element in elements {
+    print(try await Int(element))
+}
+```
+
+Use membership and mutation helpers when the object is expected to be a set:
+
+```swift
+if try await set.setContains(2) {
+    try await set.setRemove(2)
+}
+try await set.setAdd(4)
+try await set.setDiscard(99)
+```
+
+### Python-Native Set Methods
+
+Use direct Python method calls for normal set algebra and Python-native behavior:
+
+```swift
+let union = try await set.union(other)
+let intersection = try await set.intersection(other)
+let difference = try await set.difference(other)
+let symmetricDifference = try await set.symmetric_difference(other)
+
+let subset = try await smaller.issubset(set)
+let superset = try await set.issuperset(smaller)
+let disjoint = try await set.isdisjoint(other)
+
+let popped = try await set.pop()
+try await set.update([4, 5])
+try await set.clear()
+let copy = try await set.copy()
+```
+
+Do not create wrapper APIs for every Python set method by default. Python-native calls cover methods such as `clear`, `copy`, `difference`, `difference_update`, `intersection`, `intersection_update`, `isdisjoint`, `issubset`, `issuperset`, `pop`, `symmetric_difference`, `symmetric_difference_update`, `union`, and `update`.
+
+### Preferred Safe Patterns
+
+Use safe set APIs only inside `withIsolatedContext`:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let set = try context.convertToSafePython(set: Set([1, 2, 3]))
+
+    let count = try set.setCount
+    let elements = try set.setArray
+    try set.setAdd(4)
+
+    print(count, elements)
+}
+```
+
+Call Python-native methods directly in the safe context:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let set = try context.convertToSafePython(set: Set([1, 2, 3]))
+    let other = try context.convertToSafePython(set: Set([3, 4]))
+
+    let union = try set.union(other)
+    let popped = try set.pop()
+    print(union, popped)
+}
+```
+
+For safe code that might access a missing Python method or attribute, prefer the explicit throwing `get(attr:)` API over dynamic-member syntax. Dynamic-member lookup can trap when the attribute does not exist:
+
+```swift
+let pop = try set.get(attr: "pop")
+```
+
+### Frozenset Guidance
+
+`frozenset` is immutable. Use `isFrozenSet`, `isAnySet`, `setCount`, `setContains`, and `asSetArray` / `setArray` with frozensets.
+
+Do not call mutation helpers on frozensets:
+
+```swift
+try await frozenSet.setContains(2)  // OK
+try await frozenSet.setAdd(4)       // throws setConversionFailed
+```
+
+Use Python-native non-mutating methods on frozensets when needed:
+
+```swift
+let union = try await frozenSet.union(other)
+let disjoint = try await frozenSet.isdisjoint(other)
+```
+
+### Error Behavior
+
+Async set helpers throw:
+
+- `PythonError.setConversionFailed(expected:actual:)` when the object is not a set or frozenset, or when a mutation helper is used on a frozenset.
+- `PythonError.pythonException` when Python raises while performing set operations, including `setRemove` for a missing item or Python `pop()` on an empty set.
+
+Safe set helpers throw:
+
+- `PythonError.setConversionFailed(expected:actual:)` when the object is not a set or frozenset, or when a mutation helper is used on a frozenset.
+- `PythonError.safePythonException` when Python raises while performing set operations.
+
+`setRemove` follows Python `remove` semantics and throws for missing items. `setDiscard` follows Python `discard` semantics and does not throw for missing items.
+
+Avoid using deliberately unhashable values, such as a Python list inserted into a Python set, as ordinary set-support tests. That path is useful for reference-counting/error-bridge regression tests, but it can expose lower-level exception wrapping issues unrelated to set API behavior.
+
+### What Not To Add For Sets
+
+Do not add these unless the user explicitly requests them:
+
+- Wrapper APIs for every Python set method.
+- Separate Swift wrapper methods for set algebra operations such as `union`, `intersection`, and `difference`; direct Python calls cover them.
+- A `pop()` wrapper. Users can call `set.pop()` directly.
+- A `clear()` wrapper. Users can call `set.clear()` directly.
+- Mutation helpers for frozenset. Python frozensets are immutable.
+- Optional safe set helpers. The main safe set API throws.
+
+### Release Completeness
+
+Set support should be considered complete for a 1.0 release when it has async APIs, safe APIs, mutable set creation, frozenset creation, type inspection, count, membership, mutation helpers for mutable sets, array conversion, Python-native method examples, unit tests, and DocC documentation.

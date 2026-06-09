@@ -79,7 +79,10 @@ extension PythonInterpreter {
         let PyObject_SetItem: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32)
         let PyObject_Str: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyRun_SimpleString: (@convention(c) (UnsafePointer<CChar>) -> Int32)
+        let PyFrozenSet_New: (@convention(c) (UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?)
         let PySet_Add: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32)
+        let PySet_Contains: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32)
+        let PySet_Discard: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32)
         let PySet_New: (@convention(c) (UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?)
         let PySet_Size: (@convention(c) (UnsafeMutableRawPointer?) -> Int)
         let PyTuple_GetItem: (@convention(c) (UnsafeMutableRawPointer?, Int) -> UnsafeMutableRawPointer?)
@@ -345,6 +348,21 @@ extension PythonInterpreter {
             return PySet_Add(setPtr, keyPtr)
         }
         
+        internal func pythonSet_Contains(_ setPtr: UnsafeMutableRawPointer, _ keyPtr: UnsafeMutableRawPointer) -> Int32 {
+            logger.trace("CPython API Call: PySet_Contains")
+            return PySet_Contains(setPtr, keyPtr)
+        }
+        
+        internal func pythonSet_Discard(_ setPtr: UnsafeMutableRawPointer, _ keyPtr: UnsafeMutableRawPointer) -> Int32 {
+            logger.trace("CPython API Call: PySet_Discard")
+            return PySet_Discard(setPtr, keyPtr)
+        }
+        
+        internal func pythonFrozenSet_New(_ iterablePtr: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
+            logger.trace("CPython API Call: PyFrozenSet_New")
+            return PyFrozenSet_New(iterablePtr)
+        }
+        
         internal func pythonSet_New(_ iterablePtr: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: PySet_New")
             return PySet_New(iterablePtr)
@@ -578,8 +596,14 @@ extension PythonInterpreter {
                 "PyObject_Str", as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             PyRun_SimpleString: try await runtime.loadSendableSymbol(
                 "PyRun_SimpleString", as: (@convention(c) (UnsafePointer<CChar>) -> Int32).self).function,
+            PyFrozenSet_New: try await runtime.loadSendableSymbol(
+                "PyFrozenSet_New", as: (@convention(c) (UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self).function,
             PySet_Add: try await runtime.loadSendableSymbol(
                 "PySet_Add", as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32).self).function,
+            PySet_Contains: try await runtime.loadSendableSymbol(
+                "PySet_Contains", as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32).self).function,
+            PySet_Discard: try await runtime.loadSendableSymbol(
+                "PySet_Discard", as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32).self).function,
             PySet_New: try await runtime.loadSendableSymbol(
                 "PySet_New", as: (@convention(c) (UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self).function,
             PySet_Size: try await runtime.loadSendableSymbol(

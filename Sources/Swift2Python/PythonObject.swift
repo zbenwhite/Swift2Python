@@ -451,6 +451,63 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         try await interpreter.getSetCount(self)
     }
     
+    /// Returns this Python set or frozenset's elements as a Swift array.
+    ///
+    /// Python sets are unordered, so the returned array uses Python's current set
+    /// iteration order. Use this for eager access to the elements as `PythonObject` values.
+    ///
+    /// - Returns: A Swift array containing this Python set or frozenset's elements.
+    /// - Throws: `PythonError.setConversionFailed` if this object is not a set or frozenset,
+    ///   or `PythonError` if Python raises while iterating the set.
+    public func asSetArray() async throws -> [PythonObject] {
+        try await interpreter.toSetArray(self)
+    }
+    
+    /// Returns true if this Python set or frozenset contains an item.
+    ///
+    /// - Parameters:
+    ///   - item: The item to check. It is converted to Python before checking membership.
+    /// - Returns: `true` if the item is present; otherwise `false`.
+    /// - Throws: `PythonError.setConversionFailed` if this object is not a set or frozenset,
+    ///   or `PythonError` if conversion or membership checking fails.
+    public func setContains(_ item: any PendingPythonConvertible) async throws -> Bool {
+        try await interpreter.setContains(item, in: self)
+    }
+    
+    /// Adds an item to this Python set.
+    ///
+    /// - Parameters:
+    ///   - item: The item to add. It is converted to Python before insertion.
+    /// - Throws: `PythonError.setConversionFailed` if this object is not a mutable set,
+    ///   or `PythonError` if conversion or insertion fails.
+    public func setAdd(_ item: any PendingPythonConvertible) async throws {
+        try await interpreter.addSetItem(item, to: self)
+    }
+    
+    /// Removes an item from this Python set, raising if the item is absent.
+    ///
+    /// This follows Python `set.remove` semantics.
+    ///
+    /// - Parameters:
+    ///   - item: The item to remove. It is converted to Python before removal.
+    /// - Throws: `PythonError.setConversionFailed` if this object is not a mutable set,
+    ///   or `PythonError.pythonException` if Python raises, including missing items.
+    public func setRemove(_ item: any PendingPythonConvertible) async throws {
+        try await interpreter.removeSetItem(item, from: self)
+    }
+    
+    /// Discards an item from this Python set without raising if the item is absent.
+    ///
+    /// This follows Python `set.discard` semantics.
+    ///
+    /// - Parameters:
+    ///   - item: The item to discard. It is converted to Python before removal.
+    /// - Throws: `PythonError.setConversionFailed` if this object is not a mutable set,
+    ///   or `PythonError` if conversion or discard fails.
+    public func setDiscard(_ item: any PendingPythonConvertible) async throws {
+        try await interpreter.discardSetItem(item, from: self)
+    }
+    
     // MARK: Tuple support
     
     /// Returns true if this Python object is a tuple.

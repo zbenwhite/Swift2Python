@@ -159,6 +159,80 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    /// Returns this safe Python set or frozenset's elements as a Swift array.
+    ///
+    /// Python sets are unordered, so the returned array uses Python's current set
+    /// iteration order. Only use this property inside `withIsolatedContext`.
+    ///
+    /// - Returns: A Swift array containing this Python set or frozenset's elements.
+    /// - Throws: `PythonError.setConversionFailed` if this object is not a set or frozenset,
+    ///   or `PythonError` if Python raises while iterating the set.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public var setArray: [PythonInterpreter.SafePythonObject] {
+        get throws {
+            try interpreter.assumeIsolated {
+                try $0.syncSetArray(self)
+            }
+        }
+    }
+    
+    /// Returns true if this safe Python set or frozenset contains an item.
+    ///
+    /// - Parameters:
+    ///   - item: The item to check. It is converted to Python before checking membership.
+    /// - Returns: `true` if the item is present; otherwise `false`.
+    /// - Throws: `PythonError.setConversionFailed` if this object is not a set or frozenset,
+    ///   or `PythonError` if conversion or membership checking fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func setContains(_ item: any SafePythonConvertible) throws -> Bool {
+        try interpreter.assumeIsolated {
+            try $0.syncSetContains(item, in: self)
+        }
+    }
+    
+    /// Adds an item to this safe Python set.
+    ///
+    /// - Parameters:
+    ///   - item: The item to add. It is converted to Python before insertion.
+    /// - Throws: `PythonError.setConversionFailed` if this object is not a mutable set,
+    ///   or `PythonError` if conversion or insertion fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func setAdd(_ item: any SafePythonConvertible) throws {
+        try interpreter.assumeIsolated {
+            try $0.syncAddSetItem(item, to: self)
+        }
+    }
+    
+    /// Removes an item from this safe Python set, raising if the item is absent.
+    ///
+    /// This follows Python `set.remove` semantics.
+    ///
+    /// - Parameters:
+    ///   - item: The item to remove. It is converted to Python before removal.
+    /// - Throws: `PythonError.setConversionFailed` if this object is not a mutable set,
+    ///   or `PythonError.safePythonException` if Python raises, including missing items.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func setRemove(_ item: any SafePythonConvertible) throws {
+        try interpreter.assumeIsolated {
+            try $0.syncRemoveSetItem(item, from: self)
+        }
+    }
+    
+    /// Discards an item from this safe Python set without raising if the item is absent.
+    ///
+    /// This follows Python `set.discard` semantics.
+    ///
+    /// - Parameters:
+    ///   - item: The item to discard. It is converted to Python before removal.
+    /// - Throws: `PythonError.setConversionFailed` if this object is not a mutable set,
+    ///   or `PythonError` if conversion or discard fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func setDiscard(_ item: any SafePythonConvertible) throws {
+        try interpreter.assumeIsolated {
+            try $0.syncDiscardSetItem(item, from: self)
+        }
+    }
+    
     // MARK: Dictionary Support
     
     /// Returns true if this safe Python object is a dictionary.
