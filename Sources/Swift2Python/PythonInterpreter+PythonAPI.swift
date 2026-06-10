@@ -8,6 +8,9 @@
 
 import Logging
 
+public typealias Py_ssize_t = Int64
+
+public typealias PyGILState_STATE = Int32
 
 extension PythonInterpreter {
     
@@ -107,6 +110,8 @@ extension PythonInterpreter {
         // Optional (only present on Python >= 3.9)
 //        let PyObject_CallOneArg: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
         
+        let PyByteArray_Type: UnsafeMutableRawPointer
+        let PyBytes_Type: UnsafeMutableRawPointer
         let PyDict_Type: UnsafeMutableRawPointer
         let PyFrozenSet_Type: UnsafeMutableRawPointer
         let PyList_Type: UnsafeMutableRawPointer
@@ -631,6 +636,8 @@ extension PythonInterpreter {
             Py_REFCNT: try? await runtime.loadSendableSymbol(
                 "Py_REFCNT", as: (@convention(c) (UnsafeMutableRawPointer) -> Int32).self).function,
             
+            PyByteArray_Type: try await runtime.loadSendableSymbol("PyByteArray_Type", as: UnsafeMutableRawPointer.self).function,
+            PyBytes_Type: try await runtime.loadSendableSymbol("PyBytes_Type", as: UnsafeMutableRawPointer.self).function,
             PyDict_Type: try await runtime.loadSendableSymbol("PyDict_Type", as: UnsafeMutableRawPointer.self).function,
             PyFrozenSet_Type: try await runtime.loadSendableSymbol("PyFrozenSet_Type", as: UnsafeMutableRawPointer.self).function,
             PyList_Type: try await runtime.loadSendableSymbol("PyList_Type", as: UnsafeMutableRawPointer.self).function,
