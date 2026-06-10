@@ -94,7 +94,7 @@ extension PythonInterpreter {
         }
     }
     
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func getRefCount(forSafeObj: SafePythonObject) throws -> Int {
         let objPtr = getRegisteredPointer(forSafeObj: forSafeObj)
         return try Int(api.pythonReferenceCount(objPtr))
@@ -114,7 +114,7 @@ extension PythonInterpreter {
     }
     
     // A new safePythonObject came from python.  Register it and increment the reference count 0 -> 1.
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func newSafePythonObject(fromReturnedPointer: UnsafeMutableRawPointer) -> SafePythonObject {
         let id = registerSafePythonObject(fromReturnedPointer)
         let safeObj = SafePythonObject(interpreter: self, id: id)
@@ -130,7 +130,7 @@ extension PythonInterpreter {
         return newSafePythonObject(fromReturnedPointer: pointer)
     }
     
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func incrementHousekeepingRefCount(forSafeObj: SafePythonObject, andAlsoPythonsRefCount: Bool = false) {
         guard let currentContext = isolatedContextStack.last, var record = currentContext.registry[forSafeObj.id] else {
             fatalError("Attempted to reference count a SafePythonObject that was not in the registry!")
@@ -142,7 +142,7 @@ extension PythonInterpreter {
         }
     }
     
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func decrementHousekeepingRefCount(forSafeObj: SafePythonObject, andAlsoPythonsRefCount: Bool = false) {
         guard let currentContext = isolatedContextStack.last, var record = currentContext.registry[forSafeObj.id] else {
             fatalError("Attempted to reference count a SafePythonObject that was not in the registry!")
@@ -169,7 +169,7 @@ extension PythonInterpreter {
         isolatedContextStack.append(IsolatedContextRegistry())
     }
     
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func registerSafePythonObject(_ ptr: UnsafeMutableRawPointer) -> PythonObjectUniqueID {
         guard let currentContext = isolatedContextStack.last else {
             fatalError("Attempted to register a SafePythonPython but the isolatedContextStack was empty!")
@@ -180,7 +180,7 @@ extension PythonInterpreter {
         return id
     }
     
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func getRegisteredSafeObjectPtr(id: PythonObjectUniqueID) -> UnsafeMutableRawPointer {
         // Look in the registry for local scope first, then up toward the globals.
         // This is so globals work.  There's more-or-less never going to be grater than
@@ -193,7 +193,7 @@ extension PythonInterpreter {
         fatalError("Failed to find a registered SafePythonObject.")
     }
     
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func getRegisteredPointer(forSafeObj: SafePythonObject) -> UnsafeMutableRawPointer {
         return getRegisteredSafeObjectPtr(id: forSafeObj.id)
     }
@@ -208,7 +208,7 @@ extension PythonInterpreter {
     }
     
     // Copy a PythonObject (reference) into a SafePythonObject
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func bind(pythonObject: PythonObject) -> PythonInterpreter.SafePythonObject {
         
         // At the end of the withIsolatedContext block, Py_DecRef will be called on the object.

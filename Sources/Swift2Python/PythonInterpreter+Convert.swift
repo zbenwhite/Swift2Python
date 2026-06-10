@@ -128,7 +128,7 @@ extension PythonInterpreter {
         return boolValue
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func convertToBool(_ obj: SafePythonObject) throws -> Bool {
         let boolValue: Bool
         do {
@@ -165,7 +165,7 @@ extension PythonInterpreter {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func convertToDouble(_ obj: SafePythonObject) throws -> Double {
         let objPtr = getRegisteredPointer(forSafeObj:obj)
         do {
@@ -226,7 +226,7 @@ extension PythonInterpreter {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func convertToInt(_ obj: SafePythonObject) throws -> Int {
         logger.trace("convertToInt: Convert SafePythonObject to Int.")
         let int64Value: Int64
@@ -273,7 +273,7 @@ extension PythonInterpreter {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func convertToInt8(_ obj: SafePythonObject) throws -> Int8 {
         logger.trace("convertToInt: Convert SafePythonObject to Int8.")
         let int64Value: Int64
@@ -320,7 +320,7 @@ extension PythonInterpreter {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func convertToInt16(_ obj: SafePythonObject) throws -> Int16 {
         logger.trace("convertToInt16: Convert SafePythonObject to Int16.")
         let int64Value: Int64
@@ -367,7 +367,7 @@ extension PythonInterpreter {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func convertToInt32(_ obj: SafePythonObject) throws -> Int32 {
         logger.trace("convertToInt32: Convert SafePythonObject to Int32.")
         let int64Value: Int64
@@ -459,7 +459,7 @@ extension PythonInterpreter {
     }
     
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func convertToInt64(_ obj: SafePythonObject) throws -> Int64 {
         logger.trace("convertToInt64: Convert SafePythonObject to Int64.")
         
@@ -803,7 +803,7 @@ extension PythonInterpreter {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func convertToUInt64(_ obj: SafePythonObject) throws -> UInt64 {
         logger.trace("convertToUInt64: Convert SafePythonObject to UInt64.")
         let isNegative: Bool
@@ -894,7 +894,7 @@ extension PythonInterpreter {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func convertToString(_ obj: SafePythonObject) throws -> String {
         do {
             let objPtr = getRegisteredPointer(forSafeObj:obj)

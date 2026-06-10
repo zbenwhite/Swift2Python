@@ -48,13 +48,13 @@ extension PythonInterpreter {
         throw PythonError.unknownPythonException
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func throwSafePythonErrorIfPresent() throws {
         guard api.pythonErr_Occurred() != nil else { return }
         try throwSafePythonError()
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func throwSafePythonError() throws -> Never {
         logger.trace("throwPythonError (synchronous)")
         if let pyGetRaisedException = api.PyErr_GetRaisedException {
