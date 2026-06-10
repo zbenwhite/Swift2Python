@@ -34,6 +34,7 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
     /// because it is out of range for the target type (e.g. 2000 → UInt8).
     case conversionOverflow(value: String, sourceType: String, targetType: String )
     indirect case conversionType( value: String, sourceType: String, targetType: String, underlying: PythonError? = nil)
+    case bytesConversionFailed(expected: String, actual: String?)
     case dictionaryConversionFailed(expected: String, actual: String?)
     case listConversionFailed(expected: String, actual: String?)
     case setConversionFailed(expected: String, actual: String?)
@@ -77,6 +78,12 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
             return "Overflow error: value \(value) of type \(source) cannot be converted to \(target) (out of range)"
         case .conversionType(let value, let sourceType, let targetType, _ ):
             return "Conversion type error: value \(value) of type \(sourceType) cannot be converted to \(targetType)"
+        case .bytesConversionFailed(let expected, let actual):
+            if let actual {
+                return "Bytes conversion failed: expected \(expected), got \(actual)"
+            } else {
+                return "Bytes conversion failed: expected \(expected)"
+            }
         case .dictionaryConversionFailed(let expected, let actual):
             if let actual {
                 return "Dict conversion failed: expected \(expected), got \(actual)"

@@ -325,13 +325,9 @@ extension PythonInterpreter {
         /// Do something with the bytes before the closure ends
         @available(*, noasync, message: "Only safe inside withIsolatedContext()")
         public func withUnsafeBytes<R : Sendable>(_ body: @Sendable (UnsafeBufferPointer<UInt8>) throws -> R) throws -> R {
-            do {
-                let localInterpreter = interpreter
-                return try localInterpreter.assumeIsolated {
-                    try $0.withUnsafeBytes(self, body: body)
-                }
-            } catch {
-                fatalError("Failed: \(error)")
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                try $0.withUnsafeBytes(self, body: body)
             }
         }
         
@@ -339,8 +335,7 @@ extension PythonInterpreter {
         public func withUnsafeBytesString<R : Sendable>( encoding: String.Encoding = .utf8, _ body: @Sendable (String) throws -> R ) throws -> R {
             try withUnsafeBytes { buffer in
                 guard let str = String(bytes: buffer, encoding: encoding) else {
-                    //throw PythonError.valueError("Cannot decode bytes as \(encoding)")
-                    fatalError("placeholder")
+                    throw PythonError.bytesConversionFailed(expected: "bytes decodable as \(encoding)", actual: nil)
                 }
                 return try body(str)
             }

@@ -102,12 +102,18 @@ extension PythonInterpreter {
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func bytesObjectSize(_ obj: SafePythonObject) throws -> Int {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
+        guard try isBytes(objPtr, onError: { try throwSafePythonError() }) else {
+            throw PythonError.bytesConversionFailed(expected: "bytes", actual: nil)
+        }
         return api.pythonBytes_Size(objPtr)
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func byteArrayObjectSize(_ obj: SafePythonObject) throws -> Int {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
+        guard try isByteArray(objPtr, onError: { try throwSafePythonError() }) else {
+            throw PythonError.bytesConversionFailed(expected: "bytearray", actual: nil)
+        }
         return api.pythonByteArray_Size(objPtr)
     }
     
@@ -118,7 +124,8 @@ extension PythonInterpreter {
         var view = Py_buffer()
         
         guard api.PyObject_GetBuffer(objPtr, &view, PyBUF_SIMPLE) == 0 else {
-            fatalError()
+            try api.pythonErr_Clear()
+            throw PythonError.bytesConversionFailed(expected: "bytes-like object", actual: nil)
         }
         defer {
             api.PyBuffer_Release(&view)
@@ -166,14 +173,24 @@ extension PythonInterpreter {
         guard let objPtr = getRegisteredPointer(forPythonObject: obj) else {
             throw PythonError.nullPointer("Object pointer not found")
         }
-        return try await withGIL { Int(api.pythonBytes_Size(objPtr)) }
+        return try await withGIL {
+            guard try isBytes(objPtr, onError: { try throwPythonError() }) else {
+                throw PythonError.bytesConversionFailed(expected: "bytes", actual: nil)
+            }
+            return Int(api.pythonBytes_Size(objPtr))
+        }
     }
     
-    public func bytesArrayObjectSize(_ obj: PythonObject) async throws -> Int {
+    public func byteArrayObjectSize(_ obj: PythonObject) async throws -> Int {
         guard let objPtr = getRegisteredPointer(forPythonObject: obj) else {
             throw PythonError.nullPointer("Object pointer not found")
         }
-        return try await withGIL { api.pythonByteArray_Size(objPtr) }
+        return try await withGIL {
+            guard try isByteArray(objPtr, onError: { try throwPythonError() }) else {
+                throw PythonError.bytesConversionFailed(expected: "bytearray", actual: nil)
+            }
+            return api.pythonByteArray_Size(objPtr)
+        }
     }
     
     // REMOVED DUPLICATE async withUnsafeBytes that manually handled bytes and bytearray here
@@ -185,7 +202,8 @@ extension PythonInterpreter {
             var view = Py_buffer()
             
             guard api.PyObject_GetBuffer(objPtr, &view, PyBUF_SIMPLE) == 0 else {
-                fatalError()
+                try api.pythonErr_Clear()
+                throw PythonError.bytesConversionFailed(expected: "bytes-like object", actual: nil)
             }
             defer {
                 api.PyBuffer_Release(&view)

@@ -184,19 +184,14 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     
     /// Do something with the bytes before the closure ends
     public func withUnsafeBytes<R : Sendable>(_ body: @Sendable (UnsafeBufferPointer<UInt8>) throws -> R) async throws -> R {
-        do {
-            return try await interpreter.withUnsafeBytes(self, body: body)
-        } catch {
-            fatalError("Failed: \(error)")
-        }
+        try await interpreter.withUnsafeBytes(self, body: body)
     }
     
     /// Do something with the bytes before the closure ends
     public func withUnsafeBytesString<R : Sendable>( encoding: String.Encoding = .utf8, _ body: @Sendable (String) throws -> R ) async throws -> R {
         try await withUnsafeBytes { buffer in
             guard let str = String(bytes: buffer, encoding: encoding) else {
-                //throw PythonError.valueError("Cannot decode bytes as \(encoding)")
-                fatalError("placeholder")
+                throw PythonError.bytesConversionFailed(expected: "bytes decodable as \(encoding)", actual: nil)
             }
             return try body(str)
         }
