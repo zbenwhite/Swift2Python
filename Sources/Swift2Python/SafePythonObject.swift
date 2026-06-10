@@ -312,6 +312,40 @@ extension PythonInterpreter {
             }
         }
         
+        /// Returns the number of bytes in this safe Python `bytes` object.
+        ///
+        /// Only use this property inside the synchronous, GIL-managed, reference-managed
+        /// local `withIsolatedContext` environment.
+        ///
+        /// - Returns: The `bytes` length.
+        /// - Throws: `PythonError.bytesConversionFailed` if this object is not `bytes`,
+        ///   or `PythonError` if Python raises while reading the size.
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+        public var bytesSize: Int {
+            get throws {
+                try interpreter.assumeIsolated {
+                    try $0.bytesObjectSize(self)
+                }
+            }
+        }
+        
+        /// Returns the number of bytes in this safe Python `bytearray` object.
+        ///
+        /// Only use this property inside the synchronous, GIL-managed, reference-managed
+        /// local `withIsolatedContext` environment.
+        ///
+        /// - Returns: The `bytearray` length.
+        /// - Throws: `PythonError.bytesConversionFailed` if this object is not `bytearray`,
+        ///   or `PythonError` if Python raises while reading the size.
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+        public var byteArraySize: Int {
+            get throws {
+                try interpreter.assumeIsolated {
+                    try $0.byteArrayObjectSize(self)
+                }
+            }
+        }
+        
         /// Safe copy of Python bytes → Swift Data
         public func asCopiedData() throws -> Data {
             try withUnsafeBytes { Data($0) }

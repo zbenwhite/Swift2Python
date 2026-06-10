@@ -145,16 +145,12 @@ extension PythonInterpreter {
     // MARK: Asynchronous bytes
     
     internal func isBytes(_ obj: PythonObject) async throws -> Bool {
-        guard let objPtr = getRegisteredPointer(forPythonObject: obj) else {
-            throw PythonError.nullPointer("Object pointer not found")
-        }
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
         return try await withGIL { try isBytes(objPtr, onError: { try throwPythonError() }) }
     }
     
     internal func isByteArray(_ obj: PythonObject) async throws -> Bool {
-        guard let objPtr = getRegisteredPointer(forPythonObject: obj) else {
-            throw PythonError.nullPointer("Object pointer not found")
-        }
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
         return try await withGIL { try isByteArray(objPtr, onError: { try throwPythonError() }) }
     }
     
@@ -163,16 +159,12 @@ extension PythonInterpreter {
     }
     
     internal func isBytesLike(_ obj: PythonObject) async throws -> Bool {
-        guard let objPtr = getRegisteredPointer(forPythonObject: obj) else {
-            throw PythonError.nullPointer("Object pointer not found")
-        }
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
         return try await withGIL { try isBytesLike(objPtr) }
     }
     
-    public func bytesObjectSize(_ obj: PythonObject) async throws -> Int {
-        guard let objPtr = getRegisteredPointer(forPythonObject: obj) else {
-            throw PythonError.nullPointer("Object pointer not found")
-        }
+    internal func bytesObjectSize(_ obj: PythonObject) async throws -> Int {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
         return try await withGIL {
             guard try isBytes(objPtr, onError: { try throwPythonError() }) else {
                 throw PythonError.bytesConversionFailed(expected: "bytes", actual: nil)
@@ -181,10 +173,8 @@ extension PythonInterpreter {
         }
     }
     
-    public func byteArrayObjectSize(_ obj: PythonObject) async throws -> Int {
-        guard let objPtr = getRegisteredPointer(forPythonObject: obj) else {
-            throw PythonError.nullPointer("Object pointer not found")
-        }
+    internal func byteArrayObjectSize(_ obj: PythonObject) async throws -> Int {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
         return try await withGIL {
             guard try isByteArray(objPtr, onError: { try throwPythonError() }) else {
                 throw PythonError.bytesConversionFailed(expected: "bytearray", actual: nil)

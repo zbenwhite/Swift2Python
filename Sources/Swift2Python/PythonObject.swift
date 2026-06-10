@@ -172,6 +172,24 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         try await interpreter.isBytesLike(self)
     }
     
+    /// Returns the number of bytes in this Python `bytes` object.
+    ///
+    /// - Returns: The `bytes` length.
+    /// - Throws: `PythonError.bytesConversionFailed` if this object is not `bytes`,
+    ///   or `PythonError` if Python raises while reading the size.
+    public func bytesSize() async throws -> Int {
+        try await interpreter.bytesObjectSize(self)
+    }
+    
+    /// Returns the number of bytes in this Python `bytearray` object.
+    ///
+    /// - Returns: The `bytearray` length.
+    /// - Throws: `PythonError.bytesConversionFailed` if this object is not `bytearray`,
+    ///   or `PythonError` if Python raises while reading the size.
+    public func byteArraySize() async throws -> Int {
+        try await interpreter.byteArrayObjectSize(self)
+    }
+    
     /// Safe copy of Python bytes → Swift Data
     public func asCopiedData() async throws -> Data {
         try await withUnsafeBytes { Data($0) }
