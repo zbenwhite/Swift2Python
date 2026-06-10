@@ -129,7 +129,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public mutating func addInPlace(_ other: PythonInterpreter.SafePythonObject) throws  {
         switch state {
         case .bound:

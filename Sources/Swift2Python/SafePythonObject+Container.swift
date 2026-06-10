@@ -33,7 +33,7 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    @available(*, noasync, message: "SafePythonObject Sequence conformance is only valid inside withIsolatedContext()")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func makeIterator() -> SafePythonIterator {
         do {
             return try SafePythonIterator(sequence: self)
@@ -87,7 +87,7 @@ extension PythonInterpreter.SafePythonObject {
     }
     
     // The items() function for a dictionary
-    @available(*, noasync, message: "items() is only valid inside withIsolatedContext()")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func items() -> ItemsSequence {
         ItemsSequence(dictView: self)
     }
