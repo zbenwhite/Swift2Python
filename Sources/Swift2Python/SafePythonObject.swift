@@ -261,29 +261,56 @@ extension PythonInterpreter {
         
         // MARK: Bytes support
         
-//        public var isBytes: Bool {
-//            do {
-//                let localInterpreter = interpreter
-//                return try localInterpreter.assumeIsolated {
-//                    try $0.isBytes(self)
-//                }
-//            } catch {
-//                fatalError("Failed: \(error)")
-//            }
-//        }
-//
-//        public var isBytesArray: Bool {
-//            do {
-//                let localInterpreter = interpreter
-//                return try localInterpreter.assumeIsolated {
-//                    try $0.isBytesArray(self)
-//                }
-//            } catch {
-//                fatalError("Failed: \(error)")
-//            }
-//        }
-//
-//        public var isBytesType: Bool { return isBytes || isBytesArray}
+        /// Returns true if this safe Python object is a `bytes` instance.
+        ///
+        /// Only use this property inside the synchronous, GIL-managed, reference-managed
+        /// local `withIsolatedContext` environment.
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+        public var isBytes: Bool {
+            get throws {
+                try interpreter.assumeIsolated {
+                    try $0.isBytes(self)
+                }
+            }
+        }
+        
+        /// Returns true if this safe Python object is a `bytearray` instance.
+        ///
+        /// Only use this property inside the synchronous, GIL-managed, reference-managed
+        /// local `withIsolatedContext` environment.
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+        public var isByteArray: Bool {
+            get throws {
+                try interpreter.assumeIsolated {
+                    try $0.isByteArray(self)
+                }
+            }
+        }
+        
+        /// Returns true if this safe Python object is a `bytearray` instance.
+        ///
+        /// This is an alias for `isByteArray`.
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+        public var isBytesArray: Bool {
+            get throws {
+                try interpreter.assumeIsolated {
+                    try $0.isBytesArray(self)
+                }
+            }
+        }
+        
+        /// Returns true if this safe Python object supports Python's buffer protocol.
+        ///
+        /// This includes `bytes`, `bytearray`, `memoryview`, and other objects that can
+        /// provide a simple readable buffer.
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+        public var isBytesLike: Bool {
+            get throws {
+                try interpreter.assumeIsolated {
+                    try $0.isBytesLike(self)
+                }
+            }
+        }
         
         /// Safe copy of Python bytes → Swift Data
         public func asCopiedData() throws -> Data {
@@ -296,7 +323,7 @@ extension PythonInterpreter {
         }
         
         /// Do something with the bytes before the closure ends
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
         public func withUnsafeBytes<R : Sendable>(_ body: @Sendable (UnsafeBufferPointer<UInt8>) throws -> R) throws -> R {
             do {
                 let localInterpreter = interpreter
@@ -324,7 +351,7 @@ extension PythonInterpreter {
         
         // A less than that throws.  Operators cause fatalError()
         // so use this whenever anything might go wrong.
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
         public func lessThan(_ other: SafePythonConvertible) throws -> Bool {
             let localInterpreter = interpreter
             let lhs = self
@@ -336,7 +363,7 @@ extension PythonInterpreter {
         
         // A less than or equal that throws.  Operators cause fatalError()
         // so use this whenever anything might go wrong.
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
         public func lessThanOrEquals(_ other: SafePythonConvertible) throws -> Bool {
             let localInterpreter = interpreter
             let lhs = self
@@ -348,7 +375,7 @@ extension PythonInterpreter {
         
         // A greater than that throws.  Operators cause fatalError()
         // so use this whenever anything might go wrong.
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
         public func greaterThan(_ other: SafePythonConvertible) throws -> Bool {
             let localInterpreter = interpreter
             let lhs = self
@@ -360,7 +387,7 @@ extension PythonInterpreter {
         
         // A greater than or equal that throws.  Operators cause fatalError()
         // so use this whenever anything might go wrong.
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
         public func greaterThanOrEquals(_ other: SafePythonConvertible) throws -> Bool {
             let localInterpreter = interpreter
             let lhs = self
@@ -371,7 +398,7 @@ extension PythonInterpreter {
         
         // MARK: Truth and Logic
         
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
         public func isTrue() throws -> Bool {
             let localInterpreter = interpreter
             let obj = self
@@ -380,7 +407,7 @@ extension PythonInterpreter {
             }
         }
         
-        @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
         public func isNotTrue() throws -> Bool {
             let localInterpreter = interpreter
             let obj = self

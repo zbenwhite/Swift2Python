@@ -139,23 +139,38 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     // MARK: Bytes support
     
     /// Returns true if this object is a Python `bytes` instance.
-    //    public func isBytes() async throws -> Bool {
-    //        try await interpreter.isBytes(self)
-    //    }
-    //
-    //    /// Returns true if this object is a Python `bytes` or an array of `bytes`.
-    //    public func isBytesArray() async throws -> Bool {
-    //        try await interpreter.isBytesArray(self)
-    //    }
-    //
-    //    /// Returns true if this object is either `bytes` or an array of `bytes`.
-    //    public func isBytesType() async throws -> Bool {
-    //        if try await self.isBytes() {
-    //            return true
-    //        } else {
-    //            return try await self.isBytesArray()
-    //        }
-    //    }
+    ///
+    /// - Returns: `true` when this object is a Python `bytes`; otherwise `false`.
+    /// - Throws: `PythonError` if Python raises while checking the object type.
+    public func isBytes() async throws -> Bool {
+        try await interpreter.isBytes(self)
+    }
+    
+    /// Returns true if this object is a Python `bytearray` instance.
+    ///
+    /// - Returns: `true` when this object is a Python `bytearray`; otherwise `false`.
+    /// - Throws: `PythonError` if Python raises while checking the object type.
+    public func isByteArray() async throws -> Bool {
+        try await interpreter.isByteArray(self)
+    }
+    
+    /// Returns true if this object is a Python `bytearray` instance.
+    ///
+    /// This is an alias for `isByteArray()`.
+    public func isBytesArray() async throws -> Bool {
+        try await interpreter.isBytesArray(self)
+    }
+    
+    /// Returns true if this object supports Python's buffer protocol.
+    ///
+    /// This includes `bytes`, `bytearray`, `memoryview`, and other objects that can
+    /// provide a simple readable buffer.
+    ///
+    /// - Returns: `true` when this object can be read as bytes; otherwise `false`.
+    /// - Throws: `PythonError` if the object pointer is unavailable.
+    public func isBytesLike() async throws -> Bool {
+        try await interpreter.isBytesLike(self)
+    }
     
     /// Safe copy of Python bytes → Swift Data
     public func asCopiedData() async throws -> Data {
