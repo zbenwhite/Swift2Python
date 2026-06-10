@@ -392,8 +392,7 @@ public actor PythonInterpreter {
     ///     np.pi = 3.14                        // synchronous attribute set
     /// }
     /// ```
-    @available(*, noasync,
-                message: "Use the async version `try await interpreter.import(...)` outside of withIsolatedContext. This synchronous version is only safe inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func `import`(_ name: String, as alias: String? = nil) throws -> SafePythonObject {
         if let alias = alias {
             return try syncImportWithAlias(name, alias: alias)
@@ -411,7 +410,7 @@ public actor PythonInterpreter {
         return moduleObj
     }
     
-    @available(*, noasync, message: "Do not call in async context.  This is only safe to call inside withIsolatedContext.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     private func syncAddModule(_ name: String) throws -> SafePythonObject {
         logger.trace("add module \(name) called for SafePythonObject (synchronous)")
         let modulePtr = try addModule(name, onError: { try throwSafePythonError() } )
