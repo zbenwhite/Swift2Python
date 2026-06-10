@@ -12,6 +12,7 @@ import Logging
 import Darwin
 import Foundation
 
+public typealias PyThreadState = OpaquePointer
 
 public actor PythonRuntime {
     
