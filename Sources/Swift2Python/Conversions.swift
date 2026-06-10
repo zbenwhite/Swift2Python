@@ -21,7 +21,6 @@
 // DONE: Float16   (but improvement possible)
 // TODO: Optional?
 // TODO: Complex number
-// TODO: Set?
 // TODO: Dates and Times
 
 
@@ -289,7 +288,7 @@ extension Bool: SafePythonConvertible {
 }
 
 extension Bool {
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
         self = try safePythonObject.convertToBool()
     }
@@ -308,7 +307,7 @@ extension Double: SafePythonConvertible {
 }
 
 extension Double {
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
         self = try safePythonObject.convertToDouble()
     }
@@ -327,7 +326,7 @@ extension Float: SafePythonConvertible {
 }
 
 extension Float {
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
         self = try safePythonObject.convertToFloat()
     }
@@ -346,7 +345,7 @@ extension Float16: SafePythonConvertible {
 }
 
 extension Float16 {
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
         self = try safePythonObject.convertToFloat16()
     }
@@ -361,7 +360,7 @@ extension Int: SafePythonConvertible {
 }
 
 extension Int {
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
         self = try safePythonObject.convertToInt()
     }
@@ -376,7 +375,7 @@ extension Int8: SafePythonConvertible {
 }
 
 extension Int8 {
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
         self = try safePythonObject.convertToInt8()
     }
@@ -391,7 +390,7 @@ extension Int16: SafePythonConvertible {
 }
 
 extension Int16 {
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
         self = try safePythonObject.convertToInt16()
     }
@@ -406,7 +405,7 @@ extension Int32: SafePythonConvertible {
 }
 
 extension Int32 {
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
         self = try safePythonObject.convertToInt32()
     }
@@ -421,7 +420,7 @@ extension Int64: SafePythonConvertible {
 }
 
 extension Int64 {
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
         self = try safePythonObject.convertToInt64()
     }
@@ -436,7 +435,7 @@ extension UInt: SafePythonConvertible {
 }
 
 extension UInt {
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
         self = try safePythonObject.convertToUInt()
     }
@@ -451,7 +450,7 @@ extension UInt8: SafePythonConvertible {
 }
 
 extension UInt8 {
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
         self = try safePythonObject.convertToUInt8()
     }
@@ -466,7 +465,7 @@ extension UInt16: SafePythonConvertible {
 }
 
 extension UInt16 {
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
         self = try safePythonObject.convertToUInt16()
     }
@@ -481,7 +480,7 @@ extension UInt32: SafePythonConvertible {
 }
 
 extension UInt32 {
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
         self = try safePythonObject.convertToUInt32()
     }
@@ -496,7 +495,7 @@ extension UInt64: SafePythonConvertible {
 }
 
 extension UInt64 {
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
         self = try safePythonObject.convertToUInt64()
     }
@@ -511,7 +510,7 @@ extension String: SafePythonConvertible {
 }
 
 extension String {
-    @available(*, noasync, message: "SafePythonObject Python operations must be performed inside withIsolatedContext(). Direct calls from async contexts are unsafe.")
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public init(_ safePythonObject: PythonInterpreter.SafePythonObject) throws {
         self = try safePythonObject.convertToString()
     }
