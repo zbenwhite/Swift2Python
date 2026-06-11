@@ -867,3 +867,184 @@ Do not add these unless the user explicitly requests them:
 ### Release Completeness
 
 Set support should be considered complete for a 1.0 release when it has async APIs, safe APIs, mutable set creation, frozenset creation, type inspection, count, membership, mutation helpers for mutable sets, array conversion, Python-native method examples, unit tests, and DocC documentation.
+
+## Bytes And Bytearray
+
+Bytes support has explicit helpers for Python `bytes`, Python `bytearray`, and readable buffer-protocol objects. Prefer these helpers when the user is working with binary data. Do not rely on generic array conversion for binary data.
+
+### What Bytes APIs Exist
+
+Async ``PythonObject`` bytes APIs:
+
+```swift
+try await object.isBytes()
+try await object.isByteArray()
+try await object.isBytesLike()
+try await bytes.bytesSize()
+try await byteArray.byteArraySize()
+try await object.asCopiedData()
+try await object.asCopiedBytes()
+try await object.asCopiedByteArray()
+try await object.asCopiedString()
+try await object.withUnsafeBytes { buffer in ... }
+```
+
+Bytes and bytearray creation:
+
+```swift
+let bytes = try await interpreter.convertToPython(bytes: [0, 1, 2, 255])
+let bytesFromData = try await interpreter.convertToPython(bytes: Data([0, 1, 2]))
+
+let byteArray = try await interpreter.convertToPython(byteArray: [0, 1, 2])
+let byteArrayFromData = try await interpreter.convertToPython(byteArray: Data([0, 1, 2]))
+```
+
+Safe bytes APIs inside `withIsolatedContext`:
+
+```swift
+try object.isBytes
+try object.isByteArray
+try object.isBytesLike
+try bytes.bytesSize
+try byteArray.byteArraySize
+try object.asCopiedData()
+try object.asCopiedBytes()
+try object.asCopiedByteArray()
+try object.asCopiedString()
+try object.withUnsafeBytes { buffer in ... }
+```
+
+Safe bytes and bytearray creation:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let bytes = try context.convertToSafePython(bytes: [1, 2, 3])
+    let byteArray = try context.convertToSafePython(byteArray: [1, 2, 3])
+}
+```
+
+### Data And `[UInt8]` Rules
+
+`Data` conforms to `PendingPythonConvertible` and `SafePythonConvertible`. It converts to immutable Python `bytes`:
+
+```swift
+let data = Data([1, 2, 3])
+let bytes = try await data.toPythonObject(interpreter: interpreter)
+```
+
+`[UInt8]` is still a Swift array. Generic conversion turns it into a Python list:
+
+```swift
+let values: [UInt8] = [1, 2, 3]
+let list = try await values.toPythonObject(interpreter: interpreter) // Python list
+```
+
+When `[UInt8]` means binary data, use explicit labels:
+
+```swift
+let bytes = try await interpreter.convertToPython(bytes: values)
+let byteArray = try await interpreter.convertToPython(byteArray: values)
+```
+
+Do not change `[UInt8]` generic array conversion to Python `bytes`; that would break the consistent Array-to-list rule.
+
+### Preferred Async Patterns
+
+Create immutable bytes from `Data` when possible:
+
+```swift
+let payload = Data([0, 1, 2, 255])
+let bytes = try await interpreter.convertToPython(bytes: payload)
+```
+
+Create mutable bytearrays only when Python-side mutation is needed:
+
+```swift
+let byteArray = try await interpreter.convertToPython(byteArray: [1, 2, 3])
+try await byteArray.append(4)
+try await byteArray.extend([5, 6])
+```
+
+Copy bytes back into Swift with `Data` or `[UInt8]` helpers:
+
+```swift
+let data = try await object.asCopiedData()
+let values = try await object.asCopiedBytes()
+```
+
+Use `asCopiedString(encoding:)` only when the bytes are text:
+
+```swift
+let text = try await object.asCopiedString(encoding: .utf8)
+```
+
+Use `withUnsafeBytes` only for temporary access during the closure. Do not store the buffer pointer:
+
+```swift
+let checksum = try await object.withUnsafeBytes { buffer in
+    buffer.reduce(0) { $0 + Int($1) }
+}
+```
+
+### Preferred Safe Patterns
+
+Use safe bytes APIs only inside `withIsolatedContext`:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let bytes = try context.convertToSafePython(bytes: Data([1, 2, 3]))
+
+    let count = try bytes.bytesSize
+    let data = try bytes.asCopiedData()
+    let values = try bytes.asCopiedBytes()
+
+    print(count, data, values)
+}
+```
+
+Call Python-native bytearray methods directly in the safe context:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let byteArray = try context.convertToSafePython(byteArray: [1, 2, 3])
+    _ = try byteArray.append(4)
+    _ = try byteArray.reverse()
+}
+```
+
+### Buffer Protocol Guidance
+
+Use `isBytesLike` when accepting any readable Python buffer, including `bytes`, `bytearray`, and `memoryview`:
+
+```swift
+if try await object.isBytesLike() {
+    let bytes = try await object.asCopiedBytes()
+}
+```
+
+Use `isBytes` or `isByteArray` only when exact concrete Python type matters.
+
+
+### Error Behavior
+
+Async bytes helpers throw:
+
+- `PythonError.bytesConversionFailed(expected:actual:)` when the object is not the expected bytes shape, such as calling `bytesSize()` on a non-`bytes` object or `byteArraySize()` on a non-`bytearray` object.
+- `PythonError.bytesConversionFailed(expected:actual:)` when `withUnsafeBytes`, `asCopiedData`, or `asCopiedBytes` is used on a non-buffer object.
+- `PythonError.bytesConversionFailed(expected:actual:)` when `asCopiedString(encoding:)` cannot decode the bytes.
+- `PythonError.pythonException` when Python raises during Python-native method calls.
+
+Safe bytes helpers throw the same Swift conversion error for Swift2Python validation failures and `PythonError.safePythonException` for Python-raised failures.
+
+### What Not To Add For Bytes
+
+Do not add these unless the user explicitly requests them:
+
+- A generic `[UInt8]` conversion that produces Python `bytes`; use explicit `bytes:` labels instead.
+- Wrapper APIs for every Python `bytearray` method. Direct Python calls cover `append`, `extend`, `pop`, `reverse`, `clear`, and related methods.
+- Persistent storage of pointers from `withUnsafeBytes`; copy to `Data` or `[UInt8]` when data must outlive the closure.
+- Mutation helpers for Python `bytes`. Python `bytes` are immutable.
+
+### Release Completeness
+
+Bytes support should be considered complete for a 1.0 release when it has async APIs, safe APIs, `bytes` creation, `bytearray` creation, `Data` conversion, type inspection, size helpers, buffer-protocol copying, string decoding, unit tests, and DocC documentation.

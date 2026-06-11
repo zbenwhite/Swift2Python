@@ -173,7 +173,6 @@ struct BytesTests {
             
             #expect(try bytes.isBytes)
             #expect(try bytes.isByteArray == false)
-            #expect(try bytes.isBytesArray == false)
             #expect(try bytes.isBytesLike)
             #expect(try bytes.bytesSize == 4)
             #expect(try bytes.asCopiedBytes() == [1, 2, 3, 4])
@@ -185,7 +184,6 @@ struct BytesTests {
             let byteArray = try isolatedInterpreter.convertToSafePython(byteArray: Data([5, 6, 7]))
             #expect(try byteArray.isBytes == false)
             #expect(try byteArray.isByteArray)
-            #expect(try byteArray.isBytesArray)
             #expect(try byteArray.isBytesLike)
             #expect(try byteArray.byteArraySize == 3)
             #expect(try byteArray.asCopiedByteArray() == [5, 6, 7])
@@ -208,7 +206,65 @@ struct BytesTests {
         }
     }
     
-    @Test("BYT_008: SafePythonObject bytes error handling")
+    @Test("BYT_008: PythonObject empty bytes and bytearray support")
+    func asyncEmptyBytesAndByteArraySupport() async throws {
+        let emptyBytes = try await interpreter.convertToPython(bytes: [UInt8]())
+        let emptyBytesFromData = try await interpreter.convertToPython(bytes: Data())
+        let emptyByteArray = try await interpreter.convertToPython(byteArray: [UInt8]())
+        let emptyByteArrayFromData = try await interpreter.convertToPython(byteArray: Data())
+        
+        #expect(try await emptyBytes.isBytes())
+        #expect(try await emptyBytes.bytesSize() == 0)
+        #expect(try await emptyBytes.asCopiedBytes().isEmpty)
+        #expect(try await emptyBytes.asCopiedData().isEmpty)
+        
+        #expect(try await emptyBytesFromData.isBytes())
+        #expect(try await emptyBytesFromData.bytesSize() == 0)
+        #expect(try await emptyBytesFromData.asCopiedBytes().isEmpty)
+        #expect(try await emptyBytesFromData.asCopiedData().isEmpty)
+        
+        #expect(try await emptyByteArray.isByteArray())
+        #expect(try await emptyByteArray.byteArraySize() == 0)
+        #expect(try await emptyByteArray.asCopiedByteArray().isEmpty)
+        #expect(try await emptyByteArray.asCopiedData().isEmpty)
+        
+        #expect(try await emptyByteArrayFromData.isByteArray())
+        #expect(try await emptyByteArrayFromData.byteArraySize() == 0)
+        #expect(try await emptyByteArrayFromData.asCopiedByteArray().isEmpty)
+        #expect(try await emptyByteArrayFromData.asCopiedData().isEmpty)
+    }
+    
+    @Test("BYT_009: SafePythonObject empty bytes and bytearray support")
+    func safeEmptyBytesAndByteArraySupport() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let emptyBytes = try isolatedInterpreter.convertToSafePython(bytes: [UInt8]())
+            let emptyBytesFromData = try isolatedInterpreter.convertToSafePython(bytes: Data())
+            let emptyByteArray = try isolatedInterpreter.convertToSafePython(byteArray: [UInt8]())
+            let emptyByteArrayFromData = try isolatedInterpreter.convertToSafePython(byteArray: Data())
+            
+            #expect(try emptyBytes.isBytes)
+            #expect(try emptyBytes.bytesSize == 0)
+            #expect(try emptyBytes.asCopiedBytes().isEmpty)
+            #expect(try emptyBytes.asCopiedData().isEmpty)
+            
+            #expect(try emptyBytesFromData.isBytes)
+            #expect(try emptyBytesFromData.bytesSize == 0)
+            #expect(try emptyBytesFromData.asCopiedBytes().isEmpty)
+            #expect(try emptyBytesFromData.asCopiedData().isEmpty)
+            
+            #expect(try emptyByteArray.isByteArray)
+            #expect(try emptyByteArray.byteArraySize == 0)
+            #expect(try emptyByteArray.asCopiedByteArray().isEmpty)
+            #expect(try emptyByteArray.asCopiedData().isEmpty)
+            
+            #expect(try emptyByteArrayFromData.isByteArray)
+            #expect(try emptyByteArrayFromData.byteArraySize == 0)
+            #expect(try emptyByteArrayFromData.asCopiedByteArray().isEmpty)
+            #expect(try emptyByteArrayFromData.asCopiedData().isEmpty)
+        }
+    }
+    
+    @Test("BYT_010: SafePythonObject bytes error handling")
     func safeBytesErrorHandling() async throws {
         try await interpreter.withIsolatedContext { isolatedInterpreter in
             let notBytes = try 123.toSafePythonObject(interpreter: isolatedInterpreter)

@@ -196,11 +196,6 @@ extension PythonInterpreter {
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    internal func isBytesArray(_ obj: SafePythonObject) throws -> Bool {
-        try isByteArray(obj)
-    }
-    
-    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func isBytesLike(_ obj: SafePythonObject) throws -> Bool {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
         return try isBytesLike(objPtr)
@@ -313,10 +308,6 @@ extension PythonInterpreter {
     internal func isByteArray(_ obj: PythonObject) async throws -> Bool {
         let objPtr = getRegisteredPointer(forPythonObject: obj)!
         return try await withGIL { try isByteArray(objPtr, onError: { try throwPythonError() }) }
-    }
-    
-    internal func isBytesArray(_ obj: PythonObject) async throws -> Bool {
-        try await isByteArray(obj)
     }
     
     internal func isBytesLike(_ obj: PythonObject) async throws -> Bool {

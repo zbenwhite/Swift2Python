@@ -287,18 +287,6 @@ extension PythonInterpreter {
             }
         }
         
-        /// Returns true if this safe Python object is a `bytearray` instance.
-        ///
-        /// This is an alias for `isByteArray`.
-        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-        public var isBytesArray: Bool {
-            get throws {
-                try interpreter.assumeIsolated {
-                    try $0.isBytesArray(self)
-                }
-            }
-        }
-        
         /// Returns true if this safe Python object supports Python's buffer protocol.
         ///
         /// This includes `bytes`, `bytearray`, `memoryview`, and other objects that can
