@@ -19,7 +19,9 @@ extension PythonInterpreter {
         let Py_IncRef: (@convention(c) (UnsafeMutableRawPointer) -> Void)
         let PyBool_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)
         let PyBuffer_Release: (@convention(c) (UnsafeMutableRawPointer) -> Void)
+        let PyBytes_FromStringAndSize: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?)
         let PyBytes_Size: (@convention(c) (UnsafeMutableRawPointer) -> Int32)
+        let PyByteArray_FromStringAndSize: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?)
         let PyByteArray_Size: (@convention(c) (UnsafeMutableRawPointer) -> Int32)
         let PyDict_New: (@convention(c) () -> UnsafeMutableRawPointer?)
         let PyDict_SetItem: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32)
@@ -135,9 +137,19 @@ extension PythonInterpreter {
             return PyBool_FromLong(value ? 1 : 0)
         }
         
+        internal func pythonBytes_FromStringAndSize(_ bytes: UnsafePointer<CChar>?, _ size: Int) -> UnsafeMutableRawPointer? {
+            logger.trace("CPython API Call: PyBytes_FromStringAndSize")
+            return PyBytes_FromStringAndSize(bytes, size)
+        }
+        
         internal func pythonBytes_Size(_ pointer: UnsafeMutableRawPointer) -> Int {
             logger.trace("CPython API Call: PyBytes_Size")
             return Int(PyBytes_Size(pointer))
+        }
+        
+        internal func pythonByteArray_FromStringAndSize(_ bytes: UnsafePointer<CChar>?, _ size: Int) -> UnsafeMutableRawPointer? {
+            logger.trace("CPython API Call: PyByteArray_FromStringAndSize")
+            return PyByteArray_FromStringAndSize(bytes, size)
         }
         
         internal func pythonByteArray_Size(_ pointer: UnsafeMutableRawPointer) -> Int {
@@ -475,8 +487,12 @@ extension PythonInterpreter {
                 "PyBool_FromLong", as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function,
             PyBuffer_Release: try await runtime.loadSendableSymbol(
                 "PyBuffer_Release", as: (@convention(c) (UnsafeMutableRawPointer) -> Void).self).function,
+            PyBytes_FromStringAndSize: try await runtime.loadSendableSymbol(
+                "PyBytes_FromStringAndSize", as: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?).self).function,
             PyBytes_Size: try await runtime.loadSendableSymbol(
                 "PyBytes_Size", as: (@convention(c) (UnsafeMutableRawPointer) -> Int32).self).function,
+            PyByteArray_FromStringAndSize: try await runtime.loadSendableSymbol(
+                "PyByteArray_FromStringAndSize", as: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?).self).function,
             PyByteArray_Size: try await runtime.loadSendableSymbol(
                 "PyByteArray_Size", as: (@convention(c) (UnsafeMutableRawPointer) -> Int32).self).function,
             PyDict_New: try await runtime.loadSendableSymbol(
