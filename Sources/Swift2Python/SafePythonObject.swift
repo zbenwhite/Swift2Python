@@ -351,6 +351,18 @@ extension PythonInterpreter {
             try withUnsafeBytes { Data($0) }
         }
         
+        /// Safe copy of Python bytes → Swift byte array.
+        public func asCopiedBytes() throws -> [UInt8] {
+            try withUnsafeBytes { Array($0) }
+        }
+        
+        /// Safe copy of Python bytes → Swift byte array.
+        ///
+        /// This is an alias for `asCopiedBytes()` for callers working with Python `bytearray`.
+        public func asCopiedByteArray() throws -> [UInt8] {
+            try asCopiedBytes()
+        }
+        
         /// Safe copy of Python bytes → Swift `String` (recommended for SVG, JSON, text)
         public func asCopiedString(encoding: String.Encoding = .utf8) throws -> String {
             try withUnsafeBytesString(encoding: encoding) { $0 }

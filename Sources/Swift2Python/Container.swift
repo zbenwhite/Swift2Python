@@ -7,6 +7,52 @@
 
 import Foundation
 
+extension Data: PendingPythonConvertible {
+    /// Converts this Swift data value to Python `bytes`.
+    ///
+    /// This conformance lets `Data` be passed directly to async Swift2Python APIs
+    /// that accept `PendingPythonConvertible` values. The bytes are copied into an
+    /// immutable Python `bytes` object.
+    ///
+    /// ```swift
+    /// let pyBytes = try await data.toPythonObject(interpreter: interpreter)
+    /// _ = try await pythonFunction(data)
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - interpreter: The interpreter that owns the created Python bytes object.
+    /// - Returns: A `PythonObject` representing Python `bytes`.
+    /// - Throws: `PythonError` if bytes creation fails.
+    public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        try await interpreter.convertToPython(bytes: self)
+    }
+}
+
+extension Data: SafePythonConvertible {
+    /// Converts this Swift data value to safe Python `bytes`.
+    ///
+    /// This conformance lets `Data` be passed directly to safe Swift2Python APIs
+    /// inside `withIsolatedContext`. The bytes are copied into an immutable Python
+    /// `bytes` object.
+    ///
+    /// ```swift
+    /// try await interpreter.withIsolatedContext { context in
+    ///     let pyBytes = try data.toSafePythonObject(interpreter: context)
+    ///     _ = try pythonFunction(data)
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - interpreter: The isolated interpreter context that owns the created Python bytes object.
+    /// - Returns: A `SafePythonObject` representing Python `bytes`.
+    /// - Throws: `PythonError` if bytes creation fails.
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try interpreter.assumeIsolated {
+            try $0.convertToSafePython(bytes: self)
+        }
+    }
+}
+
 extension Array : PendingPythonConvertible where Element : PendingPythonConvertible {
     /// Converts this Swift array to a Python list.
     ///

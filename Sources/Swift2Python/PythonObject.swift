@@ -154,13 +154,6 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         try await interpreter.isByteArray(self)
     }
     
-    /// Returns true if this object is a Python `bytearray` instance.
-    ///
-    /// This is an alias for `isByteArray()`.
-    public func isBytesArray() async throws -> Bool {
-        try await interpreter.isBytesArray(self)
-    }
-    
     /// Returns true if this object supports Python's buffer protocol.
     ///
     /// This includes `bytes`, `bytearray`, `memoryview`, and other objects that can
@@ -193,6 +186,18 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
     /// Safe copy of Python bytes → Swift Data
     public func asCopiedData() async throws -> Data {
         try await withUnsafeBytes { Data($0) }
+    }
+    
+    /// Safe copy of Python bytes → Swift byte array.
+    public func asCopiedBytes() async throws -> [UInt8] {
+        try await withUnsafeBytes { Array($0) }
+    }
+    
+    /// Safe copy of Python bytes → Swift byte array.
+    ///
+    /// This is an alias for `asCopiedBytes()` for callers working with Python `bytearray`.
+    public func asCopiedByteArray() async throws -> [UInt8] {
+        try await asCopiedBytes()
     }
     
     /// Safe copy of Python bytes → Swift `String` (recommended for SVG, JSON, text)
