@@ -3318,10 +3318,12 @@ struct ConversionsTests {
         try await interpreter.withIsolatedContext { isolatedInterpreter in
             let literalString: PythonInterpreter.SafePythonObject = "i like turnips"
             #expect(literalString.description == "i like turnips")
+            #expect(literalString.playgroundDescription as? String == "i like turnips")
             #expect("\(literalString)" == "i like turnips")
             
             let literalBool: PythonInterpreter.SafePythonObject = true
             #expect(literalBool.description == "True")
+            #expect(literalBool.playgroundDescription as? String == "True")
             
             let pythonCode = """
             class DescribedST008:
@@ -3333,8 +3335,13 @@ struct ConversionsTests {
             """
             try isolatedInterpreter.runSimpleString(pythonCode: pythonCode)
             
-            #expect(isolatedInterpreter.globals["describedST008"].description == "from __str__")
-            #expect(isolatedInterpreter.globals["listST008"].description == "[1, 2, 3]")
+            let described = isolatedInterpreter.globals["describedST008"]
+            #expect(described.description == "from __str__")
+            #expect(described.playgroundDescription as? String == "from __str__")
+            
+            let list = isolatedInterpreter.globals["listST008"]
+            #expect(list.description == "[1, 2, 3]")
+            #expect(list.playgroundDescription as? String == "[1, 2, 3]")
         }
     }
     

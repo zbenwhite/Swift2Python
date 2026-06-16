@@ -21,7 +21,7 @@ extension PythonInterpreter {
     
     @dynamicMemberLookup
     public struct SafePythonObject: SafePythonConvertible, Sequence,
-                                    CustomStringConvertible,
+                                    CustomStringConvertible, CustomPlaygroundDisplayConvertible,
                                     ExpressibleByFloatLiteral, ExpressibleByIntegerLiteral,
                                     ExpressibleByStringLiteral, ExpressibleByBooleanLiteral {
         
@@ -121,6 +121,10 @@ extension PythonInterpreter {
             } catch {
                 return "<unrepresentable Python object: \(error)>"
             }
+        }
+        
+        public var playgroundDescription: Any {
+            description
         }
         
         // MARK: Explicit throwing access
