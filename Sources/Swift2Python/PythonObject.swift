@@ -8,7 +8,7 @@
 import Foundation
 
 @dynamicMemberLookup
-public struct PythonObject: Sendable, PendingPythonConvertible {
+public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectable {
     
     // This gets de-initialized as soon as the last copy of the PythonObject
     // goes out of scope.  It's a woraround for deinit not working on PythonObject.
@@ -57,6 +57,10 @@ public struct PythonObject: Sendable, PendingPythonConvertible {
         self.id = id
         self.interpreter = interpreter
         self.lifetime = LifetimeTracker(id: id, interpreter: interpreter)
+    }
+    
+    public var customMirror: Mirror {
+        Mirror(self, children: [], displayStyle: .struct)
     }
     
     // Implement PendingPythonConvertible protocol

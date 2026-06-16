@@ -22,6 +22,7 @@ extension PythonInterpreter {
     @dynamicMemberLookup
     public struct SafePythonObject: SafePythonConvertible, Sequence,
                                     CustomStringConvertible, CustomPlaygroundDisplayConvertible,
+                                    CustomReflectable,
                                     ExpressibleByFloatLiteral, ExpressibleByIntegerLiteral,
                                     ExpressibleByStringLiteral, ExpressibleByBooleanLiteral {
         
@@ -125,6 +126,10 @@ extension PythonInterpreter {
         
         public var playgroundDescription: Any {
             description
+        }
+        
+        public var customMirror: Mirror {
+            Mirror(self, children: [], displayStyle: .struct)
         }
         
         // MARK: Explicit throwing access

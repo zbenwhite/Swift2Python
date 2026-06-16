@@ -3321,6 +3321,10 @@ struct ConversionsTests {
             #expect(literalString.playgroundDescription as? String == "i like turnips")
             #expect("\(literalString)" == "i like turnips")
             
+            let literalMirror = Mirror(reflecting: literalString)
+            #expect(literalMirror.displayStyle == .struct)
+            #expect(literalMirror.children.isEmpty)
+            
             let literalBool: PythonInterpreter.SafePythonObject = true
             #expect(literalBool.description == "True")
             #expect(literalBool.playgroundDescription as? String == "True")
@@ -3338,6 +3342,10 @@ struct ConversionsTests {
             let described = isolatedInterpreter.globals["describedST008"]
             #expect(described.description == "from __str__")
             #expect(described.playgroundDescription as? String == "from __str__")
+            
+            let describedMirror = Mirror(reflecting: described)
+            #expect(describedMirror.displayStyle == .struct)
+            #expect(describedMirror.children.isEmpty)
             
             let list = isolatedInterpreter.globals["listST008"]
             #expect(list.description == "[1, 2, 3]")
