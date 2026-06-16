@@ -21,6 +21,7 @@ extension PythonInterpreter {
     
     @dynamicMemberLookup
     public struct SafePythonObject: SafePythonConvertible, Sequence,
+                                    CustomStringConvertible,
                                     ExpressibleByFloatLiteral, ExpressibleByIntegerLiteral,
                                     ExpressibleByStringLiteral, ExpressibleByBooleanLiteral {
         
@@ -111,6 +112,14 @@ extension PythonInterpreter {
             switch state {
             case .bound: return true
             default:     return false
+            }
+        }
+        
+        public var description: String {
+            do {
+                return try convertToString()
+            } catch {
+                return "<unrepresentable Python object: \(error)>"
             }
         }
         

@@ -3313,6 +3313,31 @@ struct ConversionsTests {
         }
     }
     
+    @Test("ST_008: SafePythonObject CustomStringConvertible description")
+    func safeStringDescription() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let literalString: PythonInterpreter.SafePythonObject = "i like turnips"
+            #expect(literalString.description == "i like turnips")
+            #expect("\(literalString)" == "i like turnips")
+            
+            let literalBool: PythonInterpreter.SafePythonObject = true
+            #expect(literalBool.description == "True")
+            
+            let pythonCode = """
+            class DescribedST008:
+                def __str__(self):
+                    return "from __str__"
+
+            describedST008 = DescribedST008()
+            listST008 = [1, 2, 3]
+            """
+            try isolatedInterpreter.runSimpleString(pythonCode: pythonCode)
+            
+            #expect(isolatedInterpreter.globals["describedST008"].description == "from __str__")
+            #expect(isolatedInterpreter.globals["listST008"].description == "[1, 2, 3]")
+        }
+    }
+    
     // MARK: B_xxx Bool
     
     @Test("B_001: Bool → PythonObject (async)")
