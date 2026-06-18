@@ -31,6 +31,11 @@ public extension PythonInterpreter.SafePythonObject {
         return PythonInterpreter.SafePythonObject.addOperator(lhs:lhs, rhs:rhs)
     }
     
+    /// Subtracts two safe Python objects using Python `-` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, or deferred
+    /// subtraction cannot be represented, this traps with `fatalError`. Use
+    /// `SafePythonObject.subtract(subtrahend:)` when subtraction can fail and should be handled.
     static func - (minuend: PythonInterpreter.SafePythonObject, subtrahend: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         return PythonInterpreter.SafePythonObject.subtractOperator(minuend:minuend, subtrahend:subtrahend)
     }
@@ -60,14 +65,13 @@ public extension PythonInterpreter.SafePythonObject {
         sumend = PythonInterpreter.SafePythonObject.addInPlaceOperator(sumend:sumend, addend:addend)
     }
     
+    /// Subtracts a safe Python object from another using Python `-=` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, or deferred
+    /// subtraction cannot be represented, this traps with `fatalError`. Use
+    /// `SafePythonObject.subtractInPlace(subtrahend:)` when in-place subtraction can fail and should be handled.
     static func -= (diffend: inout PythonInterpreter.SafePythonObject, subtrahend: PythonInterpreter.SafePythonObject) {
-        if diffend.isBoundToPythonInterpreter {
-            diffend = diffend.subtractInPlaceOperator(diffend: diffend, subtrahend: subtrahend)
-        } else if subtrahend.isBoundToPythonInterpreter {
-            diffend = subtrahend.subtractInPlaceOperator(diffend: diffend, subtrahend: subtrahend)
-        } else {
-            diffend = PythonInterpreter.SafePythonObject.subtractOperator(minuend:diffend, subtrahend:subtrahend)
-        }
+        diffend = PythonInterpreter.SafePythonObject.subtractInPlaceOperator(diffend: diffend, subtrahend: subtrahend)
     }
     
     static func *= (productand: inout PythonInterpreter.SafePythonObject, multiplicand: PythonInterpreter.SafePythonObject) {

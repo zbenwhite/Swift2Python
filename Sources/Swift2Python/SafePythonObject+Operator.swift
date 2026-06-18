@@ -340,31 +340,69 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Subtraction
     
-    // The throwing subtraction function.  For materialized python objects, this calls PyNumber_Subtract
-    // using the interpreter. If only one is materialized, materialize the other and do the same.
-    // If neither are materialized (why?) then subtract them the way Python would subtract them:
-    // LHS     RHS      ACTION / Type
-    // -----   ------   ---------
-    // bound   any      PyNumber_Subtract
-    // any     bound    PyNumber_Subtract
-    // double  double   double
-    // double  int      double
-    // double  string   ERR: typeError
-    // double  bool     double
-    // int     int      int
-    // int     double   double
-    // int     string   ERR: typeError
-    // int     bool     int
-    // string  double   ERR: typeError
-    // string  int      ERR: typeError
-    // string  string   ERR: typeError
-    // string  bool     ERR: typeError
-    // bool    double   double
-    // bool    int      int
-    // bool    string   ERR: typeError
-    // bool    bool     int
+    /// Subtracts two fully deferred integer values without allowing Swift integer overflow.
+    ///
+    /// Python integers are arbitrary precision, but deferred safe integers are stored as
+    /// Swift `Int` until an interpreter is available. If the result does not fit in that
+    /// storage, throw instead of letting Swift trap on overflow.
+    ///
+    /// - Parameters:
+    ///   - lhs: The left-hand deferred integer value.
+    ///   - rhs: The right-hand deferred integer value.
+    /// - Returns: A deferred safe Python integer containing the checked difference.
+    /// - Throws: `PythonError.conversionOverflow` when the checked difference cannot fit in `Int`.
+    private static func checkedDeferredIntegerSubtraction(_ lhs: Int, _ rhs: Int) throws -> PythonInterpreter.SafePythonObject {
+        let result = lhs.subtractingReportingOverflow(rhs)
+        guard !result.overflow else {
+            throw PythonError.conversionOverflow(
+                value: "\(lhs) - \(rhs)",
+                sourceType: "deferred Python integer subtraction",
+                targetType: "Swift Int"
+            )
+        }
+        
+        return PythonInterpreter.SafePythonObject(integerLiteral: result.partialValue)
+    }
+    
+    /// Subtracts another safe Python object from this safe Python object.
+    ///
+    /// This follows Python `-` semantics. If either operand is already bound to an
+    /// interpreter, the operation is delegated to Python with `PyNumber_Subtract`. If both
+    /// operands are deferred safe values, Swift2Python performs the same primitive
+    /// numeric and boolean combinations locally until the result is bound.
+    ///
+    /// - Parameters:
+    ///   - subtrahend: The safe Python object to subtract.
+    /// - Returns: The Python subtraction result.
+    /// - Throws: `PythonError.safePythonException` if Python raises, `PythonError.typeError`
+    ///   for invalid fully deferred primitive combinations, or `PythonError.conversionOverflow`
+    ///   if fully deferred integer subtraction exceeds Swift2Python's deferred `Int` storage.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func subtract(subtrahend: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+        
+        // The throwing subtraction function.  For materialized python objects, this calls PyNumber_Subtract
+        // using the interpreter. If only one is materialized, materialize the other and do the same.
+        // If neither are materialized (why?) then subtract them the way Python would subtract them:
+        // LHS     RHS      ACTION / Type
+        // -----   ------   ---------
+        // bound   any      PyNumber_Subtract -- preserve term order
+        // any     bound    PyNumber_Subtract -- preserve term order
+        // double  double   double
+        // double  int      double
+        // double  string   ERR: typeError
+        // double  bool     double
+        // int     int      int, or ERR: conversionOverflow if outside deferred Int storage
+        // int     double   double
+        // int     string   ERR: typeError
+        // int     bool     int, or ERR: conversionOverflow if outside deferred Int storage
+        // string  double   ERR: typeError
+        // string  int      ERR: typeError
+        // string  string   ERR: typeError
+        // string  bool     ERR: typeError
+        // bool    double   double
+        // bool    int      int, or ERR: conversionOverflow if outside deferred Int storage
+        // bool    string   ERR: typeError
+        // bool    bool     int
         switch state {
             
         case .bound:
@@ -400,11 +438,11 @@ extension PythonInterpreter.SafePythonObject {
             case .deferredDouble(let rhsVal):
                 return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) - rhsVal)
             case .deferredInt(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal - rhsVal)
+                return try Self.checkedDeferredIntegerSubtraction(lhsVal, rhsVal)
             case .deferredString:
                 throw PythonError.typeError(operation: "subtraction", opType1: "Int", opType2: "String")
             case .deferredBool(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal - (rhsVal ? 1 : 0))
+                return try Self.checkedDeferredIntegerSubtraction(lhsVal, rhsVal ? 1 : 0)
             }
         
         case .deferredString:
@@ -434,13 +472,46 @@ extension PythonInterpreter.SafePythonObject {
             case .deferredDouble(let rhsVal):
                 return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) - rhsVal)
             case .deferredInt(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) - rhsVal)
+                return try Self.checkedDeferredIntegerSubtraction(lhsVal ? 1 : 0, rhsVal)
             case .deferredString:
                 throw PythonError.typeError(operation: "subtraction", opType1: "Bool", opType2: "String")
             case .deferredBool(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) - (rhsVal ? 1 : 0))
+                return try Self.checkedDeferredIntegerSubtraction(lhsVal ? 1 : 0, rhsVal ? 1 : 0)
             }
         }
+    }
+    
+    /// Subtracts a Python-convertible Swift value from this safe Python object.
+    ///
+    /// This overload is an adapter for typed Swift values such as `Int`, `Double`,
+    /// `Bool`, `String`, and container conformers. Existing `SafePythonObject` values
+    /// are forwarded to `subtract(subtrahend:)` so deferred-safe behavior stays centralized
+    /// in the primary overload.
+    ///
+    /// The receiver must already be bound to an interpreter unless `subtrahend` is already
+    /// a `SafePythonObject`. Without a bound receiver, there is no interpreter available to
+    /// perform general `SafePythonConvertible` conversion.
+    ///
+    /// - Parameters:
+    ///   - subtrahend: The Swift value to convert and subtract.
+    /// - Returns: The Python subtraction result.
+    /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but
+    ///   this object is still deferred, or `PythonError` if conversion or Python subtraction fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func subtract(subtrahend: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
+        if let safeObject = subtrahend as? PythonInterpreter.SafePythonObject {
+            return try subtract(subtrahend: safeObject)
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: subtrahend),
+                sourceType: String(describing: type(of: subtrahend)),
+                targetType: "bound SafePythonObject"
+            )
+        }
+        
+        return try subtract(subtrahend: subtrahend.toSafePythonObject(interpreter: interpreter))
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
@@ -452,15 +523,139 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    /// Subtracts another safe Python object from this safe Python object in place.
+    ///
+    /// This follows Python `-=` semantics. If this object is bound, or if the subtrahend is
+    /// bound, the operation is delegated to Python with `PyNumber_InPlaceSubtract`. Python may
+    /// mutate mutable objects in place or return a new object for immutable values; this
+    /// safe object is updated to reference the result either way.
+    ///
+    /// - Parameters:
+    ///   - subtrahend: The safe Python object to subtract.
+    /// - Throws: `PythonError.safePythonException` if Python raises, `PythonError.typeError`
+    ///   for invalid fully deferred primitive combinations, or `PythonError.conversionOverflow`
+    ///   if fully deferred integer subtraction exceeds Swift2Python's deferred `Int` storage.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    internal func subtractInPlaceOperator(diffend: SafePythonConvertible, subtrahend: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
-        do {
+    public mutating func subtractInPlace(subtrahend: PythonInterpreter.SafePythonObject) throws {
+        switch state {
+            
+        case .bound:
             let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                try $0.syncInPlaceSubtract(diffend: diffend.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
+            try localInterpreter.assumeIsolated {
+                self = try $0.syncInPlaceSubtract(diffend: self.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
             }
+            
+        case .deferredDouble(let lhsVal):
+            switch subtrahend.state {
+            case .bound:
+                let localInterpreter = subtrahend.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceSubtract(diffend: self.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(floatLiteral: lhsVal - rhsVal)
+            case .deferredInt(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(floatLiteral: lhsVal - Double(rhsVal))
+            case .deferredString:
+                throw PythonError.typeError(operation: "in place subtraction", opType1: "Double", opType2: "String")
+            case .deferredBool(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(floatLiteral: lhsVal - (rhsVal ? 1.0 : 0.0))
+            }
+            
+        case .deferredInt(let lhsVal):
+            switch subtrahend.state {
+            case .bound:
+                let localInterpreter = subtrahend.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceSubtract(diffend: self.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) - rhsVal)
+            case .deferredInt(let rhsVal):
+                self = try Self.checkedDeferredIntegerSubtraction(lhsVal, rhsVal)
+            case .deferredString:
+                throw PythonError.typeError(operation: "in place subtraction", opType1: "Int", opType2: "String")
+            case .deferredBool(let rhsVal):
+                self = try Self.checkedDeferredIntegerSubtraction(lhsVal, rhsVal ? 1 : 0)
+            }
+        
+        case .deferredString:
+            switch subtrahend.state {
+            case .bound:
+                let localInterpreter = subtrahend.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceSubtract(diffend: self.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble:
+                throw PythonError.typeError(operation: "in place subtraction", opType1: "String", opType2: "Double")
+            case .deferredInt:
+                throw PythonError.typeError(operation: "in place subtraction", opType1: "String", opType2: "Int")
+            case .deferredString:
+                throw PythonError.typeError(operation: "in place subtraction", opType1: "String", opType2: "String")
+            case .deferredBool:
+                throw PythonError.typeError(operation: "in place subtraction", opType1: "String", opType2: "Bool")
+            }
+            
+        case .deferredBool(let lhsVal):
+            switch subtrahend.state {
+            case .bound:
+                let localInterpreter = subtrahend.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceSubtract(diffend: self.toSafePythonObject(interpreter: $0), subtrahend: subtrahend.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) - rhsVal)
+            case .deferredInt(let rhsVal):
+                self = try Self.checkedDeferredIntegerSubtraction(lhsVal ? 1 : 0, rhsVal)
+            case .deferredString:
+                throw PythonError.typeError(operation: "in place subtraction", opType1: "Bool", opType2: "String")
+            case .deferredBool(let rhsVal):
+                self = try Self.checkedDeferredIntegerSubtraction(lhsVal ? 1 : 0, rhsVal ? 1 : 0)
+            }
+        }
+    }
+    
+    /// Subtracts a Python-convertible Swift value from this safe Python object in place.
+    ///
+    /// This overload is an adapter for typed Swift values such as `Int`, `Double`,
+    /// `Bool`, `String`, and container conformers. Existing `SafePythonObject` values
+    /// are forwarded to `subtractInPlace(subtrahend:)` so deferred-safe behavior stays
+    /// centralized in the primary overload.
+    ///
+    /// The receiver must already be bound to an interpreter unless `subtrahend` is already
+    /// a `SafePythonObject`. Without a bound receiver, there is no interpreter available to
+    /// perform general `SafePythonConvertible` conversion.
+    ///
+    /// - Parameters:
+    ///   - subtrahend: The Swift value to convert and subtract.
+    /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but
+    ///   this object is still deferred, or `PythonError` if conversion or Python subtraction fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public mutating func subtractInPlace(subtrahend: any SafePythonConvertible) throws {
+        if let safeObject = subtrahend as? PythonInterpreter.SafePythonObject {
+            try subtractInPlace(subtrahend: safeObject)
+            return
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: subtrahend),
+                sourceType: String(describing: type(of: subtrahend)),
+                targetType: "bound SafePythonObject"
+            )
+        }
+        
+        try subtractInPlace(subtrahend: subtrahend.toSafePythonObject(interpreter: interpreter))
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func subtractInPlaceOperator(diffend: PythonInterpreter.SafePythonObject, subtrahend: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            var result = diffend
+            try result.subtractInPlace(subtrahend: subtrahend)
+            return result
         } catch {
-            fatalError("Failed: \(error)")
+            fatalError("In place subtraction failed: \(error).  Use `SafePythonObject.subtractInPlace()` for in place subtraction that might throw.")
         }
     }
     

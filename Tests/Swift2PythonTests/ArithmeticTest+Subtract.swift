@@ -297,6 +297,224 @@ extension ArithmeticTests {
         }
     }
     
+    @Test("O-_011: safePythonObject subtraction accepts SafePythonConvertible values")
+    func safeSubtractionAcceptsConvertibleValues() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let typedInt = 32
+            let boundInt = try 10.toSafePythonObject(interpreter: isolatedInterpreter)
+            let intResult = try boundInt.subtract(subtrahend: typedInt)
+            #expect(try Int(intResult) == -22)
+            
+            let typedDouble = 0.5
+            let doubleResult = try boundInt.subtract(subtrahend: typedDouble)
+            #expect(try Double(doubleResult) == 9.5)
+            
+            let literalResult = try boundInt.subtract(subtrahend: 1)
+            #expect(try Int(literalResult) == 9)
+            
+            let deferredInt: PythonInterpreter.SafePythonObject = 10
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try deferredInt.subtract(subtrahend: typedInt)
+            }
+            
+            if case .conversionType = thrownError {
+                // expected
+            } else {
+                Issue.record("Expected .conversionType for deferred SafePythonObject.subtract(Int), but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("O-_012: safePythonObject deferred integer subtraction overflow")
+    func safeDeferredIntegerSubtractionOverflow() throws {
+        let minInt = PythonInterpreter.SafePythonObject(integerLiteral: Int.min)
+        let one: PythonInterpreter.SafePythonObject = 1
+        let trueValue: PythonInterpreter.SafePythonObject = true
+        
+        let intOverflow = #expect(throws: PythonError.self) {
+            _ = try minInt.subtract(subtrahend: one)
+        }
+        
+        if case .conversionOverflow = intOverflow {
+            // expected
+        } else {
+            Issue.record("Expected .conversionOverflow for deferred Int.min - 1, but got \(intOverflow)")
+        }
+        
+        let boolOverflow = #expect(throws: PythonError.self) {
+            _ = try minInt.subtract(subtrahend: trueValue)
+        }
+        
+        if case .conversionOverflow = boolOverflow {
+            // expected
+        } else {
+            Issue.record("Expected .conversionOverflow for deferred Int.min - true, but got \(boolOverflow)")
+        }
+    }
+    
+    @Test("O-=_001: Minus Equals Operator Integer")
+    func minusEqualsOperatorInteger() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundIntA = try 77.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundIntB = try 22.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundIntA: PythonInterpreter.SafePythonObject = 6
+            let unboundIntB: PythonInterpreter.SafePythonObject = 2
+            let boundTrue = try true.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundTrue: PythonInterpreter.SafePythonObject = true
+            
+            let intCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Int)] = [
+                ("bound int -= bound int", boundIntA, boundIntB, 55),
+                ("bound int -= unbound int", boundIntA, unboundIntB, 75),
+                ("unbound int -= bound int", unboundIntB, boundIntA, -75),
+                ("unbound int -= unbound int", unboundIntA, unboundIntB, 4),
+                ("bound int -= bound bool", boundIntA, boundTrue, 76),
+                ("bound int -= unbound bool", boundIntA, unboundTrue, 76),
+                ("unbound int -= bound bool", unboundIntA, boundTrue, 5),
+                ("unbound int -= unbound bool", unboundIntA, unboundTrue, 5)
+            ]
+            
+            for (description, initialValue, subtrahend, expected) in intCases {
+                var result = initialValue
+                result -= subtrahend
+                #expect(try Int(result) == expected, Comment(rawValue: description))
+            }
+        }
+    }
+    
+    @Test("O-=_002: Minus Equals Operator Double")
+    func minusEqualsOperatorDouble() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundDoubleA = try (-17.4).toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundDoubleA: PythonInterpreter.SafePythonObject = 19.1
+            let boundInt = try 8.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundInt: PythonInterpreter.SafePythonObject = 3
+            let boundTrue = try true.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundFalse: PythonInterpreter.SafePythonObject = false
+            
+            let doubleCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Double)] = [
+                ("bound double -= bound int", boundDoubleA, boundInt, -25.4),
+                ("bound double -= unbound int", boundDoubleA, unboundInt, -20.4),
+                ("unbound double -= bound int", unboundDoubleA, boundInt, 11.1),
+                ("unbound double -= unbound int", unboundDoubleA, unboundInt, 16.1),
+                ("bound double -= bound bool", boundDoubleA, boundTrue, -18.4),
+                ("unbound double -= unbound bool", unboundDoubleA, unboundFalse, 19.1)
+            ]
+            
+            for (description, initialValue, subtrahend, expected) in doubleCases {
+                var result = initialValue
+                result -= subtrahend
+                #expect(try Double(result).isCloseEnough(to: expected), Comment(rawValue: description))
+            }
+        }
+    }
+    
+    @Test("O-=_011: safePythonObject in-place subtraction accepts SafePythonConvertible values")
+    func safeInPlaceSubtractionAcceptsConvertibleValues() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let typedInt = 32
+            var boundInt = try 10.toSafePythonObject(interpreter: isolatedInterpreter)
+            try boundInt.subtractInPlace(subtrahend: typedInt)
+            #expect(try Int(boundInt) == -22)
+            
+            let typedDouble = 0.5
+            var boundDouble = try 10.toSafePythonObject(interpreter: isolatedInterpreter)
+            try boundDouble.subtractInPlace(subtrahend: typedDouble)
+            #expect(try Double(boundDouble) == 9.5)
+            
+            var literalResult = try 10.toSafePythonObject(interpreter: isolatedInterpreter)
+            try literalResult.subtractInPlace(subtrahend: 1)
+            #expect(try Int(literalResult) == 9)
+            
+            var deferredInt: PythonInterpreter.SafePythonObject = 10
+            let thrownError = #expect(throws: PythonError.self) {
+                try deferredInt.subtractInPlace(subtrahend: typedInt)
+            }
+            
+            if case .conversionType = thrownError {
+                // expected
+            } else {
+                Issue.record("Expected .conversionType for deferred SafePythonObject.subtractInPlace(Int), but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("O-=_012: safePythonObject deferred integer in-place subtraction overflow")
+    func safeDeferredIntegerInPlaceSubtractionOverflow() throws {
+        let one: PythonInterpreter.SafePythonObject = 1
+        let trueValue: PythonInterpreter.SafePythonObject = true
+        
+        var intMin = PythonInterpreter.SafePythonObject(integerLiteral: Int.min)
+        let intOverflow = #expect(throws: PythonError.self) {
+            try intMin.subtractInPlace(subtrahend: one)
+        }
+        
+        if case .conversionOverflow = intOverflow {
+            // expected
+        } else {
+            Issue.record("Expected .conversionOverflow for deferred Int.min -= 1, but got \(intOverflow)")
+        }
+        
+        var boolMin = PythonInterpreter.SafePythonObject(integerLiteral: Int.min)
+        let boolOverflow = #expect(throws: PythonError.self) {
+            try boolMin.subtractInPlace(subtrahend: trueValue)
+        }
+        
+        if case .conversionOverflow = boolOverflow {
+            // expected
+        } else {
+            Issue.record("Expected .conversionOverflow for deferred Int.min -= true, but got \(boolOverflow)")
+        }
+    }
+    
+    @Test("O-=_010: safePythonObject minus equals error checking")
+    func safeMinusEqualsErrors() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundInt = try 2.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundString = try "abc".toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundInt: PythonInterpreter.SafePythonObject = 2
+            let unboundString: PythonInterpreter.SafePythonObject = "abc"
+            
+            let unboundTypeErrorCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, String, String)] = [
+                ("unbound int -= unbound string", unboundInt, unboundString, "Int", "String"),
+                ("unbound string -= unbound int", unboundString, unboundInt, "String", "Int"),
+                ("unbound string -= unbound string", unboundString, unboundString, "String", "String")
+            ]
+            
+            for (description, lhs, rhs, expectedType1, expectedType2) in unboundTypeErrorCases {
+                var diffend = lhs
+                let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                    try diffend.subtractInPlace(subtrahend: rhs)
+                }
+                
+                if case let .typeError(operation, opType1, opType2) = thrownError {
+                    #expect(operation == "in place subtraction", Comment(rawValue: description))
+                    #expect(opType1 == expectedType1, Comment(rawValue: description))
+                    #expect(opType2 == expectedType2, Comment(rawValue: description))
+                } else {
+                    Issue.record("Expected .typeError for \(description), but got \(thrownError)")
+                }
+            }
+            
+            let boundExceptionCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject)] = [
+                ("bound int -= unbound string", boundInt, unboundString),
+                ("unbound int -= bound string", unboundInt, boundString),
+                ("bound string -= bound int", boundString, boundInt)
+            ]
+            
+            for (description, lhs, rhs) in boundExceptionCases {
+                var diffend = lhs
+                let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                    try diffend.subtractInPlace(subtrahend: rhs)
+                }
+                
+                if case .safePythonException = thrownError {
+                    // expected
+                } else {
+                    Issue.record("Expected .safePythonException for \(description), but got \(thrownError)")
+                }
+            }
+        }
+    }
     
 }
 
