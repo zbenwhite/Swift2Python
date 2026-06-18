@@ -5,18 +5,15 @@
 //  Created by Ben White on 2/28/26.
 //
 
-// TODO: PythonKit Python.swift line 1386: hashing support
 // TODO: PythonKit Python.swift line 1470: ExpressibleByArrayLiteral, ExpressibleByDictionaryLiteral
 
 // [2026-04-05]: DONE: Make C API lookups happen at initialize and stop checking for validity all the time
 // TODO: handle exceptions from python in a nice swift way
 // [2026-04-26]: DONE: true/false checking in python objects
 // TODO: python dict and sequence APIs
-// TODO: PythonBytes -- create python bytes objects from swift
 // [2026-04-18]: DONE: exponent operator
 // [2026-04-18]: DONE: modulus operator
 // TODO: custom ENV variables to find python
-// TODO: change the id <--> pointer stuff to a typecast of the pointer?
 // [2026-04-25]: DONE: unbind or something to let SafePythonObject become a PythonObject at the end of the isolated closure
 // TODO: understand free threaded python
 // TODO: choose "Equal" or "Equals" for comparison function naming and only use one
@@ -332,29 +329,25 @@ public actor PythonInterpreter {
         _ body: @Sendable (isolated PythonInterpreter) throws -> T
     ) async throws -> T {
         logger.trace("withIsolatedContext called")
-        do {
-            try await readyGlobalSetups()
-            return try withGILSynchronous {
-                setupSafePythonObjectRegistry()
+        try await readyGlobalSetups()
+        return try withGILSynchronous {
+            setupSafePythonObjectRegistry()
+            do {
                 try setupGlobals()
-                defer {
-                    cleanupSafePythonObjects()
-                    clearGlobals()
-                }
-                return try body(self)
-            }
-        } catch let error as PythonError {
-            // Transform safePythonException → pythonException so the caller gets
-            // a normal async-friendly PythonError.
-            if case .safePythonException(let safeObj) = error {
+                let result = try body(self)
+                cleanupSafePythonObjects()
+                clearGlobals()
+                return result
+            } catch let PythonError.safePythonException(safeObj) {
                 let pythonObj = escapeFromIsolation(forSafeObj: safeObj)
+                cleanupSafePythonObjects()
+                clearGlobals()
                 throw PythonError.pythonException(pythonObj)
+            } catch {
+                cleanupSafePythonObjects()
+                clearGlobals()
+                throw error
             }
-            
-            // Re-throw any other PythonError unchanged
-            throw error
-        } catch {
-            throw error
         }
     }
     
