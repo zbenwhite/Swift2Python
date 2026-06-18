@@ -868,10 +868,28 @@ public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectabl
         return try await interpreter.multiplyInPlace(self, other.toPythonObject(interpreter: interpreter))
     }
     
+    /// Divides this Python object by a Python-convertible value using Python true-division `/` semantics.
+    ///
+    /// This delegates to CPython's `PyNumber_TrueDivide`, so Python controls type coercion,
+    /// arbitrary-precision integer behavior, zero-division behavior, and error reporting.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible divisor.
+    /// - Returns: The Python true-division result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
     public func divide(_ other: PendingPythonConvertible) async throws -> PythonObject {
         return try await interpreter.divide(dividend: self, divisor: other.toPythonObject(interpreter: interpreter))
     }
     
+    /// Divides this Python object by a Python-convertible value using Python `/=` semantics.
+    ///
+    /// This delegates to CPython's `PyNumber_InPlaceTrueDivide`. Python may mutate mutable
+    /// objects in place or return a new object for immutable values.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible divisor.
+    /// - Returns: The Python in-place true-division result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
     public func divideInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
         return try await interpreter.divideInPlace(self, other.toPythonObject(interpreter: interpreter))
     }

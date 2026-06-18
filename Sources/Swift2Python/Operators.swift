@@ -49,6 +49,11 @@ public extension PythonInterpreter.SafePythonObject {
         return PythonInterpreter.SafePythonObject.multiplyOperator(lhs:lhs, rhs:rhs)
     }
 
+    /// Divides two safe Python objects using Python true-division `/` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, or a deferred
+    /// divisor is zero, this traps with `fatalError`. Use `SafePythonObject.divide(divisor:)`
+    /// when division can fail and should be handled.
     static func / (dividend: PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         return PythonInterpreter.SafePythonObject.divideOperator(dividend:dividend, divisor:divisor)
     }
@@ -88,14 +93,13 @@ public extension PythonInterpreter.SafePythonObject {
         productand = PythonInterpreter.SafePythonObject.multiplyInPlaceOperator(productand: productand, multiplicand: multiplicand)
     }
     
+    /// Divides a safe Python object by another using Python true-division `/=` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, or a deferred
+    /// divisor is zero, this traps with `fatalError`. Use `SafePythonObject.divideInPlace(divisor:)`
+    /// when in-place division can fail and should be handled.
     static func /= (quotientand: inout PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) {
-        if quotientand.isBoundToPythonInterpreter {
-            quotientand = quotientand.divideInPlaceOperator(quotientand, divisor)
-        } else if divisor.isBoundToPythonInterpreter {
-            quotientand = divisor.divideInPlaceOperator(quotientand, divisor)
-        } else {
-            quotientand = PythonInterpreter.SafePythonObject.divideOperator(dividend:quotientand, divisor:divisor)
-        }
+        quotientand = PythonInterpreter.SafePythonObject.divideInPlaceOperator(quotientand: quotientand, divisor: divisor)
     }
 
     static func %= (quotientand: inout PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) {

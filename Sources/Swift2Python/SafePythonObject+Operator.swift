@@ -982,32 +982,47 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Division
     
-    // The throwing division function.  For materialized python objects, this calls PyNumber_TrueDivide
-    // using the interpreter. If only one is materialized, materialize the other and do the same.
-    // If neither are materialized (why?) then divide them the way Python would divide them.
-    // Dizision by zero results in PythonError.divideByZero
-    // LHS     RHS      ACTION / Type
-    // -----   ------   ---------
-    // bound   any      PyNumber_TrueDivide
-    // any     bound    PyNumber_TrueDivide
-    // double  double   double
-    // double  int      double
-    // double  string   ERR: typeError
-    // double  bool     double
-    // int     int      double
-    // int     double   double
-    // int     string   string
-    // int     bool     double
-    // string  double   ERR: typeError
-    // string  int      ERR: typeError
-    // string  string   ERR: typeError
-    // string  bool     ERR: typeError
-    // bool    double   double
-    // bool    int      double
-    // bool    string   ERR: typeError
-    // bool    bool     double
+    /// Divides this safe Python object by another safe Python object.
+    ///
+    /// This follows Python true-division `/` semantics. If either operand is already bound to an
+    /// interpreter, the operation is delegated to Python with `PyNumber_TrueDivide`. If both
+    /// operands are deferred safe values, Swift2Python performs the same primitive numeric and
+    /// boolean combinations locally until the result is bound. Successful numeric division always
+    /// returns a deferred double.
+    ///
+    /// - Parameters:
+    ///   - divisor: The safe Python object to divide by.
+    /// - Returns: The Python true-division result.
+    /// - Throws: `PythonError.safePythonException` if Python raises, `PythonError.typeError`
+    ///   for invalid fully deferred primitive combinations, or `PythonError.divideByZero` for
+    ///   fully deferred zero divisors.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func divide(divisor: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+        
+        // The throwing division function.  For materialized python objects, this calls PyNumber_TrueDivide
+        // using the interpreter. If only one is materialized, materialize the other and do the same.
+        // If neither are materialized (why?) then divide them the way Python would divide them.
+        // Division by zero results in PythonError.divideByZero
+        // LHS     RHS      ACTION / Type
+        // -----   ------   ---------
+        // bound   any      PyNumber_TrueDivide -- preserve operand order
+        // any     bound    PyNumber_TrueDivide -- preserve operand order
+        // double  double   double
+        // double  int      double
+        // double  string   ERR: typeError
+        // double  bool     double, or ERR: divideByZero when rhs is false
+        // int     int      double
+        // int     double   double
+        // int     string   ERR: typeError
+        // int     bool     double, or ERR: divideByZero when rhs is false
+        // string  double   ERR: typeError
+        // string  int      ERR: typeError
+        // string  string   ERR: typeError
+        // string  bool     ERR: typeError
+        // bool    double   double
+        // bool    int      double
+        // bool    string   ERR: typeError
+        // bool    bool     double, or ERR: divideByZero when rhs is false
         switch self.state {
             
         case .bound:
@@ -1033,7 +1048,7 @@ extension PythonInterpreter.SafePythonObject {
                 throw PythonError.typeError(operation: "division", opType1: "Double", opType2: "String")
             case .deferredBool(let rhsVal):
                 guard rhsVal else { throw PythonError.divideByZero }
-                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal) // n / 1 == n
+                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal)
             }
             
         case .deferredInt(let lhsVal):
@@ -1048,12 +1063,12 @@ extension PythonInterpreter.SafePythonObject {
                 return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) / rhsVal)
             case .deferredInt(let rhsVal):
                 guard rhsVal != 0 else { throw PythonError.divideByZero }
-                return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) / Double(rhsVal))   // Python division always return floating point
+                return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) / Double(rhsVal))
             case .deferredString:
                 throw PythonError.typeError(operation: "division", opType1: "Int", opType2: "String")
             case .deferredBool(let rhsVal):
                 guard rhsVal else { throw PythonError.divideByZero }
-                return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal)) // n / 1 == n
+                return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal))
             }
             
         case .deferredString:
@@ -1085,14 +1100,47 @@ extension PythonInterpreter.SafePythonObject {
                 return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) / rhsVal)
             case .deferredInt(let rhsVal):
                 guard rhsVal != 0 else { throw PythonError.divideByZero }
-                return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) / Double(rhsVal))    // Python division always return floating point
+                return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) / Double(rhsVal))
             case .deferredString:
                 throw PythonError.typeError(operation: "division", opType1: "Bool", opType2: "String")
             case .deferredBool(let rhsVal):
                 guard rhsVal else { throw PythonError.divideByZero }
-                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal ? 1.0 : 0.0) // n / 1 == n
+                return PythonInterpreter.SafePythonObject(floatLiteral: lhsVal ? 1.0 : 0.0)
             }
         }
+    }
+    
+    /// Divides this safe Python object by a Python-convertible Swift value.
+    ///
+    /// This overload is an adapter for typed Swift values such as `Int`, `Double`,
+    /// `Bool`, `String`, and container conformers. Existing `SafePythonObject` values
+    /// are forwarded to `divide(divisor:)` so deferred-safe behavior stays centralized
+    /// in the primary overload.
+    ///
+    /// The receiver must already be bound to an interpreter unless `divisor` is already a
+    /// `SafePythonObject`. Without a bound receiver, there is no interpreter available to
+    /// perform general `SafePythonConvertible` conversion.
+    ///
+    /// - Parameters:
+    ///   - divisor: The Swift value to convert and divide by.
+    /// - Returns: The Python true-division result.
+    /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but
+    ///   this object is still deferred, or `PythonError` if conversion or Python division fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func divide(divisor: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
+        if let safeObject = divisor as? PythonInterpreter.SafePythonObject {
+            return try divide(divisor: safeObject)
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: divisor),
+                sourceType: String(describing: type(of: divisor)),
+                targetType: "bound SafePythonObject"
+            )
+        }
+        
+        return try divide(divisor: divisor.toSafePythonObject(interpreter: interpreter))
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
@@ -1104,15 +1152,148 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    /// Divides this safe Python object by another safe Python object in place.
+    ///
+    /// This follows Python `/=` semantics. If this object is bound, or if the divisor is
+    /// bound, the operation is delegated to Python with `PyNumber_InPlaceTrueDivide`. Python may
+    /// mutate mutable objects in place or return a new object for immutable values; this
+    /// safe object is updated to reference the result either way.
+    ///
+    /// - Parameters:
+    ///   - divisor: The safe Python object to divide by.
+    /// - Throws: `PythonError.safePythonException` if Python raises, `PythonError.typeError`
+    ///   for invalid fully deferred primitive combinations, or `PythonError.divideByZero` for
+    ///   fully deferred zero divisors.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    internal func divideInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
-        do {
+    public mutating func divideInPlace(divisor: PythonInterpreter.SafePythonObject) throws {
+        switch state {
+            
+        case .bound:
             let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                try $0.syncInPlaceDivide(quotientand: lhs.toSafePythonObject(interpreter: $0), divisor: rhs.toSafePythonObject(interpreter: $0))
+            try localInterpreter.assumeIsolated {
+                self = try $0.syncInPlaceDivide(quotientand: self.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
             }
+            
+        case .deferredDouble(let lhsVal):
+            switch divisor.state {
+            case .bound:
+                let localInterpreter = divisor.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceDivide(quotientand: self.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                guard rhsVal != 0.0 else { throw PythonError.divideByZero }
+                self = PythonInterpreter.SafePythonObject(floatLiteral: lhsVal / rhsVal)
+            case .deferredInt(let rhsVal):
+                guard rhsVal != 0 else { throw PythonError.divideByZero }
+                self = PythonInterpreter.SafePythonObject(floatLiteral: lhsVal / Double(rhsVal))
+            case .deferredString:
+                throw PythonError.typeError(operation: "in place division", opType1: "Double", opType2: "String")
+            case .deferredBool(let rhsVal):
+                guard rhsVal else { throw PythonError.divideByZero }
+                self = PythonInterpreter.SafePythonObject(floatLiteral: lhsVal)
+            }
+            
+        case .deferredInt(let lhsVal):
+            switch divisor.state {
+            case .bound:
+                let localInterpreter = divisor.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceDivide(quotientand: self.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                guard rhsVal != 0.0 else { throw PythonError.divideByZero }
+                self = PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) / rhsVal)
+            case .deferredInt(let rhsVal):
+                guard rhsVal != 0 else { throw PythonError.divideByZero }
+                self = PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) / Double(rhsVal))
+            case .deferredString:
+                throw PythonError.typeError(operation: "in place division", opType1: "Int", opType2: "String")
+            case .deferredBool(let rhsVal):
+                guard rhsVal else { throw PythonError.divideByZero }
+                self = PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal))
+            }
+            
+        case .deferredString:
+            switch divisor.state {
+            case .bound:
+                let localInterpreter = divisor.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceDivide(quotientand: self.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble:
+                throw PythonError.typeError(operation: "in place division", opType1: "String", opType2: "Double")
+            case .deferredInt:
+                throw PythonError.typeError(operation: "in place division", opType1: "String", opType2: "Int")
+            case .deferredString:
+                throw PythonError.typeError(operation: "in place division", opType1: "String", opType2: "String")
+            case .deferredBool:
+                throw PythonError.typeError(operation: "in place division", opType1: "String", opType2: "Bool")
+            }
+            
+        case .deferredBool(let lhsVal):
+            switch divisor.state {
+            case .bound:
+                let localInterpreter = divisor.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceDivide(quotientand: self.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                guard rhsVal != 0.0 else { throw PythonError.divideByZero }
+                self = PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) / rhsVal)
+            case .deferredInt(let rhsVal):
+                guard rhsVal != 0 else { throw PythonError.divideByZero }
+                self = PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) / Double(rhsVal))
+            case .deferredString:
+                throw PythonError.typeError(operation: "in place division", opType1: "Bool", opType2: "String")
+            case .deferredBool(let rhsVal):
+                guard rhsVal else { throw PythonError.divideByZero }
+                self = PythonInterpreter.SafePythonObject(floatLiteral: lhsVal ? 1.0 : 0.0)
+            }
+        }
+    }
+    
+    /// Divides this safe Python object by a Python-convertible Swift value in place.
+    ///
+    /// This overload is an adapter for typed Swift values such as `Int`, `Double`,
+    /// `Bool`, `String`, and container conformers. Existing `SafePythonObject` values
+    /// are forwarded to `divideInPlace(divisor:)` so deferred-safe behavior stays centralized
+    /// in the primary overload.
+    ///
+    /// The receiver must already be bound to an interpreter unless `divisor` is already
+    /// a `SafePythonObject`. Without a bound receiver, there is no interpreter available to
+    /// perform general `SafePythonConvertible` conversion.
+    ///
+    /// - Parameters:
+    ///   - divisor: The Swift value to convert and divide by.
+    /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but
+    ///   this object is still deferred, or `PythonError` if conversion or Python division fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public mutating func divideInPlace(divisor: any SafePythonConvertible) throws {
+        if let safeObject = divisor as? PythonInterpreter.SafePythonObject {
+            try divideInPlace(divisor: safeObject)
+            return
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: divisor),
+                sourceType: String(describing: type(of: divisor)),
+                targetType: "bound SafePythonObject"
+            )
+        }
+        
+        try divideInPlace(divisor: divisor.toSafePythonObject(interpreter: interpreter))
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func divideInPlaceOperator(quotientand: PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            var result = quotientand
+            try result.divideInPlace(divisor: divisor)
+            return result
         } catch {
-            fatalError("Failed: \(error)")
+            fatalError("In place division failed: \(error).  Use `SafePythonObject.divideInPlace()` for in place division that might throw.")
         }
     }
     

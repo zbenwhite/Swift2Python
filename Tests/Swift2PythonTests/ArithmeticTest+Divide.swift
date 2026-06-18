@@ -217,6 +217,222 @@ extension ArithmeticTests {
         }
     }
     
+    @Test("O/=_005: PythonObject (async) divide equals")
+    func divideEqualsPythonObject() async throws {
+        let dividendA = try await 18.toPythonObject(interpreter: interpreter)
+        let quotientA = try await dividendA.divideInPlace(4)
+        let roundTripA = try await Double(quotientA)
+        #expect(roundTripA.isCloseEnough(to: 4.5))
+        
+        let dividendB = try await 21.toPythonObject(interpreter: interpreter)
+        let quotientB = try await dividendB.divideInPlace(2.5)
+        let roundTripB = try await Double(quotientB)
+        #expect(roundTripB.isCloseEnough(to: 8.4))
+        
+        let dividendC = try await true.toPythonObject(interpreter: interpreter)
+        let quotientC = try await dividendC.divideInPlace(true)
+        let roundTripC = try await Double(quotientC)
+        #expect(roundTripC.isCloseEnough(to: 1.0))
+    }
+    
+    @Test("O/=_006: PythonObject (async) divide equals error checking")
+    func divideEqualsPythonObjectError() async throws {
+        let boundDouble = try await 1.5.toPythonObject(interpreter: interpreter)
+        let boundInt = try await 2.toPythonObject(interpreter: interpreter)
+        let boundString = try await "abc".toPythonObject(interpreter: interpreter)
+        let boundBool = try await true.toPythonObject(interpreter: interpreter)
+        
+        let errorCases: [(String, PythonObject, any PendingPythonConvertible)] = [
+            ("python double /= string", boundDouble, "abc"),
+            ("python int /= string", boundInt, "abc"),
+            ("python string /= double", boundString, 1.5),
+            ("python string /= int", boundString, 2),
+            ("python string /= string", boundString, "def"),
+            ("python string /= bool", boundString, true),
+            ("python bool /= string", boundBool, "abc"),
+            ("python double /= zero", boundDouble, 0),
+            ("python int /= false", boundInt, false),
+            ("python bool /= zero double", boundBool, 0.0)
+        ]
+        
+        for (description, lhs, rhs) in errorCases {
+            let thrownError = await #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                _ = try await lhs.divideInPlace(rhs)
+            }
+            
+            if case .pythonException = thrownError {
+                // expected
+            } else {
+                Issue.record("Expected .pythonException for \(description), but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("O/_011: safePythonObject division accepts SafePythonConvertible values")
+    func safeDivisionAcceptsConvertibleValues() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let typedInt = 4
+            let boundInt = try 20.toSafePythonObject(interpreter: isolatedInterpreter)
+            let intResult = try boundInt.divide(divisor: typedInt)
+            #expect(try Double(intResult).isCloseEnough(to: 5.0))
+            
+            let typedDouble = 2.5
+            let doubleResult = try boundInt.divide(divisor: typedDouble)
+            #expect(try Double(doubleResult).isCloseEnough(to: 8.0))
+            
+            let literalResult = try boundInt.divide(divisor: 2)
+            #expect(try Double(literalResult).isCloseEnough(to: 10.0))
+            
+            let deferredInt: PythonInterpreter.SafePythonObject = 10
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try deferredInt.divide(divisor: typedInt)
+            }
+            
+            if case .conversionType = thrownError {
+                // expected
+            } else {
+                Issue.record("Expected .conversionType for deferred SafePythonObject.divide(Int), but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("O/=_001: Divide Equals Operator")
+    func divideEqualsOperator() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundInt = try 20.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundDouble = try 2.5.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundTrue = try true.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundInt: PythonInterpreter.SafePythonObject = 4
+            let unboundDouble: PythonInterpreter.SafePythonObject = 8.0
+            let unboundTrue: PythonInterpreter.SafePythonObject = true
+            
+            let doubleCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Double)] = [
+                ("bound int /= unbound int", boundInt, unboundInt, 5.0),
+                ("unbound int /= bound int", unboundInt, boundInt, 0.2),
+                ("bound int /= bound double", boundInt, boundDouble, 8.0),
+                ("unbound double /= unbound int", unboundDouble, unboundInt, 2.0),
+                ("bound true /= unbound true", boundTrue, unboundTrue, 1.0)
+            ]
+            
+            for (description, initialValue, divisor, expected) in doubleCases {
+                var result = initialValue
+                result /= divisor
+                #expect(try Double(result).isCloseEnough(to: expected), Comment(rawValue: description))
+            }
+        }
+    }
+    
+    @Test("O/=_011: safePythonObject in-place division accepts SafePythonConvertible values")
+    func safeInPlaceDivisionAcceptsConvertibleValues() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let typedInt = 4
+            var boundInt = try 20.toSafePythonObject(interpreter: isolatedInterpreter)
+            try boundInt.divideInPlace(divisor: typedInt)
+            #expect(try Double(boundInt).isCloseEnough(to: 5.0))
+            
+            let typedDouble = 2.5
+            var boundDouble = try 20.toSafePythonObject(interpreter: isolatedInterpreter)
+            try boundDouble.divideInPlace(divisor: typedDouble)
+            #expect(try Double(boundDouble).isCloseEnough(to: 8.0))
+            
+            var literalResult = try 20.toSafePythonObject(interpreter: isolatedInterpreter)
+            try literalResult.divideInPlace(divisor: 2)
+            #expect(try Double(literalResult).isCloseEnough(to: 10.0))
+            
+            var deferredInt: PythonInterpreter.SafePythonObject = 10
+            let thrownError = #expect(throws: PythonError.self) {
+                try deferredInt.divideInPlace(divisor: typedInt)
+            }
+            
+            if case .conversionType = thrownError {
+                // expected
+            } else {
+                Issue.record("Expected .conversionType for deferred SafePythonObject.divideInPlace(Int), but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("O/=_010: safePythonObject divide equals error checking")
+    func safeDivideEqualsErrors() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundDouble = try 1.5.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundInt = try 2.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundString = try "abc".toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundZeroInt = try 0.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundDouble: PythonInterpreter.SafePythonObject = 1.5
+            let unboundInt: PythonInterpreter.SafePythonObject = 2
+            let unboundString: PythonInterpreter.SafePythonObject = "abc"
+            let unboundBool: PythonInterpreter.SafePythonObject = true
+            let unboundZeroInt: PythonInterpreter.SafePythonObject = 0
+            let unboundZeroDouble: PythonInterpreter.SafePythonObject = 0.0
+            let unboundFalse: PythonInterpreter.SafePythonObject = false
+            
+            let unboundTypeErrorCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, String, String)] = [
+                ("unbound double /= unbound string", unboundDouble, unboundString, "Double", "String"),
+                ("unbound int /= unbound string", unboundInt, unboundString, "Int", "String"),
+                ("unbound string /= unbound double", unboundString, unboundDouble, "String", "Double"),
+                ("unbound string /= unbound int", unboundString, unboundInt, "String", "Int"),
+                ("unbound string /= unbound string", unboundString, unboundString, "String", "String"),
+                ("unbound string /= unbound bool", unboundString, unboundBool, "String", "Bool"),
+                ("unbound bool /= unbound string", unboundBool, unboundString, "Bool", "String")
+            ]
+            
+            for (description, initialValue, divisor, expectedType1, expectedType2) in unboundTypeErrorCases {
+                var result = initialValue
+                let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                    try result.divideInPlace(divisor: divisor)
+                }
+                
+                if case let .typeError(operation, opType1, opType2) = thrownError {
+                    #expect(operation == "in place division", Comment(rawValue: description))
+                    #expect(opType1 == expectedType1, Comment(rawValue: description))
+                    #expect(opType2 == expectedType2, Comment(rawValue: description))
+                } else {
+                    Issue.record("Expected .typeError for \(description), but got \(thrownError)")
+                }
+            }
+            
+            let unboundDivideByZeroCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject)] = [
+                ("unbound double /= unbound zero int", unboundDouble, unboundZeroInt),
+                ("unbound int /= unbound zero double", unboundInt, unboundZeroDouble),
+                ("unbound bool /= unbound false", unboundBool, unboundFalse)
+            ]
+            
+            for (description, initialValue, divisor) in unboundDivideByZeroCases {
+                var result = initialValue
+                let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                    try result.divideInPlace(divisor: divisor)
+                }
+                
+                if case .divideByZero = thrownError {
+                    // expected
+                } else {
+                    Issue.record("Expected .divideByZero for \(description), but got \(thrownError)")
+                }
+            }
+            
+            let boundExceptionCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject)] = [
+                ("bound double /= unbound string", boundDouble, unboundString),
+                ("unbound double /= bound string", unboundDouble, boundString),
+                ("bound int /= bound zero int", boundInt, boundZeroInt),
+                ("unbound bool /= bound zero int", unboundBool, boundZeroInt)
+            ]
+            
+            for (description, initialValue, divisor) in boundExceptionCases {
+                var result = initialValue
+                let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                    try result.divideInPlace(divisor: divisor)
+                }
+                
+                if case .safePythonException = thrownError {
+                    // expected
+                } else {
+                    Issue.record("Expected .safePythonException for \(description), but got \(thrownError)")
+                }
+            }
+        }
+    }
+    
     @Test("O/_010: safePythonObject division error checking")
     func safeDivisionErrors() async throws {
         try await interpreter.withIsolatedContext { isolatedInterpreter in
