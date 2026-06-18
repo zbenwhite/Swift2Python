@@ -920,10 +920,28 @@ public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectabl
         return try await interpreter.modulusInPlace(self, other.toPythonObject(interpreter: interpreter))
     }
     
+    /// Raises this Python object to a Python-convertible exponent using Python `**` semantics.
+    ///
+    /// This delegates to CPython's `PyNumber_Power`, so Python controls type coercion,
+    /// arbitrary-precision integer behavior, complex results, zero-division behavior, and error reporting.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible exponent.
+    /// - Returns: The Python power result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
     public func power(_ other: PendingPythonConvertible) async throws -> PythonObject {
         return try await interpreter.power(base: self, exponent: other.toPythonObject(interpreter: interpreter))
     }
     
+    /// Replaces this Python object with the result of raising it to a Python-convertible exponent.
+    ///
+    /// This delegates to CPython's `PyNumber_InPlacePower`. Python may mutate mutable
+    /// objects in place or return a new object for immutable values.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible exponent.
+    /// - Returns: The Python in-place power result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
     public func powerInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
         return try await interpreter.powerInPlace(self, other.toPythonObject(interpreter: interpreter))
     }

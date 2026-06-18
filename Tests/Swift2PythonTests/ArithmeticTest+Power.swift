@@ -128,9 +128,10 @@ extension ArithmeticTests {
             
             let doubleCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Double)] = [
                 ("bound bool ** bound double", boundTrue, boundDouble, 1.0),
-                ("bound bool ** unbound double", boundFalse, unboundDouble, .infinity),
                 ("unbound bool ** bound double", unboundTrue, boundDouble, 1.0),
-                ("unbound bool ** unbound double", unboundFalse, 0.5, 0.0)
+                ("unbound bool ** unbound double", unboundFalse, 0.5, 0.0),
+                ("unbound zero double ** unbound true", 0.0, unboundTrue, 0.0),
+                ("unbound zero double ** unbound false", 0.0, unboundFalse, 1.0)
             ]
             
             for (description, base, exponent, expected) in doubleCases {
@@ -143,14 +144,23 @@ extension ArithmeticTests {
                 }
             }
             
-            // Negative integer exponents on false should fail like division by zero.
-            let thrownError = #expect(throws: PythonError.self, Comment(rawValue: "bool zero base to negative int")) {
+            // Negative exponents on false should fail like division by zero.
+            let thrownError = #expect(throws: PythonError.self, Comment(rawValue: "unbound false ** negative int")) {
                 _ = try unboundFalse.power(exponent: unboundInt)
             }
             if case .divideByZero = thrownError {
                 // expected
             } else {
-                Issue.record("Expected .divideByZero for bool zero base to negative int, but got \(thrownError)")
+                Issue.record("Expected .divideByZero for unbound false ** negative int, but got \(thrownError)")
+            }
+            
+            let boundThrownError = #expect(throws: PythonError.self, Comment(rawValue: "bound false ** negative double")) {
+                _ = try boundFalse.power(exponent: unboundDouble)
+            }
+            if case .safePythonException = boundThrownError {
+                // expected
+            } else {
+                Issue.record("Expected .safePythonException for bound false ** negative double, but got \(boundThrownError)")
             }
         }
     }
@@ -280,10 +290,17 @@ extension ArithmeticTests {
                 }
             }
             
-            // The documented unbound fallback for negative base fractional exponent is NaN.
-            let nanResult = try unboundNegativeTwo.power(exponent: unboundHalf)
-            let nanRoundTrip = try Double(nanResult)
-            #expect(nanRoundTrip.isNaN)
+            // Python returns a complex number for negative base fractional exponent. The deferred
+            // SafePythonObject fallback cannot represent complex numbers, so it should throw instead
+            // of silently returning NaN.
+            let complexThrownError = #expect(throws: PythonError.self, Comment(rawValue: "unbound negative int ** unbound half")) {
+                _ = try unboundNegativeTwo.power(exponent: unboundHalf)
+            }
+            if case .conversionType = complexThrownError {
+                // expected
+            } else {
+                Issue.record("Expected .conversionType for unbound negative int ** unbound half, but got \(complexThrownError)")
+            }
             
             // A bound Python execution of the same case should not come back as a normal Double.
             let boundThrownError = #expect(throws: PythonError.self, Comment(rawValue: "bound negative int ** bound half")) {
@@ -294,6 +311,242 @@ extension ArithmeticTests {
                 // expected: Python returns a complex result that cannot round-trip to Double.
             } else {
                 Issue.record("Expected .conversionType for bound negative int ** bound half, but got \(boundThrownError)")
+            }
+        }
+    }
+    
+    @Test("O**=_005: PythonObject (async) power equals")
+    func powerEqualsPythonObject() async throws {
+        let baseA = try await 3.toPythonObject(interpreter: interpreter)
+        let resultA = try await baseA.powerInPlace(4)
+        let roundTripA = try await Int(resultA)
+        #expect(roundTripA == 81)
+        
+        let baseB = try await 2.5.toPythonObject(interpreter: interpreter)
+        let resultB = try await baseB.powerInPlace(2)
+        let roundTripB = try await Double(resultB)
+        #expect(roundTripB.isCloseEnough(to: 6.25))
+        
+        let baseC = try await true.toPythonObject(interpreter: interpreter)
+        let resultC = try await baseC.powerInPlace(false)
+        let roundTripC = try await Int(resultC)
+        #expect(roundTripC == 1)
+    }
+    
+    @Test("O**=_006: PythonObject (async) power equals error checking")
+    func powerEqualsPythonObjectError() async throws {
+        let boundString = try await "abc".toPythonObject(interpreter: interpreter)
+        let boundFalse = try await false.toPythonObject(interpreter: interpreter)
+        
+        let errorCases: [(String, PythonObject, any PendingPythonConvertible)] = [
+            ("python string **= int", boundString, 2),
+            ("python false **= negative int", boundFalse, -1)
+        ]
+        
+        for (description, base, exponent) in errorCases {
+            let thrownError = await #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                _ = try await base.powerInPlace(exponent)
+            }
+            
+            if case .pythonException = thrownError {
+                // expected
+            } else {
+                Issue.record("Expected .pythonException for \(description), but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("O**_011: safePythonObject power accepts SafePythonConvertible values")
+    func safePowerAcceptsConvertibleValues() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let typedInt = 4
+            let boundInt = try 3.toSafePythonObject(interpreter: isolatedInterpreter)
+            let intResult = try boundInt.power(exponent: typedInt)
+            #expect(try Int(intResult) == 81)
+            
+            let typedDouble = 2.0
+            let doubleResult = try boundInt.power(exponent: typedDouble)
+            #expect(try Double(doubleResult).isCloseEnough(to: 9.0))
+            
+            let literalResult = try boundInt.power(exponent: 2)
+            #expect(try Int(literalResult) == 9)
+            
+            let deferredInt: PythonInterpreter.SafePythonObject = 3
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try deferredInt.power(exponent: typedInt)
+            }
+            
+            if case .conversionType = thrownError {
+                // expected
+            } else {
+                Issue.record("Expected .conversionType for deferred SafePythonObject.power(Int), but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("O**_012: safePythonObject deferred integer power overflow")
+    func safeDeferredIntegerPowerOverflow() throws {
+        let maxInt = PythonInterpreter.SafePythonObject(integerLiteral: Int.max)
+        let two: PythonInterpreter.SafePythonObject = 2
+        
+        let thrownError = #expect(throws: PythonError.self) {
+            _ = try maxInt.power(exponent: two)
+        }
+        
+        if case .conversionOverflow = thrownError {
+            // expected
+        } else {
+            Issue.record("Expected .conversionOverflow for deferred Int.max ** 2, but got \(thrownError)")
+        }
+    }
+    
+    @Test("O**=_001: Power Equals Operator")
+    func powerEqualsOperator() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundInt = try 3.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundDouble = try 2.5.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundTrue = try true.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundInt: PythonInterpreter.SafePythonObject = 4
+            let unboundDouble: PythonInterpreter.SafePythonObject = 2.0
+            let unboundFalse: PythonInterpreter.SafePythonObject = false
+            
+            let intCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Int)] = [
+                ("bound int **= unbound int", boundInt, unboundInt, 81),
+                ("unbound int **= bound int", unboundInt, boundInt, 64),
+                ("bound true **= unbound false", boundTrue, unboundFalse, 1)
+            ]
+            
+            for (description, initialValue, exponent, expected) in intCases {
+                var result = initialValue
+                result **= exponent
+                #expect(try Int(result) == expected, Comment(rawValue: description))
+            }
+            
+            let doubleCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Double)] = [
+                ("bound double **= unbound double", boundDouble, unboundDouble, 6.25),
+                ("unbound double **= bound int", unboundDouble, boundInt, 8.0)
+            ]
+            
+            for (description, initialValue, exponent, expected) in doubleCases {
+                var result = initialValue
+                result **= exponent
+                #expect(try Double(result).isCloseEnough(to: expected), Comment(rawValue: description))
+            }
+        }
+    }
+    
+    @Test("O**=_011: safePythonObject in-place power accepts SafePythonConvertible values")
+    func safeInPlacePowerAcceptsConvertibleValues() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let typedInt = 4
+            var boundInt = try 3.toSafePythonObject(interpreter: isolatedInterpreter)
+            try boundInt.powerInPlace(exponent: typedInt)
+            #expect(try Int(boundInt) == 81)
+            
+            let typedDouble = 2.0
+            var boundDouble = try 3.toSafePythonObject(interpreter: isolatedInterpreter)
+            try boundDouble.powerInPlace(exponent: typedDouble)
+            #expect(try Double(boundDouble).isCloseEnough(to: 9.0))
+            
+            var literalResult = try 3.toSafePythonObject(interpreter: isolatedInterpreter)
+            try literalResult.powerInPlace(exponent: 2)
+            #expect(try Int(literalResult) == 9)
+            
+            var deferredInt: PythonInterpreter.SafePythonObject = 3
+            let thrownError = #expect(throws: PythonError.self) {
+                try deferredInt.powerInPlace(exponent: typedInt)
+            }
+            
+            if case .conversionType = thrownError {
+                // expected
+            } else {
+                Issue.record("Expected .conversionType for deferred SafePythonObject.powerInPlace(Int), but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("O**=_012: safePythonObject deferred integer in-place power overflow")
+    func safeDeferredIntegerInPlacePowerOverflow() throws {
+        var maxInt = PythonInterpreter.SafePythonObject(integerLiteral: Int.max)
+        let two: PythonInterpreter.SafePythonObject = 2
+        
+        let thrownError = #expect(throws: PythonError.self) {
+            try maxInt.powerInPlace(exponent: two)
+        }
+        
+        if case .conversionOverflow = thrownError {
+            // expected
+        } else {
+            Issue.record("Expected .conversionOverflow for deferred Int.max **= 2, but got \(thrownError)")
+        }
+    }
+    
+    @Test("O**=_010: safePythonObject power equals error checking")
+    func safePowerEqualsErrors() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundString = try "abc".toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundZeroInt = try 0.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundString: PythonInterpreter.SafePythonObject = "abc"
+            let unboundInt: PythonInterpreter.SafePythonObject = 2
+            let unboundNegativeInt: PythonInterpreter.SafePythonObject = -1
+            let unboundHalf: PythonInterpreter.SafePythonObject = 0.5
+            let unboundNegativeTwo: PythonInterpreter.SafePythonObject = -2
+            
+            let typeErrorCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, String, String)] = [
+                ("unbound string **= unbound int", unboundString, unboundInt, "String", "Int")
+            ]
+            
+            for (description, initialValue, exponent, expectedType1, expectedType2) in typeErrorCases {
+                var result = initialValue
+                let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                    try result.powerInPlace(exponent: exponent)
+                }
+                
+                if case let .typeError(operation, opType1, opType2) = thrownError {
+                    #expect(operation == "in place power", Comment(rawValue: description))
+                    #expect(opType1 == expectedType1, Comment(rawValue: description))
+                    #expect(opType2 == expectedType2, Comment(rawValue: description))
+                } else {
+                    Issue.record("Expected .typeError for \(description), but got \(thrownError)")
+                }
+            }
+            
+            var zero = PythonInterpreter.SafePythonObject(integerLiteral: 0)
+            let zeroThrownError = #expect(throws: PythonError.self) {
+                try zero.powerInPlace(exponent: unboundNegativeInt)
+            }
+            if case .divideByZero = zeroThrownError {
+                // expected
+            } else {
+                Issue.record("Expected .divideByZero for deferred zero **= negative int, but got \(zeroThrownError)")
+            }
+            
+            var negative = unboundNegativeTwo
+            let complexThrownError = #expect(throws: PythonError.self) {
+                try negative.powerInPlace(exponent: unboundHalf)
+            }
+            if case .conversionType = complexThrownError {
+                // expected
+            } else {
+                Issue.record("Expected .conversionType for deferred negative **= half, but got \(complexThrownError)")
+            }
+            
+            let boundExceptionCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject)] = [
+                ("bound string **= unbound int", boundString, unboundInt),
+                ("bound zero int **= unbound negative int", boundZeroInt, unboundNegativeInt)
+            ]
+            
+            for (description, initialValue, exponent) in boundExceptionCases {
+                var result = initialValue
+                let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                    try result.powerInPlace(exponent: exponent)
+                }
+                
+                if case .safePythonException = thrownError {
+                    // expected
+                } else {
+                    Issue.record("Expected .safePythonException for \(description), but got \(thrownError)")
+                }
             }
         }
     }

@@ -67,6 +67,12 @@ public extension PythonInterpreter.SafePythonObject {
         return PythonInterpreter.SafePythonObject.modulusOperator(dividend:dividend, divisor:divisor)
     }
 
+    /// Raises a safe Python object to a safe Python exponent using Python `**` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, a deferred
+    /// zero base is raised to a negative exponent, or a deferred result cannot be represented,
+    /// this traps with `fatalError`. Use `SafePythonObject.power(exponent:)` when power can fail
+    /// and should be handled.
     static func ** (base: PythonInterpreter.SafePythonObject, exponent: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         return PythonInterpreter.SafePythonObject.exponentiationOperator(base:base, exponent:exponent)
     }
@@ -116,14 +122,14 @@ public extension PythonInterpreter.SafePythonObject {
         quotientand = PythonInterpreter.SafePythonObject.modulusInPlaceOperator(quotientand: quotientand, divisor: divisor)
     }
 
+    /// Replaces a safe Python object with the result of raising it to an exponent using Python `**=` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, a deferred
+    /// zero base is raised to a negative exponent, or a deferred result cannot be represented,
+    /// this traps with `fatalError`. Use `SafePythonObject.powerInPlace(exponent:)` when in-place
+    /// power can fail and should be handled.
     static func **= (base: inout PythonInterpreter.SafePythonObject, exponent: PythonInterpreter.SafePythonObject) {
-        if base.isBoundToPythonInterpreter {
-            base = base.exponentiationInPlaceOperator(base, exponent)
-        } else if exponent.isBoundToPythonInterpreter {
-            base = exponent.exponentiationInPlaceOperator(base, exponent)
-        } else {
-            base = PythonInterpreter.SafePythonObject.exponentiationOperator(base:base, exponent:exponent)
-        }
+        base = PythonInterpreter.SafePythonObject.powerInPlaceOperator(base: base, exponent: exponent)
     }
     
     static func & (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {

@@ -1555,8 +1555,20 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Exponentiation
     
-    private static func integerPower(base: Int, exponent: Int) -> Int {
-        if exponent == 0 { return 1 }
+    private static func fractionalExponentProducesComplex(base: Double, exponent: Double) -> Bool {
+        base < 0.0 && exponent.isFinite && exponent.rounded(.towardZero) != exponent
+    }
+    
+    private static func complexPowerConversionError(base: String, exponent: String) -> PythonError {
+        PythonError.conversionType(
+            value: "\(base) ** \(exponent)",
+            sourceType: "deferred Python power result",
+            targetType: "SafePythonObject without complex support"
+        )
+    }
+    
+    private static func checkedDeferredIntegerPower(base: Int, exponent: Int) throws -> PythonInterpreter.SafePythonObject {
+        if exponent == 0 { return PythonInterpreter.SafePythonObject(integerLiteral: 1) }
         
         var result = 1
         var currentBase = base
@@ -1564,49 +1576,78 @@ extension PythonInterpreter.SafePythonObject {
         
         while currentExponent > 0 {
             if currentExponent % 2 != 0 {
-                result *= currentBase
+                let product = result.multipliedReportingOverflow(by: currentBase)
+                guard !product.overflow else {
+                    throw PythonError.conversionOverflow(
+                        value: "\(base) ** \(exponent)",
+                        sourceType: "deferred Python integer power",
+                        targetType: "Swift Int"
+                    )
+                }
+                result = product.partialValue
             }
+            
             currentExponent /= 2
             if currentExponent > 0 {
-                currentBase *= currentBase
+                let square = currentBase.multipliedReportingOverflow(by: currentBase)
+                guard !square.overflow else {
+                    throw PythonError.conversionOverflow(
+                        value: "\(base) ** \(exponent)",
+                        sourceType: "deferred Python integer power",
+                        targetType: "Swift Int"
+                    )
+                }
+                currentBase = square.partialValue
             }
         }
         
-        return result
+        return PythonInterpreter.SafePythonObject(integerLiteral: result)
     }
     
-    
-    // The throwing power function.  For materialized python objects, this calls PyNumber_Power
-    // using the interpreter. If only one is materialized, materialize the other and do the same.
-    // If neither are materialized (why?) then do the operation python would do.
-    //
-    // Exceptions: Python returns complex numbers for something like (-2) ** 0​.5.  This gives NaN.
-    //             Also this code can overflow an int.  This code is only for convenience because
-    //             returning good answers is better than erroring out on unbound values.  Materialize
-    //             your SafePythonObjects and stop messing around if you want better behavior.
-    //
-    // LHS     RHS      ACTION / Type                Error or special case
-    // -----   ------   ---------                    -------------------------------
-    // bound   any      PyNumber_Power
-    // any     bound    PyNumber_Power
-    // double  double   double                       lhs == 0.0 && rhs < 0.0  .... can't raise zero to negative power.  Divide by zero.
-    // double  int      double                       lhs == 0.0 && rhs < 0.0  .... can't raise zero to negative power.  Divide by zero.
-    // double  string   ERR: typeError
-    // double  bool     double
-    // int     int      int (double if rhs < 0)      lhs == 0 && rhs < 0      .... can't raise zero to negative power.  Divide by zero.
-    // int     double   double                       lhs == 0.0 && rhs < 0.0  .... can't raise zero to negative power.  Divide by zero.
-    // int     string   ERR: typeError
-    // int     bool     int
-    // string  double   ERR: typeError
-    // string  int      ERR: typeError
-    // string  string   ERR: typeError
-    // string  bool     ERR: typeError
-    // bool    double   double                       lhs == False && rhs < 0.0  .... can't raise zero to negative power.  Divide by zero.
-    // bool    int      int (double if rhs < 0)      lhs == False && rhs < 0.0  .... can't raise zero to negative power.  Divide by zero.
-    // bool    string   ERR: typeError
-    // bool    bool     int
+    /// Raises this safe Python object to a safe Python exponent using Python `**` semantics.
+    ///
+    /// If either operand is already bound to an interpreter, this delegates to CPython's
+    /// `PyNumber_Power`. If both operands are still deferred Swift literals, this applies
+    /// Python-compatible power behavior locally where the result is representable.
+    ///
+    /// - Parameters:
+    ///   - exponent: The exponent used for the Python `**` operation.
+    /// - Returns: The Python power result.
+    /// - Throws: `PythonError.divideByZero` for fully deferred zero-to-negative powers,
+    ///   `PythonError.typeError` for unsupported fully deferred operand pairs,
+    ///   `PythonError.conversionType` for fully deferred complex results, `PythonError.conversionOverflow`
+    ///   for fully deferred integer powers outside Swift2Python's deferred `Int` storage,
+    ///   or `PythonError` if Python raises or conversion fails.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func power(exponent: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+        
+        
+        // The throwing power function. For materialized Python objects, this calls PyNumber_Power
+        // using the interpreter. If only one side is materialized, materialize the other and do the same.
+        // If neither side is materialized, do the operation Python would do when Swift2Python can
+        // represent the result locally.
+        //
+        // LHS     RHS      ACTION / Type                Error or special case
+        // -----   ------   ---------                    -------------------------------
+        // bound   any      PyNumber_Power
+        // any     bound    PyNumber_Power
+        // double  double   double                       0 ** negative -> divideByZero; negative ** fractional -> conversionType
+        // double  int      double                       0 ** negative -> divideByZero
+        // double  string   ERR: typeError
+        // double  bool     double
+        // int     int      int (double if rhs < 0)      0 ** negative -> divideByZero; checked overflow for non-negative rhs
+        // int     double   double                       0 ** negative -> divideByZero; negative ** fractional -> conversionType
+        // int     string   ERR: typeError
+        // int     bool     int
+        // string  double   ERR: typeError
+        // string  int      ERR: typeError
+        // string  string   ERR: typeError
+        // string  bool     ERR: typeError
+        // bool    double   double                       false ** negative -> divideByZero
+        // bool    int      int                          false ** negative -> divideByZero
+        // bool    string   ERR: typeError
+        // bool    bool     int
+        
         switch self.state {
             
         case .bound:
@@ -1625,27 +1666,27 @@ extension PythonInterpreter.SafePythonObject {
             case .deferredDouble(let rhsVal):
                 if lhsVal == 0.0 {
                     if rhsVal == 0.0 {
-                        return PythonInterpreter.SafePythonObject(floatLiteral: 1.0)      // 0 ** 0 = 1
+                        return PythonInterpreter.SafePythonObject(floatLiteral: 1.0)
                     } else if rhsVal < 0.0 {
-                        throw PythonError.divideByZero                                    // 0 ** n is divide by zero for negative n
+                        throw PythonError.divideByZero
                     }
+                }
+                if Self.fractionalExponentProducesComplex(base: lhsVal, exponent: rhsVal) {
+                    throw Self.complexPowerConversionError(base: String(lhsVal), exponent: String(rhsVal))
                 }
                 return PythonInterpreter.SafePythonObject(floatLiteral: pow(lhsVal, rhsVal))
             case .deferredInt(let rhsVal):
                 if lhsVal == 0.0 {
                     if rhsVal == 0 {
-                        return PythonInterpreter.SafePythonObject(floatLiteral: 1.0)      // 0 ** 0 = 1
+                        return PythonInterpreter.SafePythonObject(floatLiteral: 1.0)
                     } else if rhsVal < 0 {
-                        throw PythonError.divideByZero                                    // 0 ** n is divide by zero for negative n
+                        throw PythonError.divideByZero
                     }
                 }
                 return PythonInterpreter.SafePythonObject(floatLiteral: pow(lhsVal, Double(rhsVal)))
             case .deferredString:
                 throw PythonError.typeError(operation: "power", opType1: "Double", opType2: "String")
             case .deferredBool(let rhsVal):
-                if lhsVal == 0.0 && rhsVal {
-                    return PythonInterpreter.SafePythonObject(floatLiteral: 1.0)      // 0 ** 0 = 1
-                }
                 return PythonInterpreter.SafePythonObject(floatLiteral: pow(lhsVal, rhsVal ? 1.0 : 0.0))
             }
             
@@ -1659,29 +1700,30 @@ extension PythonInterpreter.SafePythonObject {
             case .deferredDouble(let rhsVal):
                 if lhsVal == 0 {
                     if rhsVal == 0.0 {
-                        return PythonInterpreter.SafePythonObject(floatLiteral: 1.0)      // 0 ** 0 = 1
+                        return PythonInterpreter.SafePythonObject(floatLiteral: 1.0)
                     } else if rhsVal < 0.0 {
-                        throw PythonError.divideByZero                                    // 0 ** n is divide by zero for negative n
+                        throw PythonError.divideByZero
                     }
+                }
+                if Self.fractionalExponentProducesComplex(base: Double(lhsVal), exponent: rhsVal) {
+                    throw Self.complexPowerConversionError(base: String(lhsVal), exponent: String(rhsVal))
                 }
                 return PythonInterpreter.SafePythonObject(floatLiteral: pow(Double(lhsVal), rhsVal))
             case .deferredInt(let rhsVal):
                 if lhsVal == 0 {
                     if rhsVal == 0 {
-                        return PythonInterpreter.SafePythonObject(integerLiteral: 1)      // 0 ** 0 = 1
+                        return PythonInterpreter.SafePythonObject(integerLiteral: 1)
                     } else if rhsVal < 0 {
-                        throw PythonError.divideByZero                                    // 0 ** n is divide by zero for negative n
+                        throw PythonError.divideByZero
                     }
                 }
                 if rhsVal < 0 {
                     return PythonInterpreter.SafePythonObject(floatLiteral: pow(Double(lhsVal), Double(rhsVal)))
                 }
-                return PythonInterpreter.SafePythonObject(integerLiteral: Self.integerPower(base: lhsVal, exponent: rhsVal))
+                return try Self.checkedDeferredIntegerPower(base: lhsVal, exponent: rhsVal)
             case .deferredString:
                 throw PythonError.typeError(operation: "power", opType1: "Int", opType2: "String")
             case .deferredBool(let rhsVal):
-                // n ** 0 == 1
-                // n ** 1 == n
                 return rhsVal ? PythonInterpreter.SafePythonObject(integerLiteral: lhsVal) : PythonInterpreter.SafePythonObject(integerLiteral: 1)
             }
             
@@ -1712,24 +1754,23 @@ extension PythonInterpreter.SafePythonObject {
             case .deferredDouble(let rhsVal):
                 if lhsVal == false {
                     if rhsVal == 0.0 {
-                        return PythonInterpreter.SafePythonObject(floatLiteral: 1.0)      // 0 ** 0 = 1
+                        return PythonInterpreter.SafePythonObject(floatLiteral: 1.0)
                     } else if rhsVal < 0.0 {
-                        throw PythonError.divideByZero                                    // 0 ** n is divide by zero for negative n
+                        throw PythonError.divideByZero
                     } else {
-                        return PythonInterpreter.SafePythonObject(floatLiteral: 0.0)      // 0 ** n = 0 for positive n
+                        return PythonInterpreter.SafePythonObject(floatLiteral: 0.0)
                     }
                 } else {
-                    return PythonInterpreter.SafePythonObject(floatLiteral: pow(1.0, rhsVal))
+                    return PythonInterpreter.SafePythonObject(floatLiteral: 1.0)
                 }
             case .deferredInt(let rhsVal):
-                
                 if lhsVal == false {
                     if rhsVal == 0 {
-                        return PythonInterpreter.SafePythonObject(integerLiteral: 1)      // 0 ** 0 = 1
+                        return PythonInterpreter.SafePythonObject(integerLiteral: 1)
                     } else if rhsVal < 0 {
-                        throw PythonError.divideByZero                                    // 0 ** n is divide by zero for negative n
+                        throw PythonError.divideByZero
                     } else {
-                        return PythonInterpreter.SafePythonObject(integerLiteral: 0)      // 0 ** n = 0 for positive n
+                        return PythonInterpreter.SafePythonObject(integerLiteral: 0)
                     }
                 } else {
                     return PythonInterpreter.SafePythonObject(integerLiteral: 1)
@@ -1737,13 +1778,37 @@ extension PythonInterpreter.SafePythonObject {
             case .deferredString:
                 throw PythonError.typeError(operation: "power", opType1: "Bool", opType2: "String")
             case .deferredBool(let rhsVal):
-                // 0 ** 0 == 1
-                // 0 ** 1 == 0
-                // 1 ** 0 == 1
-                // 1 ** 1 == 1
                 return rhsVal ? PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0)) : PythonInterpreter.SafePythonObject(integerLiteral: 1)
             }
         }
+    }
+    
+    /// Raises this safe Python object to a Python-convertible exponent.
+    ///
+    /// This overload is for values such as `Int`, `Double`, `Bool`, and `String` that can be
+    /// converted to Python through the receiver's interpreter. The receiver must already be bound
+    /// unless `exponent` is itself a `SafePythonObject`.
+    ///
+    /// - Parameters:
+    ///   - exponent: The Python-convertible exponent.
+    /// - Returns: The Python power result.
+    /// - Throws: `PythonError.conversionType` if the receiver is deferred and `exponent` needs an
+    ///   interpreter for conversion, or `PythonError` if conversion or Python power fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func power(exponent: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
+        if let safeObject = exponent as? PythonInterpreter.SafePythonObject {
+            return try power(exponent: safeObject)
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: exponent),
+                sourceType: String(describing: type(of: exponent)),
+                targetType: "bound SafePythonObject"
+            )
+        }
+        
+        return try power(exponent: exponent.toSafePythonObject(interpreter: interpreter))
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
@@ -1755,15 +1820,79 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    /// Replaces this safe Python object with the result of raising it to another safe Python object.
+    ///
+    /// If either operand is already bound to an interpreter, this delegates to CPython's
+    /// `PyNumber_InPlacePower`. If both operands are deferred Swift literals, this applies
+    /// Python-compatible `**=` behavior locally where the result is representable.
+    ///
+    /// - Parameters:
+    ///   - exponent: The exponent used for the Python `**=` operation.
+    /// - Throws: `PythonError.divideByZero` for fully deferred zero-to-negative powers,
+    ///   `PythonError.typeError` for unsupported fully deferred operand pairs,
+    ///   `PythonError.conversionType` for fully deferred complex results, `PythonError.conversionOverflow`
+    ///   for fully deferred integer powers outside Swift2Python's deferred `Int` storage,
+    ///   or `PythonError` if Python raises or conversion fails.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    internal func exponentiationInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
-        do {
+    public mutating func powerInPlace(exponent: PythonInterpreter.SafePythonObject) throws {
+        switch state {
+        case .bound:
             let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                try $0.syncInPlacePower(lhs: lhs.toSafePythonObject(interpreter: $0), exponent: rhs.toSafePythonObject(interpreter: $0))
+            try localInterpreter.assumeIsolated {
+                self = try $0.syncInPlacePower(lhs: self.toSafePythonObject(interpreter: $0), exponent: exponent.toSafePythonObject(interpreter: $0))
             }
+        default:
+            if exponent.isBoundToPythonInterpreter {
+                let localInterpreter = exponent.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlacePower(lhs: self.toSafePythonObject(interpreter: $0), exponent: exponent.toSafePythonObject(interpreter: $0))
+                }
+            } else {
+                do {
+                    self = try power(exponent: exponent)
+                } catch let PythonError.typeError(_, opType1, opType2) {
+                    throw PythonError.typeError(operation: "in place power", opType1: opType1, opType2: opType2)
+                }
+            }
+        }
+    }
+    
+    /// Replaces this safe Python object with the result of raising it to a Swift value.
+    ///
+    /// This overload is for values such as `Int`, `Double`, `Bool`, and `String` that can be
+    /// converted to Python through the receiver's interpreter. The receiver must already be bound
+    /// unless `exponent` is itself a `SafePythonObject`.
+    ///
+    /// - Parameters:
+    ///   - exponent: The Python-convertible exponent.
+    /// - Throws: `PythonError.conversionType` if the receiver is deferred and `exponent` needs an
+    ///   interpreter for conversion, or `PythonError` if conversion or Python power fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public mutating func powerInPlace(exponent: any SafePythonConvertible) throws {
+        if let safeObject = exponent as? PythonInterpreter.SafePythonObject {
+            try powerInPlace(exponent: safeObject)
+            return
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: exponent),
+                sourceType: String(describing: type(of: exponent)),
+                targetType: "bound SafePythonObject"
+            )
+        }
+        
+        try powerInPlace(exponent: exponent.toSafePythonObject(interpreter: interpreter))
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func powerInPlaceOperator(base: PythonInterpreter.SafePythonObject, exponent: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            var result = base
+            try result.powerInPlace(exponent: exponent)
+            return result
         } catch {
-            fatalError("Failed: \(error)")
+            fatalError("In place power failed: \(error).  Use `SafePythonObject.powerInPlace()` for in place power that might throw.")
         }
     }
     
