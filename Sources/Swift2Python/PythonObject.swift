@@ -790,26 +790,80 @@ public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectabl
     
     // MARK: Arithmetic functions
     
+    /// Adds a Python-convertible value to this Python object using Python `+` semantics.
+    ///
+    /// This delegates to CPython's `PyNumber_Add`, so Python controls type coercion,
+    /// arbitrary-precision integer behavior, and error reporting.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible value to add.
+    /// - Returns: The Python addition result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
     public func add(_ other: PendingPythonConvertible) async throws -> PythonObject {
         return try await interpreter.add(lhs: self, rhs: other.toPythonObject(interpreter: interpreter))
     }
     
+    /// Adds a Python-convertible value to this Python object using Python `+=` semantics.
+    ///
+    /// This delegates to CPython's `PyNumber_InPlaceAdd`. Python may mutate mutable
+    /// objects in place or return a new object for immutable values.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible value to add.
+    /// - Returns: The Python in-place addition result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
     public func addInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
         return try await interpreter.addInPlace(lhs: self, rhs: other.toPythonObject(interpreter: interpreter))
     }
     
+    /// Subtracts a Python-convertible value from this Python object using Python `-` semantics.
+    ///
+    /// This delegates to CPython's `PyNumber_Subtract`, so Python controls type coercion,
+    /// arbitrary-precision integer behavior, and error reporting.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible value to subtract.
+    /// - Returns: The Python subtraction result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
     public func subtract(_ other: PendingPythonConvertible) async throws -> PythonObject {
         return try await interpreter.subtract(minuend: self, subtrahend: other.toPythonObject(interpreter: interpreter))
     }
     
+    /// Subtracts a Python-convertible value from this Python object using Python `-=` semantics.
+    ///
+    /// This delegates to CPython's `PyNumber_InPlaceSubtract`. Python may mutate mutable
+    /// objects in place or return a new object for immutable values.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible value to subtract.
+    /// - Returns: The Python in-place subtraction result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
     public func subtractInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
         return try await interpreter.subtractInPlace(minuend: self, subtrahend: other.toPythonObject(interpreter: interpreter))
     }
     
+    /// Multiplies this Python object by a Python-convertible value using Python `*` semantics.
+    ///
+    /// This delegates to CPython's `PyNumber_Multiply`, so Python controls type coercion,
+    /// arbitrary-precision integer behavior, sequence repetition, and error reporting.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible value to multiply by.
+    /// - Returns: The Python multiplication result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
     public func multiply(_ other: PendingPythonConvertible) async throws -> PythonObject {
         return try await interpreter.multiply(self, other.toPythonObject(interpreter: interpreter))
     }
     
+    /// Multiplies this Python object by a Python-convertible value using Python `*=` semantics.
+    ///
+    /// This delegates to CPython's `PyNumber_InPlaceMultiply`. Python may mutate mutable
+    /// objects in place or return a new object for immutable values.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible value to multiply by.
+    /// - Returns: The Python in-place multiplication result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
     public func multiplyInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
         return try await interpreter.multiplyInPlace(self, other.toPythonObject(interpreter: interpreter))
     }

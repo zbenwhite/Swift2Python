@@ -305,6 +305,281 @@ extension ArithmeticTests {
         }
     }
     
+    @Test("O*=_005: PythonObject (async) times equals")
+    func timesEqualsPythonObject() async throws {
+        let lhsA = try await 17.toPythonObject(interpreter: interpreter)
+        let productA = try await lhsA.multiplyInPlace(6)
+        let roundTripA = try await Int(productA)
+        #expect(roundTripA == 102)
+        
+        let lhsB = try await 17.toPythonObject(interpreter: interpreter)
+        let productB = try await lhsB.multiplyInPlace(2.5)
+        let roundTripB = try await Double(productB)
+        #expect(roundTripB.isCloseEnough(to: 42.5))
+        
+        let lhsC = try await true.toPythonObject(interpreter: interpreter)
+        let productC = try await lhsC.multiplyInPlace(false)
+        let roundTripC = try await Int(productC)
+        #expect(roundTripC == 0)
+        
+        let lhsD = try await "ab".toPythonObject(interpreter: interpreter)
+        let productD = try await lhsD.multiplyInPlace(3)
+        let roundTripD = try await String(productD)
+        #expect(roundTripD == "ababab")
+    }
+    
+    @Test("O*=_006: PythonObject (async) times equals error checking")
+    func timesEqualsPythonObjectError() async throws {
+        let boundDouble = try await 1.5.toPythonObject(interpreter: interpreter)
+        let boundString = try await "abc".toPythonObject(interpreter: interpreter)
+        
+        let errorCases: [(String, PythonObject, any PendingPythonConvertible)] = [
+            ("python double *= string", boundDouble, "abc"),
+            ("python string *= double", boundString, 1.5),
+            ("python string *= string", boundString, "def")
+        ]
+        
+        for (description, lhs, rhs) in errorCases {
+            let thrownError = await #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                _ = try await lhs.multiplyInPlace(rhs)
+            }
+            
+            if case .pythonException = thrownError {
+                // expected
+            } else {
+                Issue.record("Expected .pythonException for \(description), but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("O*_011: safePythonObject multiplication accepts SafePythonConvertible values")
+    func safeMultiplicationAcceptsConvertibleValues() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let typedInt = 32
+            let boundInt = try 10.toSafePythonObject(interpreter: isolatedInterpreter)
+            let intResult = try boundInt.multiply(typedInt)
+            #expect(try Int(intResult) == 320)
+            
+            let typedDouble = 0.5
+            let doubleResult = try boundInt.multiply(typedDouble)
+            #expect(try Double(doubleResult) == 5.0)
+            
+            let repeatCount = 3
+            let boundString = try "ha".toSafePythonObject(interpreter: isolatedInterpreter)
+            let stringResult = try boundString.multiply(repeatCount)
+            #expect(try String(stringResult) == "hahaha")
+            
+            let literalResult = try boundInt.multiply(2)
+            #expect(try Int(literalResult) == 20)
+            
+            let deferredInt: PythonInterpreter.SafePythonObject = 10
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try deferredInt.multiply(typedInt)
+            }
+            
+            if case .conversionType = thrownError {
+                // expected
+            } else {
+                Issue.record("Expected .conversionType for deferred SafePythonObject.multiply(Int), but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("O*_012: safePythonObject deferred integer multiplication overflow")
+    func safeDeferredIntegerMultiplicationOverflow() throws {
+        let maxInt = PythonInterpreter.SafePythonObject(integerLiteral: Int.max)
+        let two: PythonInterpreter.SafePythonObject = 2
+        let minInt = PythonInterpreter.SafePythonObject(integerLiteral: Int.min)
+        let negativeOne: PythonInterpreter.SafePythonObject = -1
+        
+        let maxOverflow = #expect(throws: PythonError.self) {
+            _ = try maxInt.multiply(two)
+        }
+        
+        if case .conversionOverflow = maxOverflow {
+            // expected
+        } else {
+            Issue.record("Expected .conversionOverflow for deferred Int.max * 2, but got \(maxOverflow)")
+        }
+        
+        let minOverflow = #expect(throws: PythonError.self) {
+            _ = try minInt.multiply(negativeOne)
+        }
+        
+        if case .conversionOverflow = minOverflow {
+            // expected
+        } else {
+            Issue.record("Expected .conversionOverflow for deferred Int.min * -1, but got \(minOverflow)")
+        }
+    }
+    
+    @Test("O*=_001: Times Equals Operator")
+    func timesEqualsOperator() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundInt = try 7.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundDouble = try 2.5.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundString = try "ha".toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundTrue = try true.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundInt: PythonInterpreter.SafePythonObject = 3
+            let unboundDouble: PythonInterpreter.SafePythonObject = 1.5
+            let unboundString: PythonInterpreter.SafePythonObject = "go"
+            let unboundFalse: PythonInterpreter.SafePythonObject = false
+            
+            let intCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Int)] = [
+                ("bound int *= unbound int", boundInt, unboundInt, 21),
+                ("unbound int *= bound int", unboundInt, boundInt, 21),
+                ("bound int *= bound bool", boundInt, boundTrue, 7),
+                ("unbound int *= unbound bool", unboundInt, unboundFalse, 0)
+            ]
+            
+            for (description, initialValue, multiplicand, expected) in intCases {
+                var result = initialValue
+                result *= multiplicand
+                #expect(try Int(result) == expected, Comment(rawValue: description))
+            }
+            
+            let doubleCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Double)] = [
+                ("bound double *= unbound int", boundDouble, unboundInt, 7.5),
+                ("unbound double *= bound int", unboundDouble, boundInt, 10.5),
+                ("bound int *= bound double", boundInt, boundDouble, 17.5)
+            ]
+            
+            for (description, initialValue, multiplicand, expected) in doubleCases {
+                var result = initialValue
+                result *= multiplicand
+                #expect(try Double(result).isCloseEnough(to: expected), Comment(rawValue: description))
+            }
+            
+            let stringCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, String)] = [
+                ("bound string *= unbound int", boundString, unboundInt, "hahaha"),
+                ("unbound string *= bound int", unboundString, boundInt, "gogogogogogogo"),
+                ("bound string *= unbound false", boundString, unboundFalse, "")
+            ]
+            
+            for (description, initialValue, multiplicand, expected) in stringCases {
+                var result = initialValue
+                result *= multiplicand
+                #expect(try String(result) == expected, Comment(rawValue: description))
+            }
+        }
+    }
+    
+    @Test("O*=_011: safePythonObject in-place multiplication accepts SafePythonConvertible values")
+    func safeInPlaceMultiplicationAcceptsConvertibleValues() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let typedInt = 32
+            var boundInt = try 10.toSafePythonObject(interpreter: isolatedInterpreter)
+            try boundInt.multiplyInPlace(typedInt)
+            #expect(try Int(boundInt) == 320)
+            
+            let typedDouble = 0.5
+            var boundDouble = try 10.toSafePythonObject(interpreter: isolatedInterpreter)
+            try boundDouble.multiplyInPlace(typedDouble)
+            #expect(try Double(boundDouble) == 5.0)
+            
+            let repeatCount = 3
+            var boundString = try "ha".toSafePythonObject(interpreter: isolatedInterpreter)
+            try boundString.multiplyInPlace(repeatCount)
+            #expect(try String(boundString) == "hahaha")
+            
+            var literalResult = try 10.toSafePythonObject(interpreter: isolatedInterpreter)
+            try literalResult.multiplyInPlace(2)
+            #expect(try Int(literalResult) == 20)
+            
+            var deferredInt: PythonInterpreter.SafePythonObject = 10
+            let thrownError = #expect(throws: PythonError.self) {
+                try deferredInt.multiplyInPlace(typedInt)
+            }
+            
+            if case .conversionType = thrownError {
+                // expected
+            } else {
+                Issue.record("Expected .conversionType for deferred SafePythonObject.multiplyInPlace(Int), but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("O*=_012: safePythonObject deferred integer in-place multiplication overflow")
+    func safeDeferredIntegerInPlaceMultiplicationOverflow() throws {
+        let two: PythonInterpreter.SafePythonObject = 2
+        let negativeOne: PythonInterpreter.SafePythonObject = -1
+        
+        var maxInt = PythonInterpreter.SafePythonObject(integerLiteral: Int.max)
+        let maxOverflow = #expect(throws: PythonError.self) {
+            try maxInt.multiplyInPlace(two)
+        }
+        
+        if case .conversionOverflow = maxOverflow {
+            // expected
+        } else {
+            Issue.record("Expected .conversionOverflow for deferred Int.max *= 2, but got \(maxOverflow)")
+        }
+        
+        var minInt = PythonInterpreter.SafePythonObject(integerLiteral: Int.min)
+        let minOverflow = #expect(throws: PythonError.self) {
+            try minInt.multiplyInPlace(negativeOne)
+        }
+        
+        if case .conversionOverflow = minOverflow {
+            // expected
+        } else {
+            Issue.record("Expected .conversionOverflow for deferred Int.min *= -1, but got \(minOverflow)")
+        }
+    }
+    
+    @Test("O*=_010: safePythonObject times equals error checking")
+    func safeTimesEqualsErrors() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundDouble = try 1.5.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundString = try "abc".toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundDouble: PythonInterpreter.SafePythonObject = 1.5
+            let unboundString: PythonInterpreter.SafePythonObject = "abc"
+            
+            let inPlaceTypeErrorCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, String, String)] = [
+                ("unbound double *= unbound string", unboundDouble, unboundString, "Double", "String"),
+                ("unbound string *= unbound double", unboundString, unboundDouble, "String", "Double"),
+                ("unbound string *= unbound string", unboundString, unboundString, "String", "String")
+            ]
+            
+            for (description, initialValue, multiplicand, expectedType1, expectedType2) in inPlaceTypeErrorCases {
+                var result = initialValue
+                let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                    try result.multiplyInPlace(multiplicand)
+                }
+                
+                if case let .typeError(operation, opType1, opType2) = thrownError {
+                    #expect(operation == "in place multiplication", Comment(rawValue: description))
+                    #expect(opType1 == expectedType1, Comment(rawValue: description))
+                    #expect(opType2 == expectedType2, Comment(rawValue: description))
+                } else {
+                    Issue.record("Expected .typeError for \(description), but got \(thrownError)")
+                }
+            }
+            
+            let boundExceptionCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject)] = [
+                ("bound double *= unbound string", boundDouble, unboundString),
+                ("unbound double *= bound string", unboundDouble, boundString),
+                ("bound string *= unbound double", boundString, unboundDouble),
+                ("unbound string *= bound double", unboundString, boundDouble),
+                ("bound string *= unbound string", boundString, unboundString),
+                ("unbound string *= bound string", unboundString, boundString)
+            ]
+            
+            for (description, initialValue, multiplicand) in boundExceptionCases {
+                var result = initialValue
+                let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                    try result.multiplyInPlace(multiplicand)
+                }
+                
+                if case .safePythonException = thrownError {
+                    // expected
+                } else {
+                    Issue.record("Expected .safePythonException for \(description), but got \(thrownError)")
+                }
+            }
+        }
+    }
+    
     @Test("O*_010: safePythonObject multiplication error checking")
     func safeMultiplicationErrors() async throws {
         try await interpreter.withIsolatedContext { isolatedInterpreter in

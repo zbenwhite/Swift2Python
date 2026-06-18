@@ -112,7 +112,7 @@ extension PythonInterpreter {
         let minuendPtr = getRegisteredPointer(forPythonObject:minuend)!
         let subtrahendPtr = getRegisteredPointer(forPythonObject:subtrahend)!
         
-        logger.trace("CPython API call in async mode: PyNumber_InPlaceAddSubtract")
+        logger.trace("CPython API call in async mode: PyNumber_InPlaceSubtract")
         return try await withGIL {
             guard let differencePtr = api.PyNumber_InPlaceSubtract(minuendPtr, subtrahendPtr) else {
                 logger.error("PyNumber_InPlaceSubtract returned NULL.  Throwing Python error.")

@@ -218,6 +218,54 @@ extension ArithmeticTests {
         }
     }
     
+    @Test("O-=_005: PythonObject (async) minus equals")
+    func minusEqualsPythonObject() async throws {
+        let minuendA = try await 17.toPythonObject(interpreter: interpreter)
+        let differenceA = try await minuendA.subtractInPlace(60)
+        let roundTripA = try await Int(differenceA)
+        #expect(roundTripA == -43)
+        
+        let minuendB = try await 17.toPythonObject(interpreter: interpreter)
+        let differenceB = try await minuendB.subtractInPlace(59.7)
+        let roundTripB = try await Double(differenceB)
+        #expect(roundTripB.isCloseEnough(to: -42.7))
+        
+        let minuendC = try await true.toPythonObject(interpreter: interpreter)
+        let differenceC = try await minuendC.subtractInPlace(false)
+        let roundTripC = try await Int(differenceC)
+        #expect(roundTripC == 1)
+    }
+    
+    @Test("O-=_006: PythonObject (async) minus equals error checking")
+    func minusEqualsPythonObjectError() async throws {
+        let boundDouble = try await 1.5.toPythonObject(interpreter: interpreter)
+        let boundInt = try await 2.toPythonObject(interpreter: interpreter)
+        let boundString = try await "abc".toPythonObject(interpreter: interpreter)
+        let boundBool = try await true.toPythonObject(interpreter: interpreter)
+        
+        let errorCases: [(String, PythonObject, any PendingPythonConvertible)] = [
+            ("python double -= string", boundDouble, "abc"),
+            ("python int -= string", boundInt, "abc"),
+            ("python string -= double", boundString, 1.5),
+            ("python string -= int", boundString, 2),
+            ("python string -= string", boundString, "def"),
+            ("python string -= bool", boundString, true),
+            ("python bool -= string", boundBool, "abc")
+        ]
+        
+        for (description, lhs, rhs) in errorCases {
+            let thrownError = await #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                _ = try await lhs.subtractInPlace(rhs)
+            }
+            
+            if case .pythonException = thrownError {
+                // expected
+            } else {
+                Issue.record("Expected .pythonException for \(description), but got \(thrownError)")
+            }
+        }
+    }
+    
     @Test("O-_010: safePythonObject subtraction error checking")
     func safeSubtractionErrors() async throws {
         try await interpreter.withIsolatedContext { isolatedInterpreter in

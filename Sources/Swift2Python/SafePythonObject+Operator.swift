@@ -661,32 +661,70 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Multiplication
     
-    // The throwing multiplication function.  For materialized python objects, this calls PyNumber_Multiply
-    // using the interpreter. If only one is materialized, materialize the other and do the same.
-    // If neither are materialized (why?) then multiply them the way Python would multiply them:
-    // LHS     RHS      ACTION / Type
-    // -----   ------   ---------
-    // bound   any      PyNumber_Multiply -- preserve term order
-    // any     bound    PyNumber_Multiply -- preserve term order
-    // double  double   double
-    // double  int      double
-    // double  string   ERR: typeError
-    // double  bool     double
-    // int     int      int
-    // int     double   double
-    // int     string   string
-    // int     bool     int
-    // string  double   ERR: typeError
-    // string  int      string
-    // string  string   ERR: typeError
-    // string  bool     string
-    // bool    double   double
-    // bool    int      int
-    // bool    string   string
-    // bool    bool     int
+    /// Multiplies two fully deferred integer values without allowing Swift integer overflow.
+    ///
+    /// Python integers are arbitrary precision, but deferred safe integers are stored as
+    /// Swift `Int` until an interpreter is available. If the result does not fit in that
+    /// storage, throw instead of letting Swift trap on overflow.
+    ///
+    /// - Parameters:
+    ///   - lhs: The left-hand deferred integer value.
+    ///   - rhs: The right-hand deferred integer value.
+    /// - Returns: A deferred safe Python integer containing the checked product.
+    /// - Throws: `PythonError.conversionOverflow` when the checked product cannot fit in `Int`.
+    private static func checkedDeferredIntegerMultiplication(_ lhs: Int, _ rhs: Int) throws -> PythonInterpreter.SafePythonObject {
+        let result = lhs.multipliedReportingOverflow(by: rhs)
+        guard !result.overflow else {
+            throw PythonError.conversionOverflow(
+                value: "\(lhs) * \(rhs)",
+                sourceType: "deferred Python integer multiplication",
+                targetType: "Swift Int"
+            )
+        }
+        
+        return PythonInterpreter.SafePythonObject(integerLiteral: result.partialValue)
+    }
+    
+    /// Multiplies this safe Python object by another safe Python object.
+    ///
+    /// This follows Python `*` semantics. If either operand is already bound to an
+    /// interpreter, the operation is delegated to Python with `PyNumber_Multiply`. If both
+    /// operands are deferred safe values, Swift2Python performs the same primitive numeric,
+    /// boolean, and string repetition combinations locally until the result is bound.
+    ///
+    /// - Parameters:
+    ///   - other: The safe Python object to multiply by.
+    /// - Returns: The Python multiplication result.
+    /// - Throws: `PythonError.safePythonException` if Python raises, `PythonError.typeError`
+    ///   for invalid fully deferred primitive combinations, or `PythonError.conversionOverflow`
+    ///   if fully deferred integer multiplication exceeds Swift2Python's deferred `Int` storage.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func multiply(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
-        switch self.state {
+        
+        // The throwing multiplication function.  For materialized python objects, this calls PyNumber_Multiply
+        // using the interpreter. If only one is materialized, materialize the other and do the same.
+        // If neither are materialized (why?) then multiply them the way Python would multiply them:
+        // LHS     RHS      ACTION / Type
+        // -----   ------   ---------
+        // bound   any      PyNumber_Multiply -- preserve factor order
+        // any     bound    PyNumber_Multiply -- preserve factor order
+        // double  double   double
+        // double  int      double
+        // double  string   ERR: typeError
+        // double  bool     double
+        // int     int      int, or ERR: conversionOverflow if outside deferred Int storage
+        // int     double   double
+        // int     string   string repetition
+        // int     bool     int
+        // string  double   ERR: typeError
+        // string  int      string repetition
+        // string  string   ERR: typeError
+        // string  bool     string repetition
+        // bool    double   double
+        // bool    int      int
+        // bool    string   string repetition
+        // bool    bool     int
+        switch state {
             
         case .bound:
             let localInterpreter = interpreter
@@ -721,11 +759,11 @@ extension PythonInterpreter.SafePythonObject {
             case .deferredDouble(let rhsVal):
                 return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) * rhsVal)
             case .deferredInt(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal * rhsVal)
+                return try Self.checkedDeferredIntegerMultiplication(lhsVal, rhsVal)
             case .deferredString(let rhsVal):
                 return (lhsVal < 1) ? PythonInterpreter.SafePythonObject(stringLiteral: "") : PythonInterpreter.SafePythonObject(stringLiteral: String(repeating: rhsVal, count: lhsVal))
             case .deferredBool(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal * (rhsVal ? 1 : 0))
+                return try Self.checkedDeferredIntegerMultiplication(lhsVal, rhsVal ? 1 : 0)
             }
             
         case .deferredString(let lhsVal):
@@ -755,13 +793,46 @@ extension PythonInterpreter.SafePythonObject {
             case .deferredDouble(let rhsVal):
                 return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) * rhsVal)
             case .deferredInt(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) * rhsVal)
+                return try Self.checkedDeferredIntegerMultiplication(lhsVal ? 1 : 0, rhsVal)
             case .deferredString(let rhsVal):
                 return lhsVal ? PythonInterpreter.SafePythonObject(stringLiteral: rhsVal) : PythonInterpreter.SafePythonObject(stringLiteral: "")
             case .deferredBool(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) * (rhsVal ? 1 : 0))
+                return try Self.checkedDeferredIntegerMultiplication(lhsVal ? 1 : 0, rhsVal ? 1 : 0)
             }
         }
+    }
+    
+    /// Multiplies this safe Python object by a Python-convertible Swift value.
+    ///
+    /// This overload is an adapter for typed Swift values such as `Int`, `Double`,
+    /// `Bool`, `String`, and container conformers. Existing `SafePythonObject` values
+    /// are forwarded to `multiply(_:)` so deferred-safe behavior stays centralized in
+    /// the primary overload.
+    ///
+    /// The receiver must already be bound to an interpreter unless `other` is already a
+    /// `SafePythonObject`. Without a bound receiver, there is no interpreter available to
+    /// perform general `SafePythonConvertible` conversion.
+    ///
+    /// - Parameters:
+    ///   - other: The Swift value to convert and multiply by.
+    /// - Returns: The Python multiplication result.
+    /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but
+    ///   this object is still deferred, or `PythonError` if conversion or Python multiplication fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func multiply(_ other: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
+        if let safeObject = other as? PythonInterpreter.SafePythonObject {
+            return try multiply(safeObject)
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: other),
+                sourceType: String(describing: type(of: other)),
+                targetType: "bound SafePythonObject"
+            )
+        }
+        
+        return try multiply(other.toSafePythonObject(interpreter: interpreter))
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
@@ -769,19 +840,143 @@ extension PythonInterpreter.SafePythonObject {
         do {
             return try lhs.multiply(rhs)
         } catch {
-            fatalError("Multiplication failed: \(error).  Use `SafePythonObject.multiply()` for subtraction that might throw.")
+            fatalError("Multiplication failed: \(error).  Use `SafePythonObject.multiply()` for multiplication that might throw.")
         }
     }
     
+    /// Multiplies this safe Python object by another safe Python object in place.
+    ///
+    /// This follows Python `*=` semantics. If this object is bound, or if the multiplicand is
+    /// bound, the operation is delegated to Python with `PyNumber_InPlaceMultiply`. Python may
+    /// mutate mutable objects in place or return a new object for immutable values; this
+    /// safe object is updated to reference the result either way.
+    ///
+    /// - Parameters:
+    ///   - multiplicand: The safe Python object to multiply by.
+    /// - Throws: `PythonError.safePythonException` if Python raises, `PythonError.typeError`
+    ///   for invalid fully deferred primitive combinations, or `PythonError.conversionOverflow`
+    ///   if fully deferred integer multiplication exceeds Swift2Python's deferred `Int` storage.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    internal func multiplyInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
-        do {
+    public mutating func multiplyInPlace(_ multiplicand: PythonInterpreter.SafePythonObject) throws {
+        switch state {
+            
+        case .bound:
             let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                try $0.syncInPlaceMultiply(productand: lhs.toSafePythonObject(interpreter: $0), multiplicand: rhs.toSafePythonObject(interpreter: $0))
+            try localInterpreter.assumeIsolated {
+                self = try $0.syncInPlaceMultiply(productand: self.toSafePythonObject(interpreter: $0), multiplicand: multiplicand.toSafePythonObject(interpreter: $0))
             }
+            
+        case .deferredDouble(let lhsVal):
+            switch multiplicand.state {
+            case .bound:
+                let localInterpreter = multiplicand.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceMultiply(productand: self.toSafePythonObject(interpreter: $0), multiplicand: multiplicand.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(floatLiteral: lhsVal * rhsVal)
+            case .deferredInt(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(floatLiteral: lhsVal * Double(rhsVal))
+            case .deferredString:
+                throw PythonError.typeError(operation: "in place multiplication", opType1: "Double", opType2: "String")
+            case .deferredBool(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(floatLiteral: lhsVal * (rhsVal ? 1.0 : 0.0))
+            }
+            
+        case .deferredInt(let lhsVal):
+            switch multiplicand.state {
+            case .bound:
+                let localInterpreter = multiplicand.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceMultiply(productand: self.toSafePythonObject(interpreter: $0), multiplicand: multiplicand.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) * rhsVal)
+            case .deferredInt(let rhsVal):
+                self = try Self.checkedDeferredIntegerMultiplication(lhsVal, rhsVal)
+            case .deferredString(let rhsVal):
+                self = (lhsVal < 1) ? PythonInterpreter.SafePythonObject(stringLiteral: "") : PythonInterpreter.SafePythonObject(stringLiteral: String(repeating: rhsVal, count: lhsVal))
+            case .deferredBool(let rhsVal):
+                self = try Self.checkedDeferredIntegerMultiplication(lhsVal, rhsVal ? 1 : 0)
+            }
+            
+        case .deferredString(let lhsVal):
+            switch multiplicand.state {
+            case .bound:
+                let localInterpreter = multiplicand.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceMultiply(productand: self.toSafePythonObject(interpreter: $0), multiplicand: multiplicand.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble:
+                throw PythonError.typeError(operation: "in place multiplication", opType1: "String", opType2: "Double")
+            case .deferredInt(let rhsVal):
+                self = (rhsVal < 1) ? PythonInterpreter.SafePythonObject(stringLiteral: "") : PythonInterpreter.SafePythonObject(stringLiteral: String(repeating: lhsVal, count: rhsVal))
+            case .deferredString:
+                throw PythonError.typeError(operation: "in place multiplication", opType1: "String", opType2: "String")
+            case .deferredBool(let rhsVal):
+                self = rhsVal ? PythonInterpreter.SafePythonObject(stringLiteral: lhsVal) : PythonInterpreter.SafePythonObject(stringLiteral: "")
+            }
+            
+        case .deferredBool(let lhsVal):
+            switch multiplicand.state {
+            case .bound:
+                let localInterpreter = multiplicand.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceMultiply(productand: self.toSafePythonObject(interpreter: $0), multiplicand: multiplicand.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let rhsVal):
+                self = PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) * rhsVal)
+            case .deferredInt(let rhsVal):
+                self = try Self.checkedDeferredIntegerMultiplication(lhsVal ? 1 : 0, rhsVal)
+            case .deferredString(let rhsVal):
+                self = lhsVal ? PythonInterpreter.SafePythonObject(stringLiteral: rhsVal) : PythonInterpreter.SafePythonObject(stringLiteral: "")
+            case .deferredBool(let rhsVal):
+                self = try Self.checkedDeferredIntegerMultiplication(lhsVal ? 1 : 0, rhsVal ? 1 : 0)
+            }
+        }
+    }
+    
+    /// Multiplies this safe Python object by a Python-convertible Swift value in place.
+    ///
+    /// This overload is an adapter for typed Swift values such as `Int`, `Double`,
+    /// `Bool`, `String`, and container conformers. Existing `SafePythonObject` values
+    /// are forwarded to `multiplyInPlace(_:)` so deferred-safe behavior stays centralized
+    /// in the primary overload.
+    ///
+    /// The receiver must already be bound to an interpreter unless `multiplicand` is already
+    /// a `SafePythonObject`. Without a bound receiver, there is no interpreter available to
+    /// perform general `SafePythonConvertible` conversion.
+    ///
+    /// - Parameters:
+    ///   - multiplicand: The Swift value to convert and multiply by.
+    /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but
+    ///   this object is still deferred, or `PythonError` if conversion or Python multiplication fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public mutating func multiplyInPlace(_ multiplicand: any SafePythonConvertible) throws {
+        if let safeObject = multiplicand as? PythonInterpreter.SafePythonObject {
+            try multiplyInPlace(safeObject)
+            return
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: multiplicand),
+                sourceType: String(describing: type(of: multiplicand)),
+                targetType: "bound SafePythonObject"
+            )
+        }
+        
+        try multiplyInPlace(multiplicand.toSafePythonObject(interpreter: interpreter))
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func multiplyInPlaceOperator(productand: PythonInterpreter.SafePythonObject, multiplicand: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            var result = productand
+            try result.multiplyInPlace(multiplicand)
+            return result
         } catch {
-            fatalError("Failed: \(error)")
+            fatalError("In place multiplication failed: \(error).  Use `SafePythonObject.multiplyInPlace()` for in place multiplication that might throw.")
         }
     }
     

@@ -40,6 +40,11 @@ public extension PythonInterpreter.SafePythonObject {
         return PythonInterpreter.SafePythonObject.subtractOperator(minuend:minuend, subtrahend:subtrahend)
     }
 
+    /// Multiplies two safe Python objects using Python `*` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, or deferred
+    /// multiplication cannot be represented, this traps with `fatalError`. Use
+    /// `SafePythonObject.multiply(_:)` when multiplication can fail and should be handled.
     static func * (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         return PythonInterpreter.SafePythonObject.multiplyOperator(lhs:lhs, rhs:rhs)
     }
@@ -74,14 +79,13 @@ public extension PythonInterpreter.SafePythonObject {
         diffend = PythonInterpreter.SafePythonObject.subtractInPlaceOperator(diffend: diffend, subtrahend: subtrahend)
     }
     
+    /// Multiplies a safe Python object by another using Python `*=` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, or deferred
+    /// multiplication cannot be represented, this traps with `fatalError`. Use
+    /// `SafePythonObject.multiplyInPlace(_:)` when in-place multiplication can fail and should be handled.
     static func *= (productand: inout PythonInterpreter.SafePythonObject, multiplicand: PythonInterpreter.SafePythonObject) {
-        if productand.isBoundToPythonInterpreter {
-            productand = productand.multiplyInPlaceOperator(productand, multiplicand)
-        } else if multiplicand.isBoundToPythonInterpreter {
-            productand = multiplicand.multiplyInPlaceOperator(productand, multiplicand)
-        } else {
-            productand = PythonInterpreter.SafePythonObject.multiplyOperator(lhs:productand, rhs:multiplicand)
-        }
+        productand = PythonInterpreter.SafePythonObject.multiplyInPlaceOperator(productand: productand, multiplicand: multiplicand)
     }
     
     static func /= (quotientand: inout PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) {
