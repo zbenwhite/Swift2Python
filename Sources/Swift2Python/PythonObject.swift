@@ -894,10 +894,28 @@ public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectabl
         return try await interpreter.divideInPlace(self, other.toPythonObject(interpreter: interpreter))
     }
     
+    /// Returns the Python remainder of this Python object divided by a Python-convertible value.
+    ///
+    /// This delegates to CPython's `PyNumber_Remainder`, so Python controls type coercion,
+    /// arbitrary-precision integer behavior, zero-division behavior, and error reporting.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible divisor.
+    /// - Returns: The Python remainder result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
     public func modulus(_ other: PendingPythonConvertible) async throws -> PythonObject {
         return try await interpreter.modulus(dividend: self, divisor: other.toPythonObject(interpreter: interpreter))
     }
     
+    /// Replaces this Python object with its Python remainder divided by a Python-convertible value.
+    ///
+    /// This delegates to CPython's `PyNumber_InPlaceRemainder`. Python may mutate mutable
+    /// objects in place or return a new object for immutable values.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible divisor.
+    /// - Returns: The Python in-place remainder result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
     public func modulusInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
         return try await interpreter.modulusInPlace(self, other.toPythonObject(interpreter: interpreter))
     }

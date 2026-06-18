@@ -241,6 +241,246 @@ extension ArithmeticTests {
         }
     }
     
+    @Test("O%=_005: PythonObject (async) modulus equals")
+    func modulusEqualsPythonObject() async throws {
+        let lhsA = try await 17.toPythonObject(interpreter: interpreter)
+        let remainderA = try await lhsA.modulusInPlace(5)
+        let roundTripA = try await Int(remainderA)
+        #expect(roundTripA == 2)
+        
+        let lhsB = try await 17.toPythonObject(interpreter: interpreter)
+        let remainderB = try await lhsB.modulusInPlace(2.5)
+        let roundTripB = try await Double(remainderB)
+        #expect(roundTripB.isCloseEnough(to: 2.0))
+        
+        let lhsC = try await true.toPythonObject(interpreter: interpreter)
+        let remainderC = try await lhsC.modulusInPlace(4)
+        let roundTripC = try await Int(remainderC)
+        #expect(roundTripC == 1)
+    }
+    
+    @Test("O%=_006: PythonObject (async) modulus equals error checking")
+    func modulusEqualsPythonObjectError() async throws {
+        let boundDouble = try await 1.5.toPythonObject(interpreter: interpreter)
+        let boundInt = try await 2.toPythonObject(interpreter: interpreter)
+        let boundString = try await "abc".toPythonObject(interpreter: interpreter)
+        let boundBool = try await true.toPythonObject(interpreter: interpreter)
+        
+        let errorCases: [(String, PythonObject, any PendingPythonConvertible)] = [
+            ("python double %= string", boundDouble, "abc"),
+            ("python int %= string", boundInt, "abc"),
+            ("python string %= double", boundString, 1.5),
+            ("python string %= int", boundString, 2),
+            ("python string %= string", boundString, "def"),
+            ("python string %= bool", boundString, true),
+            ("python bool %= string", boundBool, "abc"),
+            ("python double %= zero", boundDouble, 0),
+            ("python int %= false", boundInt, false),
+            ("python bool %= zero double", boundBool, 0.0)
+        ]
+        
+        for (description, lhs, rhs) in errorCases {
+            let thrownError = await #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                _ = try await lhs.modulusInPlace(rhs)
+            }
+            
+            if case .pythonException = thrownError {
+                // expected
+            } else {
+                Issue.record("Expected .pythonException for \(description), but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("O%_011: safePythonObject modulus accepts SafePythonConvertible values")
+    func safeModulusAcceptsConvertibleValues() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let typedInt = 4
+            let boundInt = try 18.toSafePythonObject(interpreter: isolatedInterpreter)
+            let intResult = try boundInt.modulus(divisor: typedInt)
+            #expect(try Int(intResult) == 2)
+            
+            let typedDouble = 2.5
+            let doubleResult = try boundInt.modulus(divisor: typedDouble)
+            #expect(try Double(doubleResult).isCloseEnough(to: 0.5))
+            
+            let literalResult = try boundInt.modulus(divisor: 5)
+            #expect(try Int(literalResult) == 3)
+            
+            let deferredInt: PythonInterpreter.SafePythonObject = 10
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try deferredInt.modulus(divisor: typedInt)
+            }
+            
+            if case .conversionType = thrownError {
+                // expected
+            } else {
+                Issue.record("Expected .conversionType for deferred SafePythonObject.modulus(Int), but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("O%_012: safePythonObject deferred integer modulus edge cases")
+    func safeDeferredIntegerModulusEdgeCases() throws {
+        let minInt = PythonInterpreter.SafePythonObject(integerLiteral: Int.min)
+        let negativeOne: PythonInterpreter.SafePythonObject = -1
+        let result = try minInt.modulus(divisor: negativeOne)
+        #expect(try Int(result) == 0)
+        
+        var inPlace = minInt
+        try inPlace.modulusInPlace(divisor: negativeOne)
+        #expect(try Int(inPlace) == 0)
+    }
+    
+    @Test("O%=_001: Modulus Equals Operator")
+    func modulusEqualsOperator() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundInt = try 18.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundDouble = try 2.5.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundTrue = try true.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundInt: PythonInterpreter.SafePythonObject = 5
+            let unboundNegativeInt: PythonInterpreter.SafePythonObject = -4
+            let unboundDouble: PythonInterpreter.SafePythonObject = 4.0
+            let unboundTrue: PythonInterpreter.SafePythonObject = true
+            
+            let intCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Int)] = [
+                ("bound int %= unbound int", boundInt, unboundInt, 3),
+                ("unbound int %= bound int", unboundInt, boundInt, 5),
+                ("bound int %= bound true", boundInt, boundTrue, 0),
+                ("unbound true %= unbound int", unboundTrue, unboundNegativeInt, -3)
+            ]
+            
+            for (description, initialValue, divisor, expected) in intCases {
+                var result = initialValue
+                result %= divisor
+                #expect(try Int(result) == expected, Comment(rawValue: description))
+            }
+            
+            let doubleCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Double)] = [
+                ("bound int %= bound double", boundInt, boundDouble, 0.5),
+                ("unbound double %= bound int", unboundDouble, boundInt, 4.0),
+                ("bound double %= unbound int", boundDouble, unboundInt, 2.5)
+            ]
+            
+            for (description, initialValue, divisor, expected) in doubleCases {
+                var result = initialValue
+                result %= divisor
+                #expect(try Double(result).isCloseEnough(to: expected), Comment(rawValue: description))
+            }
+        }
+    }
+    
+    @Test("O%=_011: safePythonObject in-place modulus accepts SafePythonConvertible values")
+    func safeInPlaceModulusAcceptsConvertibleValues() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let typedInt = 4
+            var boundInt = try 18.toSafePythonObject(interpreter: isolatedInterpreter)
+            try boundInt.modulusInPlace(divisor: typedInt)
+            #expect(try Int(boundInt) == 2)
+            
+            let typedDouble = 2.5
+            var boundDouble = try 18.toSafePythonObject(interpreter: isolatedInterpreter)
+            try boundDouble.modulusInPlace(divisor: typedDouble)
+            #expect(try Double(boundDouble).isCloseEnough(to: 0.5))
+            
+            var literalResult = try 18.toSafePythonObject(interpreter: isolatedInterpreter)
+            try literalResult.modulusInPlace(divisor: 5)
+            #expect(try Int(literalResult) == 3)
+            
+            var deferredInt: PythonInterpreter.SafePythonObject = 10
+            let thrownError = #expect(throws: PythonError.self) {
+                try deferredInt.modulusInPlace(divisor: typedInt)
+            }
+            
+            if case .conversionType = thrownError {
+                // expected
+            } else {
+                Issue.record("Expected .conversionType for deferred SafePythonObject.modulusInPlace(Int), but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("O%=_010: safePythonObject modulus equals error checking")
+    func safeModulusEqualsErrors() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundDouble = try 1.5.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundInt = try 2.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundString = try "abc".toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundZeroInt = try 0.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundDouble: PythonInterpreter.SafePythonObject = 1.5
+            let unboundInt: PythonInterpreter.SafePythonObject = 2
+            let unboundString: PythonInterpreter.SafePythonObject = "abc"
+            let unboundBool: PythonInterpreter.SafePythonObject = true
+            let unboundZeroInt: PythonInterpreter.SafePythonObject = 0
+            let unboundZeroDouble: PythonInterpreter.SafePythonObject = 0.0
+            let unboundFalse: PythonInterpreter.SafePythonObject = false
+            
+            let unboundTypeErrorCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, String, String)] = [
+                ("unbound double %= unbound string", unboundDouble, unboundString, "Double", "String"),
+                ("unbound int %= unbound string", unboundInt, unboundString, "Int", "String"),
+                ("unbound string %= unbound double", unboundString, unboundDouble, "String", "Double"),
+                ("unbound string %= unbound int", unboundString, unboundInt, "String", "Int"),
+                ("unbound string %= unbound string", unboundString, unboundString, "String", "String"),
+                ("unbound string %= unbound bool", unboundString, unboundBool, "String", "Bool"),
+                ("unbound bool %= unbound string", unboundBool, unboundString, "Bool", "String")
+            ]
+            
+            for (description, initialValue, divisor, expectedType1, expectedType2) in unboundTypeErrorCases {
+                var result = initialValue
+                let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                    try result.modulusInPlace(divisor: divisor)
+                }
+                
+                if case let .typeError(operation, opType1, opType2) = thrownError {
+                    #expect(operation == "in place modulus", Comment(rawValue: description))
+                    #expect(opType1 == expectedType1, Comment(rawValue: description))
+                    #expect(opType2 == expectedType2, Comment(rawValue: description))
+                } else {
+                    Issue.record("Expected .typeError for \(description), but got \(thrownError)")
+                }
+            }
+            
+            let unboundDivideByZeroCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject)] = [
+                ("unbound double %= unbound zero int", unboundDouble, unboundZeroInt),
+                ("unbound int %= unbound zero double", unboundInt, unboundZeroDouble),
+                ("unbound bool %= unbound false", unboundBool, unboundFalse)
+            ]
+            
+            for (description, initialValue, divisor) in unboundDivideByZeroCases {
+                var result = initialValue
+                let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                    try result.modulusInPlace(divisor: divisor)
+                }
+                
+                if case .divideByZero = thrownError {
+                    // expected
+                } else {
+                    Issue.record("Expected .divideByZero for \(description), but got \(thrownError)")
+                }
+            }
+            
+            let boundExceptionCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject)] = [
+                ("bound double %= unbound string", boundDouble, unboundString),
+                ("unbound double %= bound string", unboundDouble, boundString),
+                ("bound int %= bound zero int", boundInt, boundZeroInt),
+                ("unbound bool %= bound zero int", unboundBool, boundZeroInt)
+            ]
+            
+            for (description, initialValue, divisor) in boundExceptionCases {
+                var result = initialValue
+                let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                    try result.modulusInPlace(divisor: divisor)
+                }
+                
+                if case .safePythonException = thrownError {
+                    // expected
+                } else {
+                    Issue.record("Expected .safePythonException for \(description), but got \(thrownError)")
+                }
+            }
+        }
+    }
+    
     @Test("O%_010: safePythonObject modulus error checking")
     func safeModulusErrors() async throws {
         try await interpreter.withIsolatedContext { isolatedInterpreter in
@@ -261,15 +501,15 @@ extension ArithmeticTests {
             let unboundFalse: PythonInterpreter.SafePythonObject = false
             
             // Fully deferred invalid modulus operations should throw the local typeError that matches
-            // the operand order encoded in SafePythonObject.modulus(divisor:). Avoid bool/string here
-            // because the current implementation fatally errors instead of throwing.
+            // the operand order encoded in SafePythonObject.modulus(divisor:).
             let unboundTypeErrorCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, String, String)] = [
                 ("unbound double % unbound string", unboundDouble, unboundString, "Double", "String"),
                 ("unbound int % unbound string", unboundInt, unboundString, "Int", "String"),
                 ("unbound string % unbound double", unboundString, unboundDouble, "String", "Double"),
                 ("unbound string % unbound int", unboundString, unboundInt, "String", "Int"),
                 ("unbound string % unbound string", unboundString, unboundString, "String", "String"),
-                ("unbound string % unbound bool", unboundString, unboundBool, "String", "Bool")
+                ("unbound string % unbound bool", unboundString, unboundBool, "String", "Bool"),
+                ("unbound bool % unbound string", unboundBool, unboundString, "Bool", "String")
             ]
             
             for (description, lhs, rhs, expectedType1, expectedType2) in unboundTypeErrorCases {

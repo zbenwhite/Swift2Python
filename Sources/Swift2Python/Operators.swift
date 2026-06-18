@@ -58,6 +58,11 @@ public extension PythonInterpreter.SafePythonObject {
         return PythonInterpreter.SafePythonObject.divideOperator(dividend:dividend, divisor:divisor)
     }
 
+    /// Computes the Python remainder of two safe Python objects using Python `%` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, or a deferred
+    /// divisor is zero, this traps with `fatalError`. Use `SafePythonObject.modulus(divisor:)`
+    /// when modulus can fail and should be handled.
     static func % (dividend: PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         return PythonInterpreter.SafePythonObject.modulusOperator(dividend:dividend, divisor:divisor)
     }
@@ -102,14 +107,13 @@ public extension PythonInterpreter.SafePythonObject {
         quotientand = PythonInterpreter.SafePythonObject.divideInPlaceOperator(quotientand: quotientand, divisor: divisor)
     }
 
+    /// Replaces a safe Python object with its Python remainder using Python `%=` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, or a deferred
+    /// divisor is zero, this traps with `fatalError`. Use `SafePythonObject.modulusInPlace(divisor:)`
+    /// when in-place modulus can fail and should be handled.
     static func %= (quotientand: inout PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) {
-        if quotientand.isBoundToPythonInterpreter {
-            quotientand = quotientand.modulusInPlaceOperator(quotientand, divisor)
-        } else if divisor.isBoundToPythonInterpreter {
-            quotientand = divisor.modulusInPlaceOperator(quotientand, divisor)
-        } else {
-            quotientand = PythonInterpreter.SafePythonObject.modulusOperator(dividend:quotientand, divisor:divisor)
-        }
+        quotientand = PythonInterpreter.SafePythonObject.modulusInPlaceOperator(quotientand: quotientand, divisor: divisor)
     }
 
     static func **= (base: inout PythonInterpreter.SafePythonObject, exponent: PythonInterpreter.SafePythonObject) {

@@ -1299,12 +1299,15 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Modulus
     
-    
     private static func pythonModulus(lhs: Double, rhs: Double) -> Double {
         lhs - rhs * floor(lhs / rhs)
     }
     
-    private static func pythonIntegerModulus(lhs: Int, rhs: Int) -> Int {
+    private static func pythonIntegerModulus(lhs: Int, rhs: Int) throws -> Int {
+        if lhs == Int.min && rhs == -1 {
+            return 0
+        }
+        
         let remainder = lhs % rhs
         if remainder != 0 && ((rhs > 0 && remainder < 0) || (rhs < 0 && remainder > 0)) {
             return remainder + rhs
@@ -1312,32 +1315,46 @@ extension PythonInterpreter.SafePythonObject {
         return remainder
     }
     
-    // The throwing modulus function.  For materialized python objects, this calls PyNumber_Remainder
-    // using the interpreter. If only one is materialized, materialize the other and do the same.
-    // If neither are materialized (why?) then do the operation python would do.
-    // Dizision by zero results in PythonError.divideByZero
-    // LHS     RHS      ACTION / Type
-    // -----   ------   ---------
-    // bound   any      PyNumber_TrueDivide
-    // any     bound    PyNumber_TrueDivide
-    // double  double   double
-    // double  int      double
-    // double  string   ERR: typeError
-    // double  bool     double
-    // int     int      double
-    // int     double   double
-    // int     string   string
-    // int     bool     double
-    // string  double   ERR: typeError
-    // string  int      ERR: typeError
-    // string  string   ERR: typeError
-    // string  bool     ERR: typeError
-    // bool    double   double
-    // bool    int      double
-    // bool    string   ERR: typeError
-    // bool    bool     double
+    /// Returns the Python remainder of this safe Python object divided by another safe Python object.
+    ///
+    /// If either operand is already bound to an interpreter, this delegates to CPython's
+    /// `PyNumber_Remainder`. If both operands are still deferred Swift literals, this applies
+    /// Python-compatible `%` behavior locally, including Python's sign rule for integer remainders.
+    ///
+    /// - Parameters:
+    ///   - divisor: The divisor used for the Python `%` operation.
+    /// - Returns: The Python remainder result.
+    /// - Throws: `PythonError.divideByZero` for fully deferred zero divisors,
+    ///   `PythonError.typeError` for unsupported fully deferred operand pairs, or `PythonError`
+    ///   if Python raises or conversion fails.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func modulus(divisor: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+        
+        // The throwing modulus function. For materialized Python objects, this calls PyNumber_Remainder
+        // using the interpreter. If only one side is materialized, materialize the other and do the same.
+        // If neither side is materialized, do the operation Python would do.
+        // Division by zero results in PythonError.divideByZero.
+        // LHS     RHS      ACTION / Type
+        // -----   ------   ---------
+        // bound   any      PyNumber_Remainder
+        // any     bound    PyNumber_Remainder
+        // double  double   double
+        // double  int      double
+        // double  string   ERR: typeError
+        // double  bool     double
+        // int     int      int
+        // int     double   double
+        // int     string   ERR: typeError
+        // int     bool     int
+        // string  double   ERR: typeError
+        // string  int      ERR: typeError
+        // string  string   ERR: typeError
+        // string  bool     ERR: typeError
+        // bool    double   double
+        // bool    int      int
+        // bool    string   ERR: typeError
+        // bool    bool     int
+        
         switch self.state {
             
         case .bound:
@@ -1378,12 +1395,12 @@ extension PythonInterpreter.SafePythonObject {
                 return PythonInterpreter.SafePythonObject(floatLiteral: Self.pythonModulus(lhs: Double(lhsVal), rhs: rhsVal))
             case .deferredInt(let rhsVal):
                 guard rhsVal != 0 else { throw PythonError.divideByZero }
-                return PythonInterpreter.SafePythonObject(integerLiteral: Self.pythonIntegerModulus(lhs: lhsVal, rhs: rhsVal))
+                return PythonInterpreter.SafePythonObject(integerLiteral: try Self.pythonIntegerModulus(lhs: lhsVal, rhs: rhsVal))
             case .deferredString:
                 throw PythonError.typeError(operation: "modulus", opType1: "Int", opType2: "String")
             case .deferredBool(let rhsVal):
                 guard rhsVal else { throw PythonError.divideByZero }
-                return PythonInterpreter.SafePythonObject(integerLiteral: Self.pythonIntegerModulus(lhs: lhsVal, rhs: 1))
+                return PythonInterpreter.SafePythonObject(integerLiteral: try Self.pythonIntegerModulus(lhs: lhsVal, rhs: 1))
             }
             
         case .deferredString:
@@ -1415,14 +1432,42 @@ extension PythonInterpreter.SafePythonObject {
                 return PythonInterpreter.SafePythonObject(floatLiteral: Self.pythonModulus(lhs: lhsVal ? 1.0 : 0.0, rhs: rhsVal))
             case .deferredInt(let rhsVal):
                 guard rhsVal != 0 else { throw PythonError.divideByZero }
-                return PythonInterpreter.SafePythonObject(integerLiteral: Self.pythonIntegerModulus(lhs: lhsVal ? 1 : 0, rhs: rhsVal))
+                return PythonInterpreter.SafePythonObject(integerLiteral: try Self.pythonIntegerModulus(lhs: lhsVal ? 1 : 0, rhs: rhsVal))
             case .deferredString:
-                fatalError("Python TypeError")
+                throw PythonError.typeError(operation: "modulus", opType1: "Bool", opType2: "String")
             case .deferredBool(let rhsVal):
                 guard rhsVal else { throw PythonError.divideByZero }
-                return PythonInterpreter.SafePythonObject(integerLiteral: Self.pythonIntegerModulus(lhs: lhsVal ? 1 : 0, rhs: rhsVal ? 1 : 0))
+                return PythonInterpreter.SafePythonObject(integerLiteral: try Self.pythonIntegerModulus(lhs: lhsVal ? 1 : 0, rhs: rhsVal ? 1 : 0))
             }
         }
+    }
+    
+    /// Returns the Python remainder of this safe Python object divided by a Swift value.
+    ///
+    /// This overload is for values such as `Int`, `Double`, `Bool`, and `String` that can be
+    /// converted to Python through the receiver's interpreter. The receiver must already be bound
+    /// unless `divisor` is itself a `SafePythonObject`.
+    ///
+    /// - Parameters:
+    ///   - divisor: The Python-convertible divisor.
+    /// - Returns: The Python remainder result.
+    /// - Throws: `PythonError.conversionType` if the receiver is deferred and `divisor` needs an
+    ///   interpreter for conversion, or `PythonError` if conversion or Python modulus fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func modulus(divisor: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
+        if let safeObject = divisor as? PythonInterpreter.SafePythonObject {
+            return try modulus(divisor: safeObject)
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: divisor),
+                sourceType: String(describing: type(of: divisor)),
+                targetType: "bound SafePythonObject"
+            )
+        }
+        
+        return try modulus(divisor: divisor.toSafePythonObject(interpreter: interpreter))
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
@@ -1434,15 +1479,77 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    /// Replaces this safe Python object with its Python remainder divided by another safe Python object.
+    ///
+    /// If either operand is already bound to an interpreter, this delegates to CPython's
+    /// `PyNumber_InPlaceRemainder`. If both operands are deferred Swift literals, this applies
+    /// Python-compatible `%=` behavior locally.
+    ///
+    /// - Parameters:
+    ///   - divisor: The divisor used for the Python `%=` operation.
+    /// - Throws: `PythonError.divideByZero` for fully deferred zero divisors,
+    ///   `PythonError.typeError` for unsupported fully deferred operand pairs, or `PythonError`
+    ///   if Python raises or conversion fails.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    internal func modulusInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
-        do {
+    public mutating func modulusInPlace(divisor: PythonInterpreter.SafePythonObject) throws {
+        switch state {
+        case .bound:
             let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                try $0.syncInPlaceRemainder(quotientand: lhs.toSafePythonObject(interpreter: $0), divisor: rhs.toSafePythonObject(interpreter: $0))
+            try localInterpreter.assumeIsolated {
+                self = try $0.syncInPlaceRemainder(quotientand: self.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
             }
+        default:
+            if divisor.isBoundToPythonInterpreter {
+                let localInterpreter = divisor.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceRemainder(quotientand: self.toSafePythonObject(interpreter: $0), divisor: divisor.toSafePythonObject(interpreter: $0))
+                }
+            } else {
+                do {
+                    self = try modulus(divisor: divisor)
+                } catch let PythonError.typeError(_, opType1, opType2) {
+                    throw PythonError.typeError(operation: "in place modulus", opType1: opType1, opType2: opType2)
+                }
+            }
+        }
+    }
+    
+    /// Replaces this safe Python object with its Python remainder divided by a Swift value.
+    ///
+    /// This overload is for values such as `Int`, `Double`, `Bool`, and `String` that can be
+    /// converted to Python through the receiver's interpreter. The receiver must already be bound
+    /// unless `divisor` is itself a `SafePythonObject`.
+    ///
+    /// - Parameters:
+    ///   - divisor: The Python-convertible divisor.
+    /// - Throws: `PythonError.conversionType` if the receiver is deferred and `divisor` needs an
+    ///   interpreter for conversion, or `PythonError` if conversion or Python modulus fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public mutating func modulusInPlace(divisor: any SafePythonConvertible) throws {
+        if let safeObject = divisor as? PythonInterpreter.SafePythonObject {
+            try modulusInPlace(divisor: safeObject)
+            return
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: divisor),
+                sourceType: String(describing: type(of: divisor)),
+                targetType: "bound SafePythonObject"
+            )
+        }
+        
+        try modulusInPlace(divisor: divisor.toSafePythonObject(interpreter: interpreter))
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func modulusInPlaceOperator(quotientand: PythonInterpreter.SafePythonObject, divisor: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            var result = quotientand
+            try result.modulusInPlace(divisor: divisor)
+            return result
         } catch {
-            fatalError("Failed: \(error)")
+            fatalError("In place modulus failed: \(error).  Use `SafePythonObject.modulusInPlace()` for in place modulus that might throw.")
         }
     }
     
