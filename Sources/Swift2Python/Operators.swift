@@ -22,6 +22,11 @@ public extension PythonInterpreter.SafePythonObject {
     //       Because swift is compiled, the code it going to look messy.  I also need to implement
     //       the operations as Python would.
     
+    /// Adds two safe Python objects using Python `+` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, or deferred
+    /// addition cannot be represented, this traps with `fatalError`. Use
+    /// `SafePythonObject.add(_:)` when addition can fail and should be handled.
     static func + (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         return PythonInterpreter.SafePythonObject.addOperator(lhs:lhs, rhs:rhs)
     }
@@ -46,6 +51,11 @@ public extension PythonInterpreter.SafePythonObject {
         return PythonInterpreter.SafePythonObject.exponentiationOperator(base:base, exponent:exponent)
     }
     
+    /// Adds a safe Python object to another using Python `+=` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, or deferred
+    /// addition cannot be represented, this traps with `fatalError`. Use
+    /// `SafePythonObject.addInPlace(_:)` when in-place addition can fail and should be handled.
     static func += (sumend: inout PythonInterpreter.SafePythonObject, addend: PythonInterpreter.SafePythonObject) {
         sumend = PythonInterpreter.SafePythonObject.addInPlaceOperator(sumend:sumend, addend:addend)
     }

@@ -305,6 +305,66 @@ extension ArithmeticTests {
         }
     }
     
+    @Test("O+_011: safePythonObject addition accepts SafePythonConvertible values")
+    func safeAdditionAcceptsConvertibleValues() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let typedInt = 32
+            let boundInt = try 10.toSafePythonObject(interpreter: isolatedInterpreter)
+            let intResult = try boundInt.add(typedInt)
+            #expect(try Int(intResult) == 42)
+            
+            let typedDouble = 0.5
+            let doubleResult = try boundInt.add(typedDouble)
+            #expect(try Double(doubleResult) == 10.5)
+            
+            let suffix = " World"
+            let boundString = try "Hello".toSafePythonObject(interpreter: isolatedInterpreter)
+            let stringResult = try boundString.add(suffix)
+            #expect(try String(stringResult) == "Hello World")
+            
+            let literalResult = try boundInt.add(1)
+            #expect(try Int(literalResult) == 11)
+            
+            let deferredInt: PythonInterpreter.SafePythonObject = 10
+            let thrownError = #expect(throws: PythonError.self) {
+                _ = try deferredInt.add(typedInt)
+            }
+            
+            if case .conversionType = thrownError {
+                // expected
+            } else {
+                Issue.record("Expected .conversionType for deferred SafePythonObject.add(Int), but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("O+_012: safePythonObject deferred integer addition overflow")
+    func safeDeferredIntegerAdditionOverflow() throws {
+        let maxInt = PythonInterpreter.SafePythonObject(integerLiteral: Int.max)
+        let one: PythonInterpreter.SafePythonObject = 1
+        let trueValue: PythonInterpreter.SafePythonObject = true
+        
+        let intOverflow = #expect(throws: PythonError.self) {
+            _ = try maxInt.add(one)
+        }
+        
+        if case .conversionOverflow = intOverflow {
+            // expected
+        } else {
+            Issue.record("Expected .conversionOverflow for deferred Int.max + 1, but got \(intOverflow)")
+        }
+        
+        let boolOverflow = #expect(throws: PythonError.self) {
+            _ = try maxInt.add(trueValue)
+        }
+        
+        if case .conversionOverflow = boolOverflow {
+            // expected
+        } else {
+            Issue.record("Expected .conversionOverflow for deferred Int.max + true, but got \(boolOverflow)")
+        }
+    }
+    
     
     
     // MARK: O+=_xxx Plus Equals
@@ -501,6 +561,69 @@ extension ArithmeticTests {
             } else {
                 Issue.record("Expected .pythonException for \(description), but got \(thrownError)")
             }
+        }
+    }
+    
+    @Test("O+=_011: safePythonObject in-place addition accepts SafePythonConvertible values")
+    func safeInPlaceAdditionAcceptsConvertibleValues() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let typedInt = 32
+            var boundInt = try 10.toSafePythonObject(interpreter: isolatedInterpreter)
+            try boundInt.addInPlace(typedInt)
+            #expect(try Int(boundInt) == 42)
+            
+            let typedDouble = 0.5
+            var boundDouble = try 10.toSafePythonObject(interpreter: isolatedInterpreter)
+            try boundDouble.addInPlace(typedDouble)
+            #expect(try Double(boundDouble) == 10.5)
+            
+            let suffix = " World"
+            var boundString = try "Hello".toSafePythonObject(interpreter: isolatedInterpreter)
+            try boundString.addInPlace(suffix)
+            #expect(try String(boundString) == "Hello World")
+            
+            var literalResult = try 10.toSafePythonObject(interpreter: isolatedInterpreter)
+            try literalResult.addInPlace(1)
+            #expect(try Int(literalResult) == 11)
+            
+            var deferredInt: PythonInterpreter.SafePythonObject = 10
+            let thrownError = #expect(throws: PythonError.self) {
+                try deferredInt.addInPlace(typedInt)
+            }
+            
+            if case .conversionType = thrownError {
+                // expected
+            } else {
+                Issue.record("Expected .conversionType for deferred SafePythonObject.addInPlace(Int), but got \(thrownError)")
+            }
+        }
+    }
+    
+    @Test("O+=_012: safePythonObject deferred integer in-place addition overflow")
+    func safeDeferredIntegerInPlaceAdditionOverflow() throws {
+        let one: PythonInterpreter.SafePythonObject = 1
+        let trueValue: PythonInterpreter.SafePythonObject = true
+        
+        var intMax = PythonInterpreter.SafePythonObject(integerLiteral: Int.max)
+        let intOverflow = #expect(throws: PythonError.self) {
+            try intMax.addInPlace(one)
+        }
+        
+        if case .conversionOverflow = intOverflow {
+            // expected
+        } else {
+            Issue.record("Expected .conversionOverflow for deferred Int.max += 1, but got \(intOverflow)")
+        }
+        
+        var boolMax = PythonInterpreter.SafePythonObject(integerLiteral: Int.max)
+        let boolOverflow = #expect(throws: PythonError.self) {
+            try boolMax.addInPlace(trueValue)
+        }
+        
+        if case .conversionOverflow = boolOverflow {
+            // expected
+        } else {
+            Issue.record("Expected .conversionOverflow for deferred Int.max += true, but got \(boolOverflow)")
         }
     }
     

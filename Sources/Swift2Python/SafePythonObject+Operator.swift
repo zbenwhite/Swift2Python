@@ -16,31 +16,69 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Addition
     
-    // The throwing addition function.  For materialized python objects, this calls PyNumber_Add
-    // using the interpreter. If only one is materialized, materialize the other and do the same.
-    // If neither are materialized (why?) then add them the way Python would add them:
-    // LHS     RHS      ACTION / Type
-    // -----   ------   ---------
-    // bound   any      PyNumber_Add -- preserve term order
-    // any     bound    PyNumber_Add -- preserve term order
-    // double  double   double
-    // double  int      double
-    // double  string   ERR: typeError
-    // double  bool     double
-    // int     int      int
-    // int     double   double
-    // int     string   ERR: typeError
-    // int     bool     int
-    // string  double   ERR: typeError
-    // string  int      ERR: typeError
-    // string  string   string concatenation
-    // string  bool     ERR: typeError
-    // bool    double   double
-    // bool    int      int
-    // bool    string   ERR: typeError
-    // bool    bool     int
+    /// Adds two fully deferred integer values without allowing Swift integer overflow.
+    ///
+    /// Python integers are arbitrary precision, but deferred safe integers are stored as
+    /// Swift `Int` until an interpreter is available. If the result does not fit in that
+    /// storage, throw instead of letting Swift trap on overflow.
+    ///
+    /// - Parameters:
+    ///   - lhs: The left-hand deferred integer value.
+    ///   - rhs: The right-hand deferred integer value.
+    /// - Returns: A deferred safe Python integer containing the checked sum.
+    /// - Throws: `PythonError.conversionOverflow` when the checked sum cannot fit in `Int`.
+    private static func checkedDeferredIntegerAddition(_ lhs: Int, _ rhs: Int) throws -> PythonInterpreter.SafePythonObject {
+        let result = lhs.addingReportingOverflow(rhs)
+        guard !result.overflow else {
+            throw PythonError.conversionOverflow(
+                value: "\(lhs) + \(rhs)",
+                sourceType: "deferred Python integer addition",
+                targetType: "Swift Int"
+            )
+        }
+        
+        return PythonInterpreter.SafePythonObject(integerLiteral: result.partialValue)
+    }
+    
+    /// Adds another safe Python object to this safe Python object.
+    ///
+    /// This follows Python `+` semantics. If either operand is already bound to an
+    /// interpreter, the operation is delegated to Python with `PyNumber_Add`. If both
+    /// operands are deferred safe values, Swift2Python performs the same primitive
+    /// numeric, boolean, and string combinations locally until the result is bound.
+    ///
+    /// - Parameters:
+    ///   - other: The safe Python object to add.
+    /// - Returns: The Python addition result.
+    /// - Throws: `PythonError.safePythonException` if Python raises, `PythonError.typeError`
+    ///   for invalid fully deferred primitive combinations, or `PythonError.conversionOverflow`
+    ///   if fully deferred integer addition exceeds Swift2Python's deferred `Int` storage.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func add(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+        
+        // The throwing addition function.  For materialized python objects, this calls PyNumber_Add
+        // using the interpreter. If only one is materialized, materialize the other and do the same.
+        // If neither are materialized (why?) then add them the way Python would add them:
+        // LHS     RHS      ACTION / Type
+        // -----   ------   ---------
+        // bound   any      PyNumber_Add -- preserve term order
+        // any     bound    PyNumber_Add -- preserve term order
+        // double  double   double
+        // double  int      double
+        // double  string   ERR: typeError
+        // double  bool     double
+        // int     int      int, or ERR: conversionOverflow if outside deferred Int storage
+        // int     double   double
+        // int     string   ERR: typeError
+        // int     bool     int, or ERR: conversionOverflow if outside deferred Int storage
+        // string  double   ERR: typeError
+        // string  int      ERR: typeError
+        // string  string   string concatenation
+        // string  bool     ERR: typeError
+        // bool    double   double
+        // bool    int      int, or ERR: conversionOverflow if outside deferred Int storage
+        // bool    string   ERR: typeError
+        // bool    bool     int
         switch state {
         case .bound:
             let localInterpreter = interpreter
@@ -75,11 +113,11 @@ extension PythonInterpreter.SafePythonObject {
             case .deferredDouble(let rhsVal):
                 return PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) + rhsVal)
             case .deferredInt(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal + rhsVal)
+                return try Self.checkedDeferredIntegerAddition(lhsVal, rhsVal)
             case .deferredString:
                 throw PythonError.typeError(operation: "addition", opType1: "Int", opType2: "String")
             case .deferredBool(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal + (rhsVal ? 1 : 0))
+                return try Self.checkedDeferredIntegerAddition(lhsVal, rhsVal ? 1 : 0)
             }
             
         case .deferredString(let lhsVal):
@@ -109,13 +147,46 @@ extension PythonInterpreter.SafePythonObject {
             case .deferredDouble(let rhsVal):
                 return PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) + rhsVal)
             case .deferredInt(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) + rhsVal)
+                return try Self.checkedDeferredIntegerAddition(lhsVal ? 1 : 0, rhsVal)
             case .deferredString:
                 throw PythonError.typeError(operation: "addition", opType1: "Bool", opType2: "String")
             case .deferredBool(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) + (rhsVal ? 1 : 0))
+                return try Self.checkedDeferredIntegerAddition(lhsVal ? 1 : 0, rhsVal ? 1 : 0)
             }
         }
+    }
+    
+    /// Adds a Python-convertible Swift value to this safe Python object.
+    ///
+    /// This overload is an adapter for typed Swift values such as `Int`, `Double`,
+    /// `Bool`, `String`, and container conformers. Existing `SafePythonObject` values
+    /// are forwarded to `add(_ other: SafePythonObject)` so deferred-safe behavior stays
+    /// centralized in the primary overload.
+    ///
+    /// The receiver must already be bound to an interpreter unless `other` is already a
+    /// `SafePythonObject`. Without a bound receiver, there is no interpreter available to
+    /// perform general `SafePythonConvertible` conversion.
+    ///
+    /// - Parameters:
+    ///   - other: The Swift value to convert and add.
+    /// - Returns: The Python addition result.
+    /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but
+    ///   this object is still deferred, or `PythonError` if conversion or Python addition fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func add(_ other: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
+        if let safeObject = other as? PythonInterpreter.SafePythonObject {
+            return try add(safeObject)
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: other),
+                sourceType: String(describing: type(of: other)),
+                targetType: "bound SafePythonObject"
+            )
+        }
+        
+        return try add(other.toSafePythonObject(interpreter: interpreter))
     }
     
     // A static function to be used for the + operator.  The + operator does not throw, so this causes
@@ -129,6 +200,18 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    /// Adds another safe Python object to this safe Python object in place.
+    ///
+    /// This follows Python `+=` semantics. If this object is bound, or if the addend is
+    /// bound, the operation is delegated to Python with `PyNumber_InPlaceAdd`. Python may
+    /// mutate mutable objects in place or return a new object for immutable values; this
+    /// safe object is updated to reference the result either way.
+    ///
+    /// - Parameters:
+    ///   - other: The safe Python object to add.
+    /// - Throws: `PythonError.safePythonException` if Python raises, `PythonError.typeError`
+    ///   for invalid fully deferred primitive combinations, or `PythonError.conversionOverflow`
+    ///   if fully deferred integer addition exceeds Swift2Python's deferred `Int` storage.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public mutating func addInPlace(_ other: PythonInterpreter.SafePythonObject) throws  {
         switch state {
@@ -165,11 +248,11 @@ extension PythonInterpreter.SafePythonObject {
             case .deferredDouble(let rhsVal):
                 self = PythonInterpreter.SafePythonObject(floatLiteral: Double(lhsVal) + rhsVal)
             case .deferredInt(let rhsVal):
-                self = PythonInterpreter.SafePythonObject(integerLiteral: lhsVal + rhsVal)
+                self = try Self.checkedDeferredIntegerAddition(lhsVal, rhsVal)
             case .deferredString:
                 throw PythonError.typeError(operation: "in place addition", opType1: "Int", opType2: "String")
             case .deferredBool(let rhsVal):
-                self = PythonInterpreter.SafePythonObject(integerLiteral: lhsVal + (rhsVal ? 1 : 0))
+                self = try Self.checkedDeferredIntegerAddition(lhsVal, rhsVal ? 1 : 0)
             }
             
         case .deferredString(let lhsVal):
@@ -199,13 +282,46 @@ extension PythonInterpreter.SafePythonObject {
             case .deferredDouble(let rhsVal):
                 self = PythonInterpreter.SafePythonObject(floatLiteral: (lhsVal ? 1.0 : 0.0) + rhsVal)
             case .deferredInt(let rhsVal):
-                self = PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) + rhsVal)
+                self = try Self.checkedDeferredIntegerAddition(lhsVal ? 1 : 0, rhsVal)
             case .deferredString:
                 throw PythonError.typeError(operation: "in place addition", opType1: "Bool", opType2: "String")
             case .deferredBool(let rhsVal):
-                self = PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) + (rhsVal ? 1 : 0))
+                self = try Self.checkedDeferredIntegerAddition(lhsVal ? 1 : 0, rhsVal ? 1 : 0)
             }
         }
+    }
+    
+    /// Adds a Python-convertible Swift value to this safe Python object in place.
+    ///
+    /// This overload is an adapter for typed Swift values such as `Int`, `Double`,
+    /// `Bool`, `String`, and container conformers. Existing `SafePythonObject` values
+    /// are forwarded to `addInPlace(_ other: SafePythonObject)` so deferred-safe behavior
+    /// stays centralized in the primary overload.
+    ///
+    /// The receiver must already be bound to an interpreter unless `other` is already a
+    /// `SafePythonObject`. Without a bound receiver, there is no interpreter available to
+    /// perform general `SafePythonConvertible` conversion.
+    ///
+    /// - Parameters:
+    ///   - other: The Swift value to convert and add.
+    /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but
+    ///   this object is still deferred, or `PythonError` if conversion or Python addition fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public mutating func addInPlace(_ other: any SafePythonConvertible) throws {
+        if let safeObject = other as? PythonInterpreter.SafePythonObject {
+            try addInPlace(safeObject)
+            return
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: other),
+                sourceType: String(describing: type(of: other)),
+                targetType: "bound SafePythonObject"
+            )
+        }
+        
+        try addInPlace(other.toSafePythonObject(interpreter: interpreter))
     }
     
     // A static function to be used for the += operator.  The += operator does not throw, so this causes
