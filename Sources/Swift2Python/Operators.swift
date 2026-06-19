@@ -289,6 +289,11 @@ extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
         return PythonInterpreter.SafePythonObject.lessThanComparable(lhs:lhs, rhs:rhs)
     }
 
+    /// Returns true when the left safe Python object compares less than or equal to the right using Python `<=` semantics.
+    ///
+    /// This `Comparable` overload is non-throwing. If Python raises, conversion fails, or the fully
+    /// deferred operand types do not support less-than-or-equal comparison, this traps with `fatalError`.
+    /// Use `SafePythonObject.lessThanOrEqual(_:)` when comparison can fail and should be handled.
     public static func <= (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
         return PythonInterpreter.SafePythonObject.lessThanOrEqualsComparable(lhs:lhs, rhs:rhs)
     }
@@ -302,6 +307,11 @@ extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
         return PythonInterpreter.SafePythonObject.greaterThanComparable(lhs:lhs, rhs:rhs)
     }
 
+    /// Returns true when the left safe Python object compares greater than or equal to the right using Python `>=` semantics.
+    ///
+    /// This `Comparable` overload is non-throwing. If Python raises, conversion fails, or the fully
+    /// deferred operand types do not support greater-than-or-equal comparison, this traps with `fatalError`.
+    /// Use `SafePythonObject.greaterThanOrEqual(_:)` when comparison can fail and should be handled.
     public static func >= (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
         return PythonInterpreter.SafePythonObject.greaterThanOrEqualsComparable(lhs:lhs, rhs:rhs)
     }
@@ -338,14 +348,13 @@ public extension PythonInterpreter.SafePythonObject {
         return PythonInterpreter.SafePythonObject.lessThanOp(lhs: lhs, rhs: rhs)
     }
 
+    /// Returns the Python bool result of comparing two safe Python objects using Python `<=` semantics.
+    ///
+    /// This overload is non-throwing. If Python raises, conversion fails, or the fully deferred
+    /// operand types do not support less-than-or-equal comparison, this traps with `fatalError`. Use
+    /// `SafePythonObject.lessThanOrEqual(_:)` when comparison can fail and should be handled.
     static func <= (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        if lhs.isBoundToPythonInterpreter {
-            return lhs.lessThanOrEqualOperator(lhs, rhs)
-        } else if rhs.isBoundToPythonInterpreter {
-            return rhs.lessThanOrEqualOperator(lhs, rhs)
-        } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonLessThanOrEquals(lhs:lhs, rhs:rhs)
-        }
+        return PythonInterpreter.SafePythonObject.lessThanOrEqualOp(lhs: lhs, rhs: rhs)
     }
 
     /// Returns the Python bool result of comparing two safe Python objects using Python `>` semantics.
@@ -357,13 +366,12 @@ public extension PythonInterpreter.SafePythonObject {
         return PythonInterpreter.SafePythonObject.greaterThanOp(lhs: lhs, rhs: rhs)
     }
 
+    /// Returns the Python bool result of comparing two safe Python objects using Python `>=` semantics.
+    ///
+    /// This overload is non-throwing. If Python raises, conversion fails, or the fully deferred
+    /// operand types do not support greater-than-or-equal comparison, this traps with `fatalError`. Use
+    /// `SafePythonObject.greaterThanOrEqual(_:)` when comparison can fail and should be handled.
     static func >= (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        if lhs.isBoundToPythonInterpreter {
-            return lhs.greaterThanOrEqualOperator(lhs, rhs)
-        } else if rhs.isBoundToPythonInterpreter {
-            return rhs.greaterThanOrEqualOperator(lhs, rhs)
-        } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonGreaterThanOrEquals(lhs:lhs, rhs:rhs)
-        }
+        return PythonInterpreter.SafePythonObject.greaterThanOrEqualOp(lhs: lhs, rhs: rhs)
     }
 }
