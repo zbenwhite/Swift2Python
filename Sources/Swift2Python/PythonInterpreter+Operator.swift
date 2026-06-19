@@ -422,9 +422,25 @@ extension PythonInterpreter {
         logger.trace("CPython API call in synchronous mode: PyNumber_Or")
         guard let resultPtr = api.PyNumber_Or(lhsPtr, rhsPtr) else {
             logger.error("PyNumber_Or returned NULL.  Throwing Python error.")
-            throw PythonError.nullPointer("Python '|' failed")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "bitwise OR", opType1: "SafePythonObject", opType2: "SafePythonObject")
         }
         return newSafePythonObject(fromReturnedPointer: resultPtr)
+    }
+    
+    internal func bitwiseOr(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
+        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
+        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_Or")
+        return try await withGIL {
+            guard let resultPtr = api.PyNumber_Or(lhsPtr, rhsPtr) else {
+                logger.error("PyNumber_Or returned NULL.  Throwing Python error.")
+                try throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "bitwise OR", opType1: "PythonObject", opType2: "PythonObject")
+            }
+            return newPythonObject(fromReturnedPointer: resultPtr)
+        }
     }
     
     internal func syncInPlaceBitwiseOr(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
@@ -434,9 +450,25 @@ extension PythonInterpreter {
         logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceOr")
         guard let resultPtr = api.PyNumber_InPlaceOr(lhsPtr, rhsPtr) else {
             logger.error("PyNumber_InPlaceOr returned NULL.  Throwing Python error.")
-            throw PythonError.nullPointer("Python '|=' failed")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "in place bitwise OR", opType1: "SafePythonObject", opType2: "SafePythonObject")
         }
         return newSafePythonObject(fromReturnedPointer: resultPtr)
+    }
+    
+    internal func bitwiseOrInPlace(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
+        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
+        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_InPlaceOr")
+        return try await withGIL {
+            guard let resultPtr = api.PyNumber_InPlaceOr(lhsPtr, rhsPtr) else {
+                logger.error("PyNumber_InPlaceOr returned NULL.  Throwing Python error.")
+                try throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "in place bitwise OR", opType1: "PythonObject", opType2: "PythonObject")
+            }
+            return newPythonObject(fromReturnedPointer: resultPtr)
+        }
     }
     
     // MARK: Bitwise XOR
@@ -448,9 +480,25 @@ extension PythonInterpreter {
         logger.trace("CPython API call in synchronous mode: PyNumber_Xor")
         guard let resultPtr = api.PyNumber_Xor(lhsPtr, rhsPtr) else {
             logger.error("PyNumber_Xor returned NULL.  Throwing Python error.")
-            throw PythonError.nullPointer("Python '^' failed")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "bitwise XOR", opType1: "SafePythonObject", opType2: "SafePythonObject")
         }
         return newSafePythonObject(fromReturnedPointer: resultPtr)
+    }
+    
+    internal func bitwiseXor(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
+        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
+        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_Xor")
+        return try await withGIL {
+            guard let resultPtr = api.PyNumber_Xor(lhsPtr, rhsPtr) else {
+                logger.error("PyNumber_Xor returned NULL.  Throwing Python error.")
+                try throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "bitwise XOR", opType1: "PythonObject", opType2: "PythonObject")
+            }
+            return newPythonObject(fromReturnedPointer: resultPtr)
+        }
     }
     
     internal func syncInPlaceBitwiseXor(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
@@ -460,9 +508,25 @@ extension PythonInterpreter {
         logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceXor")
         guard let resultPtr = api.PyNumber_InPlaceXor(lhsPtr, rhsPtr) else {
             logger.error("PyNumber_InPlaceXor returned NULL.  Throwing Python error.")
-            throw PythonError.nullPointer("Python '^=' failed")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "in place bitwise XOR", opType1: "SafePythonObject", opType2: "SafePythonObject")
         }
         return newSafePythonObject(fromReturnedPointer: resultPtr)
+    }
+    
+    internal func bitwiseXorInPlace(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
+        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
+        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_InPlaceXor")
+        return try await withGIL {
+            guard let resultPtr = api.PyNumber_InPlaceXor(lhsPtr, rhsPtr) else {
+                logger.error("PyNumber_InPlaceXor returned NULL.  Throwing Python error.")
+                try throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "in place bitwise XOR", opType1: "PythonObject", opType2: "PythonObject")
+            }
+            return newPythonObject(fromReturnedPointer: resultPtr)
+        }
     }
     
     // MARK: Bitwise NOT
@@ -473,9 +537,24 @@ extension PythonInterpreter {
         logger.trace("CPython API call in synchronous mode: PyNumber_Invert")
         guard let resultPtr = api.PyNumber_Invert(operandPtr) else {
             logger.error("PyNumber_Invert returned NULL.  Throwing Python error.")
-            throw PythonError.nullPointer("Python '~' failed")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "bitwise NOT", opType1: "SafePythonObject", opType2: "None")
         }
         return newSafePythonObject(fromReturnedPointer: resultPtr)
+    }
+    
+    internal func bitwiseInvert(_ operand: PythonObject) async throws -> PythonObject {
+        let operandPtr = getRegisteredPointer(forPythonObject: operand)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_Invert")
+        return try await withGIL {
+            guard let resultPtr = api.PyNumber_Invert(operandPtr) else {
+                logger.error("PyNumber_Invert returned NULL.  Throwing Python error.")
+                try throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "bitwise NOT", opType1: "PythonObject", opType2: "None")
+            }
+            return newPythonObject(fromReturnedPointer: resultPtr)
+        }
     }
     
     

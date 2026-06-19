@@ -129,24 +129,22 @@ public extension PythonInterpreter.SafePythonObject {
         return PythonInterpreter.SafePythonObject.bitwiseAndOperator(lhs: lhs, rhs: rhs)
     }
 
+    /// Combines two safe Python objects using Python bitwise `|` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, or the fully
+    /// deferred operand types do not support bitwise OR, this traps with `fatalError`.
+    /// Use `SafePythonObject.bitwiseOr(_:)` when bitwise OR can fail and should be handled.
     static func | (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        if lhs.isBoundToPythonInterpreter {
-            return lhs.bitwiseOrOperator(lhs, rhs)
-        } else if rhs.isBoundToPythonInterpreter {
-            return rhs.bitwiseOrOperator(lhs, rhs)
-        } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonBitwiseOr(lhs:lhs, rhs:rhs)
-        }
+        return PythonInterpreter.SafePythonObject.bitwiseOrOperator(lhs: lhs, rhs: rhs)
     }
 
+    /// Combines two safe Python objects using Python bitwise `^` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, or the fully
+    /// deferred operand types do not support bitwise XOR, this traps with `fatalError`.
+    /// Use `SafePythonObject.bitwiseXor(_:)` when bitwise XOR can fail and should be handled.
     static func ^ (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        if lhs.isBoundToPythonInterpreter {
-            return lhs.bitwiseXorOperator(lhs, rhs)
-        } else if rhs.isBoundToPythonInterpreter {
-            return rhs.bitwiseXorOperator(lhs, rhs)
-        } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonBitwiseXor(lhs:lhs, rhs:rhs)
-        }
+        return PythonInterpreter.SafePythonObject.bitwiseXorOperator(lhs: lhs, rhs: rhs)
     }
 
     /// Replaces a safe Python object with its Python bitwise AND result using `&=` semantics.
@@ -158,34 +156,31 @@ public extension PythonInterpreter.SafePythonObject {
         lhs = PythonInterpreter.SafePythonObject.bitwiseAndInPlaceOperator(lhs: lhs, rhs: rhs)
     }
 
-    // Bitwise or in place
+    /// Replaces a safe Python object with its Python bitwise OR result using `|=` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, or the fully
+    /// deferred operand types do not support bitwise OR, this traps with `fatalError`.
+    /// Use `SafePythonObject.bitwiseOrInPlace(_:)` when in-place bitwise OR can fail and should be handled.
     static func |= (lhs: inout PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) {
-        if lhs.isBoundToPythonInterpreter {
-            lhs = lhs.bitwiseOrInPlaceOperator(lhs, rhs)
-        } else if rhs.isBoundToPythonInterpreter {
-            lhs = rhs.bitwiseOrInPlaceOperator(lhs, rhs)
-        } else {
-            lhs = PythonInterpreter.SafePythonObject.unboundPythonBitwiseOr(lhs:lhs, rhs:rhs)
-        }
+        lhs = PythonInterpreter.SafePythonObject.bitwiseOrInPlaceOperator(lhs: lhs, rhs: rhs)
     }
 
-    // Bitwise xor in place
+    /// Replaces a safe Python object with its Python bitwise XOR result using `^=` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, or the fully
+    /// deferred operand types do not support bitwise XOR, this traps with `fatalError`.
+    /// Use `SafePythonObject.bitwiseXorInPlace(_:)` when in-place bitwise XOR can fail and should be handled.
     static func ^= (lhs: inout PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) {
-        if lhs.isBoundToPythonInterpreter {
-            lhs = lhs.bitwiseXorInPlaceOperator(lhs, rhs)
-        } else if rhs.isBoundToPythonInterpreter {
-            lhs = rhs.bitwiseXorInPlaceOperator(lhs, rhs)
-        } else {
-            lhs = PythonInterpreter.SafePythonObject.unboundPythonBitwiseXor(lhs:lhs, rhs:rhs)
-        }
+        lhs = PythonInterpreter.SafePythonObject.bitwiseXorInPlaceOperator(lhs: lhs, rhs: rhs)
     }
 
+    /// Returns the Python bitwise inversion of a safe Python object using `~` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, or the fully
+    /// deferred operand type does not support bitwise inversion, this traps with `fatalError`.
+    /// Use `SafePythonObject.bitwiseInvert()` when bitwise inversion can fail and should be handled.
     static prefix func ~ (_ operand: Self) -> Self {
-        if operand.isBoundToPythonInterpreter {
-            return operand.bitwiseNotOperator(operand)
-        } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonBitwiseNot(operand: operand)
-        }
+        return PythonInterpreter.SafePythonObject.bitwiseNotOperator(operand)
     }
 
 }

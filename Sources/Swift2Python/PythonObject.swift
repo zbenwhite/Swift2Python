@@ -974,6 +974,69 @@ public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectabl
         return try await interpreter.bitwiseAndInPlace(lhs: self, rhs: other.toPythonObject(interpreter: interpreter))
     }
     
+    /// Combines this Python object with a Python-convertible value using Python bitwise `|` semantics.
+    ///
+    /// This delegates to CPython's `PyNumber_Or`, so Python controls integer behavior,
+    /// boolean behavior, and error reporting.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible value to combine with this object.
+    /// - Returns: The Python bitwise OR result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
+    public func bitwiseOr(_ other: PendingPythonConvertible) async throws -> PythonObject {
+        return try await interpreter.bitwiseOr(lhs: self, rhs: other.toPythonObject(interpreter: interpreter))
+    }
+    
+    /// Replaces this Python object with its bitwise OR against a Python-convertible value.
+    ///
+    /// This delegates to CPython's `PyNumber_InPlaceOr`. Python may mutate mutable
+    /// objects in place or return a new object for immutable values.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible value to combine with this object.
+    /// - Returns: The Python in-place bitwise OR result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
+    public func bitwiseOrInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
+        return try await interpreter.bitwiseOrInPlace(lhs: self, rhs: other.toPythonObject(interpreter: interpreter))
+    }
+    
+    /// Combines this Python object with a Python-convertible value using Python bitwise `^` semantics.
+    ///
+    /// This delegates to CPython's `PyNumber_Xor`, so Python controls integer behavior,
+    /// boolean behavior, and error reporting.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible value to combine with this object.
+    /// - Returns: The Python bitwise XOR result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
+    public func bitwiseXor(_ other: PendingPythonConvertible) async throws -> PythonObject {
+        return try await interpreter.bitwiseXor(lhs: self, rhs: other.toPythonObject(interpreter: interpreter))
+    }
+    
+    /// Replaces this Python object with its bitwise XOR against a Python-convertible value.
+    ///
+    /// This delegates to CPython's `PyNumber_InPlaceXor`. Python may mutate mutable
+    /// objects in place or return a new object for immutable values.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible value to combine with this object.
+    /// - Returns: The Python in-place bitwise XOR result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
+    public func bitwiseXorInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
+        return try await interpreter.bitwiseXorInPlace(lhs: self, rhs: other.toPythonObject(interpreter: interpreter))
+    }
+    
+    /// Returns the Python bitwise inversion of this Python object using Python `~` semantics.
+    ///
+    /// This delegates to CPython's `PyNumber_Invert`, so Python controls integer behavior,
+    /// boolean behavior, and error reporting.
+    ///
+    /// - Returns: The Python bitwise inversion result.
+    /// - Throws: `PythonError.pythonException` if Python raises.
+    public func bitwiseInvert() async throws -> PythonObject {
+        return try await interpreter.bitwiseInvert(self)
+    }
+    
     // MARK: Trueness
     
     public func isTrue() async throws -> Bool {
