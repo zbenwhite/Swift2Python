@@ -583,7 +583,7 @@ extension PythonInterpreter.SafePythonObject {
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    static internal func lessThanOrEqualsComparable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
+    static internal func lessThanOrEqualComparable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
         do {
             switch lhs.state {
             case .bound:
@@ -1004,7 +1004,7 @@ extension PythonInterpreter.SafePythonObject {
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    static internal func greaterThanOrEqualsComparable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
+    static internal func greaterThanOrEqualComparable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
         do {
             switch lhs.state {
             case .bound:

@@ -295,7 +295,7 @@ extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
     /// deferred operand types do not support less-than-or-equal comparison, this traps with `fatalError`.
     /// Use `SafePythonObject.lessThanOrEqual(_:)` when comparison can fail and should be handled.
     public static func <= (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
-        return PythonInterpreter.SafePythonObject.lessThanOrEqualsComparable(lhs:lhs, rhs:rhs)
+        return PythonInterpreter.SafePythonObject.lessThanOrEqualComparable(lhs:lhs, rhs:rhs)
     }
 
     /// Returns true when the left safe Python object compares greater than the right using Python `>` semantics.
@@ -313,7 +313,7 @@ extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
     /// deferred operand types do not support greater-than-or-equal comparison, this traps with `fatalError`.
     /// Use `SafePythonObject.greaterThanOrEqual(_:)` when comparison can fail and should be handled.
     public static func >= (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
-        return PythonInterpreter.SafePythonObject.greaterThanOrEqualsComparable(lhs:lhs, rhs:rhs)
+        return PythonInterpreter.SafePythonObject.greaterThanOrEqualComparable(lhs:lhs, rhs:rhs)
     }
 }
 
