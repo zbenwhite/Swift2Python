@@ -158,13 +158,20 @@ struct CompareOpsTests {
         let intPastExactIntegerPrecision = PythonInterpreter.SafePythonObject(integerLiteral: 9_007_199_254_740_993)
         let nanValue = PythonInterpreter.SafePythonObject(floatLiteral: Double.nan)
         
-        #expect(try Bool(maxInt.lessThan(maxIntRoundedToDouble)) == true)
-        #expect(try Bool(maxIntRoundedToDouble.lessThan(maxInt)) == false)
-        #expect(try Bool(doublePastExactIntegerPrecision.lessThan(intPastExactIntegerPrecision)) == true)
-        #expect(try Bool(intPastExactIntegerPrecision.lessThan(doublePastExactIntegerPrecision)) == false)
+        #expect(try Bool(maxInt.lessThanPython(maxIntRoundedToDouble)) == true)
+        #expect(try Bool(maxIntRoundedToDouble.lessThanPython(maxInt)) == false)
+        #expect(try Bool(doublePastExactIntegerPrecision.lessThanPython(intPastExactIntegerPrecision)) == true)
+        #expect(try Bool(intPastExactIntegerPrecision.lessThanPython(doublePastExactIntegerPrecision)) == false)
         let one = PythonInterpreter.SafePythonObject(integerLiteral: 1)
-        #expect(try Bool(nanValue.lessThan(one)) == false)
-        #expect(try Bool(maxInt.lessThan(nanValue)) == false)
+        #expect(try Bool(nanValue.lessThanPython(one)) == false)
+        #expect(try Bool(maxInt.lessThanPython(nanValue)) == false)
+        
+        #expect(try maxInt.lessThan(maxIntRoundedToDouble))
+        #expect(try maxIntRoundedToDouble.lessThan(maxInt) == false)
+        #expect(try doublePastExactIntegerPrecision.lessThan(intPastExactIntegerPrecision))
+        #expect(try intPastExactIntegerPrecision.lessThan(doublePastExactIntegerPrecision) == false)
+        #expect(try nanValue.lessThan(one) == false)
+        #expect(try maxInt.lessThan(nanValue) == false)
     }
     
     @Test("O<_010: SafePythonObject less than error checking")
@@ -186,7 +193,7 @@ struct CompareOpsTests {
             
             for (description, lhs, rhs, expectedType1, expectedType2) in unboundTypeErrorCases {
                 let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
-                    _ = try lhs.lessThan(rhs)
+                    _ = try lhs.lessThanPython(rhs)
                 }
                 
                 if case let .typeError(operation, opType1, opType2) = thrownError {
@@ -195,6 +202,18 @@ struct CompareOpsTests {
                     #expect(opType2 == expectedType2, Comment(rawValue: description))
                 } else {
                     Issue.record("Expected .typeError for \(description), but got \(String(describing: thrownError))")
+                }
+                
+                let boolThrownError = #expect(throws: PythonError.self, Comment(rawValue: "Bool lessThan \(description)")) {
+                    _ = try lhs.lessThan(rhs)
+                }
+                
+                if case let .typeError(operation, opType1, opType2) = boolThrownError {
+                    #expect(operation == "less than", Comment(rawValue: description))
+                    #expect(opType1 == expectedType1, Comment(rawValue: description))
+                    #expect(opType2 == expectedType2, Comment(rawValue: description))
+                } else {
+                    Issue.record("Expected .typeError for Bool lessThan \(description), but got \(String(describing: boolThrownError))")
                 }
             }
             
@@ -209,7 +228,7 @@ struct CompareOpsTests {
             
             for (description, lhs, rhs) in boundExceptionCases {
                 let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
-                    _ = try lhs.lessThan(rhs)
+                    _ = try lhs.lessThanPython(rhs)
                 }
                 
                 if case .safePythonException = thrownError {
@@ -347,13 +366,20 @@ struct CompareOpsTests {
         let intPastExactIntegerPrecision = PythonInterpreter.SafePythonObject(integerLiteral: 9_007_199_254_740_993)
         let nanValue = PythonInterpreter.SafePythonObject(floatLiteral: Double.nan)
         
-        #expect(try Bool(maxInt.lessThanOrEqual(maxIntRoundedToDouble)) == true)
-        #expect(try Bool(maxIntRoundedToDouble.lessThanOrEqual(maxInt)) == false)
-        #expect(try Bool(doublePastExactIntegerPrecision.lessThanOrEqual(intPastExactIntegerPrecision)) == true)
-        #expect(try Bool(intPastExactIntegerPrecision.lessThanOrEqual(doublePastExactIntegerPrecision)) == false)
+        #expect(try Bool(maxInt.lessThanOrEqualPython(maxIntRoundedToDouble)) == true)
+        #expect(try Bool(maxIntRoundedToDouble.lessThanOrEqualPython(maxInt)) == false)
+        #expect(try Bool(doublePastExactIntegerPrecision.lessThanOrEqualPython(intPastExactIntegerPrecision)) == true)
+        #expect(try Bool(intPastExactIntegerPrecision.lessThanOrEqualPython(doublePastExactIntegerPrecision)) == false)
         let one = PythonInterpreter.SafePythonObject(integerLiteral: 1)
-        #expect(try Bool(nanValue.lessThanOrEqual(one)) == false)
-        #expect(try Bool(maxInt.lessThanOrEqual(nanValue)) == false)
+        #expect(try Bool(nanValue.lessThanOrEqualPython(one)) == false)
+        #expect(try Bool(maxInt.lessThanOrEqualPython(nanValue)) == false)
+        
+        #expect(try maxInt.lessThanOrEqual(maxIntRoundedToDouble))
+        #expect(try maxIntRoundedToDouble.lessThanOrEqual(maxInt) == false)
+        #expect(try doublePastExactIntegerPrecision.lessThanOrEqual(intPastExactIntegerPrecision))
+        #expect(try intPastExactIntegerPrecision.lessThanOrEqual(doublePastExactIntegerPrecision) == false)
+        #expect(try nanValue.lessThanOrEqual(one) == false)
+        #expect(try maxInt.lessThanOrEqual(nanValue) == false)
     }
     
     @Test("O<=_010: SafePythonObject less than or equal error checking")
@@ -375,7 +401,7 @@ struct CompareOpsTests {
             
             for (description, lhs, rhs, expectedType1, expectedType2) in unboundTypeErrorCases {
                 let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
-                    _ = try lhs.lessThanOrEqual(rhs)
+                    _ = try lhs.lessThanOrEqualPython(rhs)
                 }
                 
                 if case let .typeError(operation, opType1, opType2) = thrownError {
@@ -384,6 +410,18 @@ struct CompareOpsTests {
                     #expect(opType2 == expectedType2, Comment(rawValue: description))
                 } else {
                     Issue.record("Expected .typeError for \(description), but got \(String(describing: thrownError))")
+                }
+                
+                let boolThrownError = #expect(throws: PythonError.self, Comment(rawValue: "Bool lessThanOrEqual \(description)")) {
+                    _ = try lhs.lessThanOrEqual(rhs)
+                }
+                
+                if case let .typeError(operation, opType1, opType2) = boolThrownError {
+                    #expect(operation == "less than or equal", Comment(rawValue: description))
+                    #expect(opType1 == expectedType1, Comment(rawValue: description))
+                    #expect(opType2 == expectedType2, Comment(rawValue: description))
+                } else {
+                    Issue.record("Expected .typeError for Bool lessThanOrEqual \(description), but got \(String(describing: boolThrownError))")
                 }
             }
             
@@ -398,7 +436,7 @@ struct CompareOpsTests {
             
             for (description, lhs, rhs) in boundExceptionCases {
                 let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
-                    _ = try lhs.lessThanOrEqual(rhs)
+                    _ = try lhs.lessThanOrEqualPython(rhs)
                 }
                 
                 if case .safePythonException = thrownError {
@@ -531,13 +569,20 @@ struct CompareOpsTests {
         let intPastExactIntegerPrecision = PythonInterpreter.SafePythonObject(integerLiteral: 9_007_199_254_740_993)
         let nanValue = PythonInterpreter.SafePythonObject(floatLiteral: Double.nan)
         
-        #expect(try Bool(maxInt.greaterThan(maxIntRoundedToDouble)) == false)
-        #expect(try Bool(maxIntRoundedToDouble.greaterThan(maxInt)) == true)
-        #expect(try Bool(doublePastExactIntegerPrecision.greaterThan(intPastExactIntegerPrecision)) == false)
-        #expect(try Bool(intPastExactIntegerPrecision.greaterThan(doublePastExactIntegerPrecision)) == true)
+        #expect(try Bool(maxInt.greaterThanPython(maxIntRoundedToDouble)) == false)
+        #expect(try Bool(maxIntRoundedToDouble.greaterThanPython(maxInt)) == true)
+        #expect(try Bool(doublePastExactIntegerPrecision.greaterThanPython(intPastExactIntegerPrecision)) == false)
+        #expect(try Bool(intPastExactIntegerPrecision.greaterThanPython(doublePastExactIntegerPrecision)) == true)
         let one = PythonInterpreter.SafePythonObject(integerLiteral: 1)
-        #expect(try Bool(nanValue.greaterThan(one)) == false)
-        #expect(try Bool(maxInt.greaterThan(nanValue)) == false)
+        #expect(try Bool(nanValue.greaterThanPython(one)) == false)
+        #expect(try Bool(maxInt.greaterThanPython(nanValue)) == false)
+        
+        #expect(try maxInt.greaterThan(maxIntRoundedToDouble) == false)
+        #expect(try maxIntRoundedToDouble.greaterThan(maxInt))
+        #expect(try doublePastExactIntegerPrecision.greaterThan(intPastExactIntegerPrecision) == false)
+        #expect(try intPastExactIntegerPrecision.greaterThan(doublePastExactIntegerPrecision))
+        #expect(try nanValue.greaterThan(one) == false)
+        #expect(try maxInt.greaterThan(nanValue) == false)
     }
     
     @Test("O>_010: SafePythonObject greater than error checking")
@@ -559,7 +604,7 @@ struct CompareOpsTests {
             
             for (description, lhs, rhs, expectedType1, expectedType2) in unboundTypeErrorCases {
                 let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
-                    _ = try lhs.greaterThan(rhs)
+                    _ = try lhs.greaterThanPython(rhs)
                 }
                 
                 if case let .typeError(operation, opType1, opType2) = thrownError {
@@ -568,6 +613,18 @@ struct CompareOpsTests {
                     #expect(opType2 == expectedType2, Comment(rawValue: description))
                 } else {
                     Issue.record("Expected .typeError for \(description), but got \(String(describing: thrownError))")
+                }
+                
+                let boolThrownError = #expect(throws: PythonError.self, Comment(rawValue: "Bool greaterThan \(description)")) {
+                    _ = try lhs.greaterThan(rhs)
+                }
+                
+                if case let .typeError(operation, opType1, opType2) = boolThrownError {
+                    #expect(operation == "greater than", Comment(rawValue: description))
+                    #expect(opType1 == expectedType1, Comment(rawValue: description))
+                    #expect(opType2 == expectedType2, Comment(rawValue: description))
+                } else {
+                    Issue.record("Expected .typeError for Bool greaterThan \(description), but got \(String(describing: boolThrownError))")
                 }
             }
             
@@ -582,7 +639,7 @@ struct CompareOpsTests {
             
             for (description, lhs, rhs) in boundExceptionCases {
                 let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
-                    _ = try lhs.greaterThan(rhs)
+                    _ = try lhs.greaterThanPython(rhs)
                 }
                 
                 if case .safePythonException = thrownError {
@@ -720,13 +777,20 @@ struct CompareOpsTests {
         let intPastExactIntegerPrecision = PythonInterpreter.SafePythonObject(integerLiteral: 9_007_199_254_740_993)
         let nanValue = PythonInterpreter.SafePythonObject(floatLiteral: Double.nan)
         
-        #expect(try Bool(maxInt.greaterThanOrEqual(maxIntRoundedToDouble)) == false)
-        #expect(try Bool(maxIntRoundedToDouble.greaterThanOrEqual(maxInt)) == true)
-        #expect(try Bool(doublePastExactIntegerPrecision.greaterThanOrEqual(intPastExactIntegerPrecision)) == false)
-        #expect(try Bool(intPastExactIntegerPrecision.greaterThanOrEqual(doublePastExactIntegerPrecision)) == true)
+        #expect(try Bool(maxInt.greaterThanOrEqualPython(maxIntRoundedToDouble)) == false)
+        #expect(try Bool(maxIntRoundedToDouble.greaterThanOrEqualPython(maxInt)) == true)
+        #expect(try Bool(doublePastExactIntegerPrecision.greaterThanOrEqualPython(intPastExactIntegerPrecision)) == false)
+        #expect(try Bool(intPastExactIntegerPrecision.greaterThanOrEqualPython(doublePastExactIntegerPrecision)) == true)
         let one = PythonInterpreter.SafePythonObject(integerLiteral: 1)
-        #expect(try Bool(nanValue.greaterThanOrEqual(one)) == false)
-        #expect(try Bool(maxInt.greaterThanOrEqual(nanValue)) == false)
+        #expect(try Bool(nanValue.greaterThanOrEqualPython(one)) == false)
+        #expect(try Bool(maxInt.greaterThanOrEqualPython(nanValue)) == false)
+        
+        #expect(try maxInt.greaterThanOrEqual(maxIntRoundedToDouble) == false)
+        #expect(try maxIntRoundedToDouble.greaterThanOrEqual(maxInt))
+        #expect(try doublePastExactIntegerPrecision.greaterThanOrEqual(intPastExactIntegerPrecision) == false)
+        #expect(try intPastExactIntegerPrecision.greaterThanOrEqual(doublePastExactIntegerPrecision))
+        #expect(try nanValue.greaterThanOrEqual(one) == false)
+        #expect(try maxInt.greaterThanOrEqual(nanValue) == false)
     }
     
     @Test("O>=_010: SafePythonObject greater than or equal error checking")
@@ -748,7 +812,7 @@ struct CompareOpsTests {
             
             for (description, lhs, rhs, expectedType1, expectedType2) in unboundTypeErrorCases {
                 let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
-                    _ = try lhs.greaterThanOrEqual(rhs)
+                    _ = try lhs.greaterThanOrEqualPython(rhs)
                 }
                 
                 if case let .typeError(operation, opType1, opType2) = thrownError {
@@ -757,6 +821,18 @@ struct CompareOpsTests {
                     #expect(opType2 == expectedType2, Comment(rawValue: description))
                 } else {
                     Issue.record("Expected .typeError for \(description), but got \(String(describing: thrownError))")
+                }
+                
+                let boolThrownError = #expect(throws: PythonError.self, Comment(rawValue: "Bool greaterThanOrEqual \(description)")) {
+                    _ = try lhs.greaterThanOrEqual(rhs)
+                }
+                
+                if case let .typeError(operation, opType1, opType2) = boolThrownError {
+                    #expect(operation == "greater than or equal", Comment(rawValue: description))
+                    #expect(opType1 == expectedType1, Comment(rawValue: description))
+                    #expect(opType2 == expectedType2, Comment(rawValue: description))
+                } else {
+                    Issue.record("Expected .typeError for Bool greaterThanOrEqual \(description), but got \(String(describing: boolThrownError))")
                 }
             }
             
@@ -771,7 +847,7 @@ struct CompareOpsTests {
             
             for (description, lhs, rhs) in boundExceptionCases {
                 let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
-                    _ = try lhs.greaterThanOrEqual(rhs)
+                    _ = try lhs.greaterThanOrEqualPython(rhs)
                 }
                 
                 if case .safePythonException = thrownError {
@@ -869,6 +945,13 @@ struct CompareOpsTests {
         #expect((intPastExactIntegerPrecision == doublePastExactIntegerPrecision) == false)
         #expect((nanValue == one) == false)
         #expect((nanValue == nanValue) == false)
+        
+        #expect(try maxInt.equal(maxIntRoundedToDouble) == false)
+        #expect(try maxIntRoundedToDouble.equal(maxInt) == false)
+        #expect(try doublePastExactIntegerPrecision.equal(intPastExactIntegerPrecision) == false)
+        #expect(try intPastExactIntegerPrecision.equal(doublePastExactIntegerPrecision) == false)
+        #expect(try nanValue.equal(one) == false)
+        #expect(try nanValue.equal(nanValue) == false)
     }
     
     // MARK: O!=_xxx Not Equal Tests
@@ -957,5 +1040,12 @@ struct CompareOpsTests {
         #expect(intPastExactIntegerPrecision != doublePastExactIntegerPrecision)
         #expect(nanValue != one)
         #expect(nanValue != nanValue)
+        
+        #expect(try maxInt.notEqual(maxIntRoundedToDouble))
+        #expect(try maxIntRoundedToDouble.notEqual(maxInt))
+        #expect(try doublePastExactIntegerPrecision.notEqual(intPastExactIntegerPrecision))
+        #expect(try intPastExactIntegerPrecision.notEqual(doublePastExactIntegerPrecision))
+        #expect(try nanValue.notEqual(one))
+        #expect(try nanValue.notEqual(nanValue))
     }
 }

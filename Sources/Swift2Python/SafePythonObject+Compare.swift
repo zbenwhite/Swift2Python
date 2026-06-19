@@ -35,18 +35,61 @@ extension PythonInterpreter.SafePythonObject {
         return !Self.deferredInt(lhs, isLessThan: rhs) && !Self.deferredDouble(rhs, isLessThan: lhs)
     }
     
-    /// Compares this safe Python object with another using Python `==` semantics.
+    /// Compares this safe Python object with a Swift value using Python `==` semantics and returns a Swift `Bool`.
     ///
-    /// If either operand is bound to an interpreter, this delegates to Python's rich comparison
-    /// machinery so custom Python objects and Python's exception behavior are preserved. Fully
-    /// deferred values are compared locally with Python-compatible bool/int behavior.
+    /// Prefer this method for almost all throwing equality checks. It uses Python's boolean rich
+    /// comparison path for bound operands and supports fully unbound `SafePythonObject` values.
+    ///
+    /// Use `equalPython(_:)` instead only when you intentionally need Python's raw rich-comparison
+    /// result as a `SafePythonObject`, such as when a custom Python `__eq__` may return a non-`bool`
+    /// object that you want to keep instead of converting to Swift `Bool`.
+    ///
+    /// If `other` is already a `SafePythonObject`, this supports fully unbound operands. If `other`
+    /// is another `SafePythonConvertible`, this object must already be bound so the value can be
+    /// converted through the active interpreter before Python performs the comparison.
+    ///
+    /// - Parameters:
+    ///   - other: The Swift value to compare against.
+    /// - Returns: `true` when this object compares equal to `other`; otherwise `false`.
+    /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but this object
+    ///   is still deferred, or `PythonError.safePythonException` if Python raises.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func equal(_ other: SafePythonConvertible) throws -> Bool {
+        if let safeObject = other as? PythonInterpreter.SafePythonObject {
+            return try Self.equalBool(lhs: self, rhs: safeObject)
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: other),
+                sourceType: String(describing: type(of: other)),
+                targetType: "SafePythonObject"
+            )
+        }
+        
+        let localInterpreter = interpreter
+        return try localInterpreter.assumeIsolated {
+            try $0.syncEqualEquatable(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+        }
+    }
+    
+    /// Compares this safe Python object with another using Python `==` semantics and returns Python's result object.
+    ///
+    /// Use this method only when you need the raw Python rich-comparison result as a
+    /// `SafePythonObject`. In normal Swift control flow, prefer `equal(_:)`, which returns `Bool`
+    /// and is the intended throwing API for almost all equality checks.
+    ///
+    /// If either operand is bound to an interpreter, this delegates to Python's `PyObject_RichCompare`,
+    /// preserving custom comparison results, including non-`bool` objects returned by Python
+    /// `__eq__` methods. Fully deferred values are compared locally with Python-compatible bool/int
+    /// behavior and return a deferred Python bool.
     ///
     /// - Parameters:
     ///   - other: The safe Python object to compare against.
-    /// - Returns: A safe Python bool object containing the comparison result.
+    /// - Returns: Python's rich-comparison result as a safe Python object.
     /// - Throws: `PythonError.safePythonException` if Python raises.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    public func equal(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+    public func equalPython(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
         switch state {
         case .bound:
             let localInterpreter = interpreter
@@ -120,20 +163,24 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    /// Compares this safe Python object with a Swift value using Python `==` semantics.
+    /// Compares this safe Python object with a Swift value using Python `==` semantics and returns Python's result object.
+    ///
+    /// Use this method only when you need the raw Python rich-comparison result as a
+    /// `SafePythonObject`. Prefer `equal(_:)` for normal throwing comparisons that should produce
+    /// a Swift `Bool`.
     ///
     /// Fully deferred objects can only compare directly against another `SafePythonObject`, because
     /// general `SafePythonConvertible` conversion needs an interpreter.
     ///
     /// - Parameters:
     ///   - other: The Swift value to convert and compare against.
-    /// - Returns: A safe Python bool object containing the comparison result.
+    /// - Returns: Python's rich-comparison result as a safe Python object.
     /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but this object
     ///   is still deferred, or `PythonError` if conversion or Python comparison fails.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    public func equal(_ other: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
+    public func equalPython(_ other: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
         if let safeObject = other as? PythonInterpreter.SafePythonObject {
-            return try equal(safeObject)
+            return try equalPython(safeObject)
         }
         
         guard isBoundToPythonInterpreter else {
@@ -152,16 +199,15 @@ extension PythonInterpreter.SafePythonObject {
     
     static internal func equalOp(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
-            return try lhs.equal(rhs)
+            return try lhs.equalPython(rhs)
         } catch {
             fatalError("Comparison failed: \(error). Use `SafePythonObject.equal(_:)` for comparisons that might throw.")
         }
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    static internal func equalEquatable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
-        do {
-            switch lhs.state {
+    private static func equalBool(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) throws -> Bool {
+        switch lhs.state {
             case .bound:
                 let localInterpreter = lhs.interpreter
                 return try localInterpreter.assumeIsolated {
@@ -228,6 +274,12 @@ extension PythonInterpreter.SafePythonObject {
                     return lhsVal == rhsVal
                 }
             }
+        }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func equalEquatable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
+        do {
+            return try equalBool(lhs: lhs, rhs: rhs)
         } catch {
             fatalError("Comparison failed: \(error). Use `SafePythonObject.equal(_:)` for comparisons that might throw.")
         }
@@ -236,18 +288,61 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Compare Not Equal
     
-    /// Compares this safe Python object with another using Python `!=` semantics.
+    /// Compares this safe Python object with a Swift value using Python `!=` semantics and returns a Swift `Bool`.
     ///
-    /// If either operand is bound to an interpreter, this delegates to Python's rich comparison
-    /// machinery so custom Python objects and Python's exception behavior are preserved. Fully
-    /// deferred values are compared locally with Python-compatible bool/int behavior.
+    /// Prefer this method for almost all throwing inequality checks. It uses Python's boolean rich
+    /// comparison path for bound operands and supports fully unbound `SafePythonObject` values.
+    ///
+    /// Use `notEqualPython(_:)` instead only when you intentionally need Python's raw rich-comparison
+    /// result as a `SafePythonObject`, such as when a custom Python `__ne__` may return a non-`bool`
+    /// object that you want to keep instead of converting to Swift `Bool`.
+    ///
+    /// If `other` is already a `SafePythonObject`, this supports fully unbound operands. If `other`
+    /// is another `SafePythonConvertible`, this object must already be bound so the value can be
+    /// converted through the active interpreter before Python performs the comparison.
+    ///
+    /// - Parameters:
+    ///   - other: The Swift value to compare against.
+    /// - Returns: `true` when this object compares not equal to `other`; otherwise `false`.
+    /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but this object
+    ///   is still deferred, or `PythonError.safePythonException` if Python raises.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func notEqual(_ other: SafePythonConvertible) throws -> Bool {
+        if let safeObject = other as? PythonInterpreter.SafePythonObject {
+            return try Self.notEqualBool(lhs: self, rhs: safeObject)
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: other),
+                sourceType: String(describing: type(of: other)),
+                targetType: "SafePythonObject"
+            )
+        }
+        
+        let localInterpreter = interpreter
+        return try localInterpreter.assumeIsolated {
+            try $0.syncNotEqualEquatable(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+        }
+    }
+    
+    /// Compares this safe Python object with another using Python `!=` semantics and returns Python's result object.
+    ///
+    /// Use this method only when you need the raw Python rich-comparison result as a
+    /// `SafePythonObject`. In normal Swift control flow, prefer `notEqual(_:)`, which returns `Bool`
+    /// and is the intended throwing API for almost all inequality checks.
+    ///
+    /// If either operand is bound to an interpreter, this delegates to Python's `PyObject_RichCompare`,
+    /// preserving custom comparison results, including non-`bool` objects returned by Python
+    /// `__ne__` methods. Fully deferred values are compared locally with Python-compatible bool/int
+    /// behavior and return a deferred Python bool.
     ///
     /// - Parameters:
     ///   - other: The safe Python object to compare against.
-    /// - Returns: A safe Python bool object containing the comparison result.
+    /// - Returns: Python's rich-comparison result as a safe Python object.
     /// - Throws: `PythonError.safePythonException` if Python raises.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    public func notEqual(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+    public func notEqualPython(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
         switch state {
         case .bound:
             let localInterpreter = interpreter
@@ -321,20 +416,24 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    /// Compares this safe Python object with a Swift value using Python `!=` semantics.
+    /// Compares this safe Python object with a Swift value using Python `!=` semantics and returns Python's result object.
+    ///
+    /// Use this method only when you need the raw Python rich-comparison result as a
+    /// `SafePythonObject`. Prefer `notEqual(_:)` for normal throwing comparisons that should produce
+    /// a Swift `Bool`.
     ///
     /// Fully deferred objects can only compare directly against another `SafePythonObject`, because
     /// general `SafePythonConvertible` conversion needs an interpreter.
     ///
     /// - Parameters:
     ///   - other: The Swift value to convert and compare against.
-    /// - Returns: A safe Python bool object containing the comparison result.
+    /// - Returns: Python's rich-comparison result as a safe Python object.
     /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but this object
     ///   is still deferred, or `PythonError` if conversion or Python comparison fails.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    public func notEqual(_ other: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
+    public func notEqualPython(_ other: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
         if let safeObject = other as? PythonInterpreter.SafePythonObject {
-            return try notEqual(safeObject)
+            return try notEqualPython(safeObject)
         }
         
         guard isBoundToPythonInterpreter else {
@@ -353,16 +452,15 @@ extension PythonInterpreter.SafePythonObject {
     
     static internal func notEqualOp(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
-            return try lhs.notEqual(rhs)
+            return try lhs.notEqualPython(rhs)
         } catch {
             fatalError("Comparison failed: \(error). Use `SafePythonObject.notEqual(_:)` for comparisons that might throw.")
         }
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    static internal func notEqualEquatable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
-        do {
-            switch lhs.state {
+    private static func notEqualBool(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) throws -> Bool {
+        switch lhs.state {
             case .bound:
                 let localInterpreter = lhs.interpreter
                 return try localInterpreter.assumeIsolated {
@@ -429,6 +527,12 @@ extension PythonInterpreter.SafePythonObject {
                     return lhsVal != rhsVal
                 }
             }
+        }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func notEqualEquatable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
+        do {
+            return try notEqualBool(lhs: lhs, rhs: rhs)
         } catch {
             fatalError("Comparison failed: \(error). Use `SafePythonObject.notEqual(_:)` for comparisons that might throw.")
         }
@@ -469,20 +573,64 @@ extension PythonInterpreter.SafePythonObject {
         PythonError.typeError(operation: "less than", opType1: Self.deferredTypeName(lhs), opType2: Self.deferredTypeName(rhs))
     }
     
-    /// Compares this safe Python object with another using Python `<` semantics.
+    /// Compares this safe Python object with a Swift value using Python `<` semantics and returns a Swift `Bool`.
     ///
-    /// If either operand is bound to an interpreter, this delegates to Python's rich comparison
-    /// machinery so custom Python objects and Python's exception behavior are preserved. Fully
-    /// deferred numeric and string values are compared locally with Python-compatible bool/int
-    /// behavior. Invalid fully deferred primitive combinations throw `PythonError.typeError`.
+    /// Prefer this method for almost all throwing less-than checks. It uses Python's boolean rich
+    /// comparison path for bound operands and preserves the same deferred-aware behavior as
+    /// `Comparable` for unbound `SafePythonObject` values.
+    ///
+    /// Use `lessThanPython(_:)` instead only when you intentionally need Python's raw rich-comparison
+    /// result as a `SafePythonObject`, such as when a custom Python `__lt__` may return a non-`bool`
+    /// object that you want to keep instead of converting to Swift `Bool`.
+    ///
+    /// If `other` is already a `SafePythonObject`, this supports fully unbound operands. If `other`
+    /// is another `SafePythonConvertible`, this object must already be bound so the value can be
+    /// converted through the active interpreter before Python performs the comparison.
+    ///
+    /// - Parameters:
+    ///   - other: The Swift value to compare against.
+    /// - Returns: `true` when this object compares less than `other`; otherwise `false`.
+    /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but this object
+    ///   is still deferred, `PythonError.safePythonException` if Python raises, or
+    ///   `PythonError.typeError` for invalid fully deferred primitive combinations.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func lessThan(_ other: SafePythonConvertible) throws -> Bool {
+        if let safeObject = other as? PythonInterpreter.SafePythonObject {
+            return try Self.lessThanBool(lhs: self, rhs: safeObject)
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: other),
+                sourceType: String(describing: type(of: other)),
+                targetType: "SafePythonObject"
+            )
+        }
+        
+        let localInterpreter = interpreter
+        return try localInterpreter.assumeIsolated {
+            try $0.syncLessThanComparable(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+        }
+    }
+    
+    /// Compares this safe Python object with another using Python `<` semantics and returns Python's result object.
+    ///
+    /// Use this method only when you need the raw Python rich-comparison result as a
+    /// `SafePythonObject`. In normal Swift control flow, prefer `lessThan(_:)`, which returns `Bool`
+    /// and is the intended throwing API for almost all less-than checks.
+    ///
+    /// If either operand is bound to an interpreter, this delegates to Python's `PyObject_RichCompare`,
+    /// preserving custom comparison results, including non-`bool` objects returned by Python
+    /// `__lt__` methods. Fully deferred numeric and string values are compared locally with
+    /// Python-compatible bool/int behavior and return a deferred Python bool.
     ///
     /// - Parameters:
     ///   - other: The safe Python object to compare against.
-    /// - Returns: A safe Python bool object containing the comparison result.
+    /// - Returns: Python's rich-comparison result as a safe Python object.
     /// - Throws: `PythonError.safePythonException` if Python raises, or `PythonError.typeError`
     ///   for invalid fully deferred primitive combinations.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    public func lessThan(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+    public func lessThanPython(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
         switch state {
         case .bound:
             let localInterpreter = interpreter
@@ -556,20 +704,24 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    /// Compares this safe Python object with a Swift value using Python `<` semantics.
+    /// Compares this safe Python object with a Swift value using Python `<` semantics and returns Python's result object.
+    ///
+    /// Use this method only when you need the raw Python rich-comparison result as a
+    /// `SafePythonObject`. Prefer `lessThan(_:)` for normal throwing comparisons that should produce
+    /// a Swift `Bool`.
     ///
     /// Fully deferred objects can only compare directly against another `SafePythonObject`, because
     /// general `SafePythonConvertible` conversion needs an interpreter.
     ///
     /// - Parameters:
     ///   - other: The Swift value to convert and compare against.
-    /// - Returns: A safe Python bool object containing the comparison result.
+    /// - Returns: Python's rich-comparison result as a safe Python object.
     /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but this object
     ///   is still deferred, or `PythonError` if conversion or Python comparison fails.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    public func lessThan(_ other: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
+    public func lessThanPython(_ other: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
         if let safeObject = other as? PythonInterpreter.SafePythonObject {
-            return try lessThan(safeObject)
+            return try lessThanPython(safeObject)
         }
         
         guard isBoundToPythonInterpreter else {
@@ -588,16 +740,15 @@ extension PythonInterpreter.SafePythonObject {
     
     static internal func lessThanOp(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
-            return try lhs.lessThan(rhs)
+            return try lhs.lessThanPython(rhs)
         } catch {
             fatalError("Comparison failed: \(error). Use `SafePythonObject.lessThan(_:)` for comparisons that might throw.")
         }
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    static internal func lessThanComparable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
-        do {
-            switch lhs.state {
+    private static func lessThanBool(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) throws -> Bool {
+        switch lhs.state {
             case .bound:
                 let localInterpreter = lhs.interpreter
                 return try localInterpreter.assumeIsolated {
@@ -668,6 +819,12 @@ extension PythonInterpreter.SafePythonObject {
                     return (lhsVal ? 1 : 0) < (rhsVal ? 1 : 0)
                 }
             }
+        }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func lessThanComparable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
+        do {
+            return try lessThanBool(lhs: lhs, rhs: rhs)
         } catch {
             fatalError("Comparison failed: \(error). Use `SafePythonObject.lessThan(_:)` for comparisons that might throw.")
         }
@@ -680,20 +837,64 @@ extension PythonInterpreter.SafePythonObject {
         PythonError.typeError(operation: "less than or equal", opType1: Self.deferredTypeName(lhs), opType2: Self.deferredTypeName(rhs))
     }
     
-    /// Compares this safe Python object with another using Python `<=` semantics.
+    /// Compares this safe Python object with a Swift value using Python `<=` semantics and returns a Swift `Bool`.
     ///
-    /// If either operand is bound to an interpreter, this delegates to Python's rich comparison
-    /// machinery so custom Python objects and Python's exception behavior are preserved. Fully
-    /// deferred numeric and string values are compared locally with Python-compatible bool/int
-    /// behavior. Invalid fully deferred primitive combinations throw `PythonError.typeError`.
+    /// Prefer this method for almost all throwing less-than-or-equal checks. It uses Python's
+    /// boolean rich comparison path for bound operands and supports fully unbound `SafePythonObject`
+    /// values.
+    ///
+    /// Use `lessThanOrEqualPython(_:)` instead only when you intentionally need Python's raw
+    /// rich-comparison result as a `SafePythonObject`, such as when a custom Python `__le__` may
+    /// return a non-`bool` object that you want to keep instead of converting to Swift `Bool`.
+    ///
+    /// If `other` is already a `SafePythonObject`, this supports fully unbound operands. If `other`
+    /// is another `SafePythonConvertible`, this object must already be bound so the value can be
+    /// converted through the active interpreter before Python performs the comparison.
+    ///
+    /// - Parameters:
+    ///   - other: The Swift value to compare against.
+    /// - Returns: `true` when this object compares less than or equal to `other`; otherwise `false`.
+    /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but this object
+    ///   is still deferred, `PythonError.safePythonException` if Python raises, or
+    ///   `PythonError.typeError` for invalid fully deferred primitive combinations.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func lessThanOrEqual(_ other: SafePythonConvertible) throws -> Bool {
+        if let safeObject = other as? PythonInterpreter.SafePythonObject {
+            return try Self.lessThanOrEqualBool(lhs: self, rhs: safeObject)
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: other),
+                sourceType: String(describing: type(of: other)),
+                targetType: "SafePythonObject"
+            )
+        }
+        
+        let localInterpreter = interpreter
+        return try localInterpreter.assumeIsolated {
+            try $0.syncLessThanOrEqualComparable(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+        }
+    }
+    
+    /// Compares this safe Python object with another using Python `<=` semantics and returns Python's result object.
+    ///
+    /// Use this method only when you need the raw Python rich-comparison result as a
+    /// `SafePythonObject`. In normal Swift control flow, prefer `lessThanOrEqual(_:)`, which returns
+    /// `Bool` and is the intended throwing API for almost all less-than-or-equal checks.
+    ///
+    /// If either operand is bound to an interpreter, this delegates to Python's `PyObject_RichCompare`,
+    /// preserving custom comparison results, including non-`bool` objects returned by Python
+    /// `__le__` methods. Fully deferred numeric and string values are compared locally with
+    /// Python-compatible bool/int behavior and return a deferred Python bool.
     ///
     /// - Parameters:
     ///   - other: The safe Python object to compare against.
-    /// - Returns: A safe Python bool object containing the comparison result.
+    /// - Returns: Python's rich-comparison result as a safe Python object.
     /// - Throws: `PythonError.safePythonException` if Python raises, or `PythonError.typeError`
     ///   for invalid fully deferred primitive combinations.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    public func lessThanOrEqual(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+    public func lessThanOrEqualPython(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
         switch state {
         case .bound:
             let localInterpreter = interpreter
@@ -767,20 +968,24 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    /// Compares this safe Python object with a Swift value using Python `<=` semantics.
+    /// Compares this safe Python object with a Swift value using Python `<=` semantics and returns Python's result object.
+    ///
+    /// Use this method only when you need the raw Python rich-comparison result as a
+    /// `SafePythonObject`. Prefer `lessThanOrEqual(_:)` for normal throwing comparisons that should
+    /// produce a Swift `Bool`.
     ///
     /// Fully deferred objects can only compare directly against another `SafePythonObject`, because
     /// general `SafePythonConvertible` conversion needs an interpreter.
     ///
     /// - Parameters:
     ///   - other: The Swift value to convert and compare against.
-    /// - Returns: A safe Python bool object containing the comparison result.
+    /// - Returns: Python's rich-comparison result as a safe Python object.
     /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but this object
     ///   is still deferred, or `PythonError` if conversion or Python comparison fails.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    public func lessThanOrEqual(_ other: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
+    public func lessThanOrEqualPython(_ other: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
         if let safeObject = other as? PythonInterpreter.SafePythonObject {
-            return try lessThanOrEqual(safeObject)
+            return try lessThanOrEqualPython(safeObject)
         }
         
         guard isBoundToPythonInterpreter else {
@@ -799,16 +1004,15 @@ extension PythonInterpreter.SafePythonObject {
     
     static internal func lessThanOrEqualOp(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
-            return try lhs.lessThanOrEqual(rhs)
+            return try lhs.lessThanOrEqualPython(rhs)
         } catch {
             fatalError("Comparison failed: \(error). Use `SafePythonObject.lessThanOrEqual(_:)` for comparisons that might throw.")
         }
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    static internal func lessThanOrEqualComparable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
-        do {
-            switch lhs.state {
+    private static func lessThanOrEqualBool(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) throws -> Bool {
+        switch lhs.state {
             case .bound:
                 let localInterpreter = lhs.interpreter
                 return try localInterpreter.assumeIsolated {
@@ -879,6 +1083,12 @@ extension PythonInterpreter.SafePythonObject {
                     return (lhsVal ? 1 : 0) <= (rhsVal ? 1 : 0)
                 }
             }
+        }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func lessThanOrEqualComparable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
+        do {
+            return try lessThanOrEqualBool(lhs: lhs, rhs: rhs)
         } catch {
             fatalError("Comparison failed: \(error). Use `SafePythonObject.lessThanOrEqual(_:)` for comparisons that might throw.")
         }
@@ -891,20 +1101,63 @@ extension PythonInterpreter.SafePythonObject {
         PythonError.typeError(operation: "greater than", opType1: Self.deferredTypeName(lhs), opType2: Self.deferredTypeName(rhs))
     }
     
-    /// Compares this safe Python object with another using Python `>` semantics.
+    /// Compares this safe Python object with a Swift value using Python `>` semantics and returns a Swift `Bool`.
     ///
-    /// If either operand is bound to an interpreter, this delegates to Python's rich comparison
-    /// machinery so custom Python objects and Python's exception behavior are preserved. Fully
-    /// deferred numeric and string values are compared locally with Python-compatible bool/int
-    /// behavior. Invalid fully deferred primitive combinations throw `PythonError.typeError`.
+    /// Prefer this method for almost all throwing greater-than checks. It uses Python's boolean rich
+    /// comparison path for bound operands and supports fully unbound `SafePythonObject` values.
+    ///
+    /// Use `greaterThanPython(_:)` instead only when you intentionally need Python's raw
+    /// rich-comparison result as a `SafePythonObject`, such as when a custom Python `__gt__` may
+    /// return a non-`bool` object that you want to keep instead of converting to Swift `Bool`.
+    ///
+    /// If `other` is already a `SafePythonObject`, this supports fully unbound operands. If `other`
+    /// is another `SafePythonConvertible`, this object must already be bound so the value can be
+    /// converted through the active interpreter before Python performs the comparison.
+    ///
+    /// - Parameters:
+    ///   - other: The Swift value to compare against.
+    /// - Returns: `true` when this object compares greater than `other`; otherwise `false`.
+    /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but this object
+    ///   is still deferred, `PythonError.safePythonException` if Python raises, or
+    ///   `PythonError.typeError` for invalid fully deferred primitive combinations.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func greaterThan(_ other: SafePythonConvertible) throws -> Bool {
+        if let safeObject = other as? PythonInterpreter.SafePythonObject {
+            return try Self.greaterThanBool(lhs: self, rhs: safeObject)
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: other),
+                sourceType: String(describing: type(of: other)),
+                targetType: "SafePythonObject"
+            )
+        }
+        
+        let localInterpreter = interpreter
+        return try localInterpreter.assumeIsolated {
+            try $0.syncGreaterThanComparable(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+        }
+    }
+    
+    /// Compares this safe Python object with another using Python `>` semantics and returns Python's result object.
+    ///
+    /// Use this method only when you need the raw Python rich-comparison result as a
+    /// `SafePythonObject`. In normal Swift control flow, prefer `greaterThan(_:)`, which returns
+    /// `Bool` and is the intended throwing API for almost all greater-than checks.
+    ///
+    /// If either operand is bound to an interpreter, this delegates to Python's `PyObject_RichCompare`,
+    /// preserving custom comparison results, including non-`bool` objects returned by Python
+    /// `__gt__` methods. Fully deferred numeric and string values are compared locally with
+    /// Python-compatible bool/int behavior and return a deferred Python bool.
     ///
     /// - Parameters:
     ///   - other: The safe Python object to compare against.
-    /// - Returns: A safe Python bool object containing the comparison result.
+    /// - Returns: Python's rich-comparison result as a safe Python object.
     /// - Throws: `PythonError.safePythonException` if Python raises, or `PythonError.typeError`
     ///   for invalid fully deferred primitive combinations.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    public func greaterThan(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+    public func greaterThanPython(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
         switch state {
         case .bound:
             let localInterpreter = interpreter
@@ -978,20 +1231,24 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    /// Compares this safe Python object with a Swift value using Python `>` semantics.
+    /// Compares this safe Python object with a Swift value using Python `>` semantics and returns Python's result object.
+    ///
+    /// Use this method only when you need the raw Python rich-comparison result as a
+    /// `SafePythonObject`. Prefer `greaterThan(_:)` for normal throwing comparisons that should
+    /// produce a Swift `Bool`.
     ///
     /// Fully deferred objects can only compare directly against another `SafePythonObject`, because
     /// general `SafePythonConvertible` conversion needs an interpreter.
     ///
     /// - Parameters:
     ///   - other: The Swift value to convert and compare against.
-    /// - Returns: A safe Python bool object containing the comparison result.
+    /// - Returns: Python's rich-comparison result as a safe Python object.
     /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but this object
     ///   is still deferred, or `PythonError` if conversion or Python comparison fails.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    public func greaterThan(_ other: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
+    public func greaterThanPython(_ other: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
         if let safeObject = other as? PythonInterpreter.SafePythonObject {
-            return try greaterThan(safeObject)
+            return try greaterThanPython(safeObject)
         }
         
         guard isBoundToPythonInterpreter else {
@@ -1010,16 +1267,15 @@ extension PythonInterpreter.SafePythonObject {
     
     static internal func greaterThanOp(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
-            return try lhs.greaterThan(rhs)
+            return try lhs.greaterThanPython(rhs)
         } catch {
             fatalError("Comparison failed: \(error). Use `SafePythonObject.greaterThan(_:)` for comparisons that might throw.")
         }
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    static internal func greaterThanComparable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
-        do {
-            switch lhs.state {
+    private static func greaterThanBool(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) throws -> Bool {
+        switch lhs.state {
             case .bound:
                 let localInterpreter = lhs.interpreter
                 return try localInterpreter.assumeIsolated {
@@ -1090,6 +1346,12 @@ extension PythonInterpreter.SafePythonObject {
                     return (lhsVal ? 1 : 0) > (rhsVal ? 1 : 0)
                 }
             }
+        }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func greaterThanComparable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
+        do {
+            return try greaterThanBool(lhs: lhs, rhs: rhs)
         } catch {
             fatalError("Comparison failed: \(error). Use `SafePythonObject.greaterThan(_:)` for comparisons that might throw.")
         }
@@ -1101,20 +1363,64 @@ extension PythonInterpreter.SafePythonObject {
         PythonError.typeError(operation: "greater than or equal", opType1: Self.deferredTypeName(lhs), opType2: Self.deferredTypeName(rhs))
     }
     
-    /// Compares this safe Python object with another using Python `>=` semantics.
+    /// Compares this safe Python object with a Swift value using Python `>=` semantics and returns a Swift `Bool`.
     ///
-    /// If either operand is bound to an interpreter, this delegates to Python's rich comparison
-    /// machinery so custom Python objects and Python's exception behavior are preserved. Fully
-    /// deferred numeric and string values are compared locally with Python-compatible bool/int
-    /// behavior. Invalid fully deferred primitive combinations throw `PythonError.typeError`.
+    /// Prefer this method for almost all throwing greater-than-or-equal checks. It uses Python's
+    /// boolean rich comparison path for bound operands and supports fully unbound `SafePythonObject`
+    /// values.
+    ///
+    /// Use `greaterThanOrEqualPython(_:)` instead only when you intentionally need Python's raw
+    /// rich-comparison result as a `SafePythonObject`, such as when a custom Python `__ge__` may
+    /// return a non-`bool` object that you want to keep instead of converting to Swift `Bool`.
+    ///
+    /// If `other` is already a `SafePythonObject`, this supports fully unbound operands. If `other`
+    /// is another `SafePythonConvertible`, this object must already be bound so the value can be
+    /// converted through the active interpreter before Python performs the comparison.
+    ///
+    /// - Parameters:
+    ///   - other: The Swift value to compare against.
+    /// - Returns: `true` when this object compares greater than or equal to `other`; otherwise `false`.
+    /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but this object
+    ///   is still deferred, `PythonError.safePythonException` if Python raises, or
+    ///   `PythonError.typeError` for invalid fully deferred primitive combinations.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func greaterThanOrEqual(_ other: SafePythonConvertible) throws -> Bool {
+        if let safeObject = other as? PythonInterpreter.SafePythonObject {
+            return try Self.greaterThanOrEqualBool(lhs: self, rhs: safeObject)
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: other),
+                sourceType: String(describing: type(of: other)),
+                targetType: "SafePythonObject"
+            )
+        }
+        
+        let localInterpreter = interpreter
+        return try localInterpreter.assumeIsolated {
+            try $0.syncGreaterThanOrEqualComparable(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+        }
+    }
+    
+    /// Compares this safe Python object with another using Python `>=` semantics and returns Python's result object.
+    ///
+    /// Use this method only when you need the raw Python rich-comparison result as a
+    /// `SafePythonObject`. In normal Swift control flow, prefer `greaterThanOrEqual(_:)`, which
+    /// returns `Bool` and is the intended throwing API for almost all greater-than-or-equal checks.
+    ///
+    /// If either operand is bound to an interpreter, this delegates to Python's `PyObject_RichCompare`,
+    /// preserving custom comparison results, including non-`bool` objects returned by Python
+    /// `__ge__` methods. Fully deferred numeric and string values are compared locally with
+    /// Python-compatible bool/int behavior and return a deferred Python bool.
     ///
     /// - Parameters:
     ///   - other: The safe Python object to compare against.
-    /// - Returns: A safe Python bool object containing the comparison result.
+    /// - Returns: Python's rich-comparison result as a safe Python object.
     /// - Throws: `PythonError.safePythonException` if Python raises, or `PythonError.typeError`
     ///   for invalid fully deferred primitive combinations.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    public func greaterThanOrEqual(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+    public func greaterThanOrEqualPython(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
         switch state {
         case .bound:
             let localInterpreter = interpreter
@@ -1188,20 +1494,24 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    /// Compares this safe Python object with a Swift value using Python `>=` semantics.
+    /// Compares this safe Python object with a Swift value using Python `>=` semantics and returns Python's result object.
+    ///
+    /// Use this method only when you need the raw Python rich-comparison result as a
+    /// `SafePythonObject`. Prefer `greaterThanOrEqual(_:)` for normal throwing comparisons that
+    /// should produce a Swift `Bool`.
     ///
     /// Fully deferred objects can only compare directly against another `SafePythonObject`, because
     /// general `SafePythonConvertible` conversion needs an interpreter.
     ///
     /// - Parameters:
     ///   - other: The Swift value to convert and compare against.
-    /// - Returns: A safe Python bool object containing the comparison result.
+    /// - Returns: Python's rich-comparison result as a safe Python object.
     /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but this object
     ///   is still deferred, or `PythonError` if conversion or Python comparison fails.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    public func greaterThanOrEqual(_ other: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
+    public func greaterThanOrEqualPython(_ other: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
         if let safeObject = other as? PythonInterpreter.SafePythonObject {
-            return try greaterThanOrEqual(safeObject)
+            return try greaterThanOrEqualPython(safeObject)
         }
         
         guard isBoundToPythonInterpreter else {
@@ -1220,16 +1530,15 @@ extension PythonInterpreter.SafePythonObject {
     
     static internal func greaterThanOrEqualOp(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
-            return try lhs.greaterThanOrEqual(rhs)
+            return try lhs.greaterThanOrEqualPython(rhs)
         } catch {
             fatalError("Comparison failed: \(error). Use `SafePythonObject.greaterThanOrEqual(_:)` for comparisons that might throw.")
         }
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    static internal func greaterThanOrEqualComparable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
-        do {
-            switch lhs.state {
+    private static func greaterThanOrEqualBool(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) throws -> Bool {
+        switch lhs.state {
             case .bound:
                 let localInterpreter = lhs.interpreter
                 return try localInterpreter.assumeIsolated {
@@ -1300,6 +1609,12 @@ extension PythonInterpreter.SafePythonObject {
                     return (lhsVal ? 1 : 0) >= (rhsVal ? 1 : 0)
                 }
             }
+        }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func greaterThanOrEqualComparable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
+        do {
+            return try greaterThanOrEqualBool(lhs: lhs, rhs: rhs)
         } catch {
             fatalError("Comparison failed: \(error). Use `SafePythonObject.greaterThanOrEqual(_:)` for comparisons that might throw.")
         }

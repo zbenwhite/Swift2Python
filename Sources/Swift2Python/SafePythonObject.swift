@@ -393,56 +393,6 @@ extension PythonInterpreter {
             }
         }
         
-        // MARK: Throwing Comparisons
-
-        
-        // A less than that throws.  Operators cause fatalError()
-        // so use this whenever anything might go wrong.
-        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-        public func lessThan(_ other: SafePythonConvertible) throws -> Bool {
-            let localInterpreter = interpreter
-            let lhs = self
-            return try localInterpreter.assumeIsolated {
-                try $0.syncLessThanComparable(lhs:lhs, rhs:other.toSafePythonObject(interpreter: $0))
-            }
-        }
-        
-        
-        // A less than or equal that throws.  Operators cause fatalError()
-        // so use this whenever anything might go wrong.
-        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-        public func lessThanOrEqual(_ other: SafePythonConvertible) throws -> Bool {
-            let localInterpreter = interpreter
-            let lhs = self
-            return try localInterpreter.assumeIsolated {
-                try $0.syncLessThanOrEqualComparable(lhs:lhs, rhs:other.toSafePythonObject(interpreter: $0))
-            }
-        }
-        
-        
-        // A greater than that throws.  Operators cause fatalError()
-        // so use this whenever anything might go wrong.
-        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-        public func greaterThan(_ other: SafePythonConvertible) throws -> Bool {
-            let localInterpreter = interpreter
-            let lhs = self
-            return try localInterpreter.assumeIsolated {
-                try $0.syncGreaterThanComparable(lhs:lhs, rhs:other.toSafePythonObject(interpreter: $0))
-            }
-        }
-        
-        
-        // A greater than or equal that throws.  Operators cause fatalError()
-        // so use this whenever anything might go wrong.
-        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-        public func greaterThanOrEqual(_ other: SafePythonConvertible) throws -> Bool {
-            let localInterpreter = interpreter
-            let lhs = self
-            return try localInterpreter.assumeIsolated {
-                try $0.syncGreaterThanOrEqualComparable(lhs:lhs, rhs:other.toSafePythonObject(interpreter: $0))
-            }
-        }
-        
         // MARK: Truth and Logic
         
         @available(*, noasync, message: "Only safe inside withIsolatedContext()")
