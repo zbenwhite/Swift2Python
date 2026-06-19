@@ -18,7 +18,6 @@
 // TODO: understand free threaded python
 // TODO: choose "Equal" or "Equals" for comparison function naming and only use one
 // [2026-04-25]: DONE: Use the InPlace Python APIs for InPlace just in case the operators are overloaded in python.
-// TODO: bit shift operators?
 
 import Logging
 import Foundation

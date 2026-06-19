@@ -2477,6 +2477,335 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
+    // MARK: Bit Shift Left
+    
+    private static func deferredBitwiseShiftValue(_ object: PythonInterpreter.SafePythonObject) -> Int? {
+        switch object.state {
+        case .deferredInt(let value):
+            return value
+        case .deferredBool(let value):
+            return value ? 1 : 0
+        case .bound, .deferredDouble, .deferredString:
+            return nil
+        }
+    }
+    
+    private static func checkedDeferredIntegerLeftShift(_ lhs: Int, _ rhs: Int) throws -> PythonInterpreter.SafePythonObject {
+        guard rhs >= 0 else {
+            throw PythonError.valueError("negative shift count")
+        }
+        
+        guard rhs > 0 else {
+            return PythonInterpreter.SafePythonObject(integerLiteral: lhs)
+        }
+        
+        guard rhs < Int.bitWidth else {
+            if lhs == 0 {
+                return PythonInterpreter.SafePythonObject(integerLiteral: 0)
+            }
+            throw PythonError.conversionOverflow(
+                value: "\(lhs) << \(rhs)",
+                sourceType: "deferred Python integer left shift",
+                targetType: "Swift Int"
+            )
+        }
+        
+        var result = lhs
+        for _ in 0..<rhs {
+            let doubled = result.multipliedReportingOverflow(by: 2)
+            guard !doubled.overflow else {
+                throw PythonError.conversionOverflow(
+                    value: "\(lhs) << \(rhs)",
+                    sourceType: "deferred Python integer left shift",
+                    targetType: "Swift Int"
+                )
+            }
+            result = doubled.partialValue
+        }
+        
+        return PythonInterpreter.SafePythonObject(integerLiteral: result)
+    }
+    
+    /// Returns the Python left-shift result of two safe Python objects.
+    ///
+    /// This follows Python `<<` semantics. If either operand is already bound to an
+    /// interpreter, the operation is delegated to Python with `PyNumber_Lshift`. Fully
+    /// deferred `Int` and `Bool` values are handled locally; the result is always a
+    /// deferred integer. Negative deferred shift counts throw `PythonError.valueError`,
+    /// matching Python's `ValueError`. Deferred left shifts that exceed Swift2Python's
+    /// local `Int` storage throw `PythonError.conversionOverflow`.
+    ///
+    /// - Parameters:
+    ///   - other: The safe Python object providing the shift count.
+    /// - Returns: The Python left-shift result.
+    /// - Throws: `PythonError.safePythonException` if Python raises, `PythonError.typeError`
+    ///   for invalid fully deferred primitive combinations, `PythonError.valueError` for
+    ///   negative deferred shift counts, or `PythonError.conversionOverflow` if the deferred
+    ///   result cannot fit in `Int`.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func bitShiftLeft(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+        switch state {
+        case .bound:
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                try $0.syncBitShiftLeft(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
+            }
+        case .deferredInt, .deferredBool:
+            switch other.state {
+            case .bound:
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncBitShiftLeft(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredInt, .deferredBool:
+                guard let lhsValue = Self.deferredBitwiseShiftValue(self), let rhsValue = Self.deferredBitwiseShiftValue(other) else {
+                    throw PythonError.typeError(operation: "left shift", opType1: Self.deferredTypeName(self), opType2: Self.deferredTypeName(other))
+                }
+                return try Self.checkedDeferredIntegerLeftShift(lhsValue, rhsValue)
+            case .deferredDouble, .deferredString:
+                throw PythonError.typeError(operation: "left shift", opType1: Self.deferredTypeName(self), opType2: Self.deferredTypeName(other))
+            }
+        case .deferredDouble, .deferredString:
+            switch other.state {
+            case .bound:
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncBitShiftLeft(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble, .deferredInt, .deferredString, .deferredBool:
+                throw PythonError.typeError(operation: "left shift", opType1: Self.deferredTypeName(self), opType2: Self.deferredTypeName(other))
+            }
+        }
+    }
+    
+    /// Returns the Python left-shift result of this safe Python object and a Python-convertible Swift value.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func bitShiftLeft(_ other: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
+        if let safeObject = other as? PythonInterpreter.SafePythonObject {
+            return try bitShiftLeft(safeObject)
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: other),
+                sourceType: String(describing: type(of: other)),
+                targetType: "bound SafePythonObject"
+            )
+        }
+        
+        return try bitShiftLeft(other.toSafePythonObject(interpreter: interpreter))
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func bitShiftLeftOperator(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            return try lhs.bitShiftLeft(rhs)
+        } catch {
+            fatalError("Left shift failed: \(error).  Use `SafePythonObject.bitShiftLeft()` for left shift that might throw.")
+        }
+    }
+    
+    /// Replaces this safe Python object with its Python left-shift result.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public mutating func bitShiftLeftInPlace(_ other: PythonInterpreter.SafePythonObject) throws {
+        switch state {
+        case .bound:
+            let localInterpreter = interpreter
+            try localInterpreter.assumeIsolated {
+                self = try $0.syncInPlaceBitShiftLeft(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+            }
+        case .deferredDouble, .deferredInt, .deferredString, .deferredBool:
+            if other.isBoundToPythonInterpreter {
+                let localInterpreter = other.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceBitShiftLeft(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+                }
+            } else {
+                do {
+                    self = try bitShiftLeft(other)
+                } catch let PythonError.typeError(_, opType1, opType2) {
+                    throw PythonError.typeError(operation: "in place left shift", opType1: opType1, opType2: opType2)
+                }
+            }
+        }
+    }
+    
+    /// Replaces this safe Python object with its left shift against a Python-convertible Swift value.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public mutating func bitShiftLeftInPlace(_ other: any SafePythonConvertible) throws {
+        if let safeObject = other as? PythonInterpreter.SafePythonObject {
+            try bitShiftLeftInPlace(safeObject)
+            return
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: other),
+                sourceType: String(describing: type(of: other)),
+                targetType: "bound SafePythonObject"
+            )
+        }
+        
+        try bitShiftLeftInPlace(other.toSafePythonObject(interpreter: interpreter))
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func bitShiftLeftInPlaceOperator(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            var result = lhs
+            try result.bitShiftLeftInPlace(rhs)
+            return result
+        } catch {
+            fatalError("In place left shift failed: \(error).  Use `SafePythonObject.bitShiftLeftInPlace()` for in place left shift that might throw.")
+        }
+    }
+    
+    // MARK: Bit Shift Right
+    
+    private static func checkedDeferredIntegerRightShift(_ lhs: Int, _ rhs: Int) throws -> PythonInterpreter.SafePythonObject {
+        guard rhs >= 0 else {
+            throw PythonError.valueError("negative shift count")
+        }
+        
+        if rhs >= Int.bitWidth {
+            return PythonInterpreter.SafePythonObject(integerLiteral: lhs < 0 ? -1 : 0)
+        }
+        
+        return PythonInterpreter.SafePythonObject(integerLiteral: lhs >> rhs)
+    }
+    
+    /// Returns the Python right-shift result of two safe Python objects.
+    ///
+    /// This follows Python `>>` semantics. If either operand is already bound to an
+    /// interpreter, the operation is delegated to Python with `PyNumber_Rshift`. Fully
+    /// deferred `Int` and `Bool` values are handled locally; the result is always a
+    /// deferred integer. Negative deferred shift counts throw `PythonError.valueError`,
+    /// matching Python's `ValueError`.
+    ///
+    /// - Parameters:
+    ///   - other: The safe Python object providing the shift count.
+    /// - Returns: The Python right-shift result.
+    /// - Throws: `PythonError.safePythonException` if Python raises, `PythonError.typeError`
+    ///   for invalid fully deferred primitive combinations, or `PythonError.valueError` for
+    ///   negative deferred shift counts.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func bitShiftRight(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+        switch state {
+        case .bound:
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                try $0.syncBitShiftRight(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
+            }
+        case .deferredInt, .deferredBool:
+            switch other.state {
+            case .bound:
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncBitShiftRight(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredInt, .deferredBool:
+                guard let lhsValue = Self.deferredBitwiseShiftValue(self), let rhsValue = Self.deferredBitwiseShiftValue(other) else {
+                    throw PythonError.typeError(operation: "right shift", opType1: Self.deferredTypeName(self), opType2: Self.deferredTypeName(other))
+                }
+                return try Self.checkedDeferredIntegerRightShift(lhsValue, rhsValue)
+            case .deferredDouble, .deferredString:
+                throw PythonError.typeError(operation: "right shift", opType1: Self.deferredTypeName(self), opType2: Self.deferredTypeName(other))
+            }
+        case .deferredDouble, .deferredString:
+            switch other.state {
+            case .bound:
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncBitShiftRight(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble, .deferredInt, .deferredString, .deferredBool:
+                throw PythonError.typeError(operation: "right shift", opType1: Self.deferredTypeName(self), opType2: Self.deferredTypeName(other))
+            }
+        }
+    }
+    
+    /// Returns the Python right-shift result of this safe Python object and a Python-convertible Swift value.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func bitShiftRight(_ other: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
+        if let safeObject = other as? PythonInterpreter.SafePythonObject {
+            return try bitShiftRight(safeObject)
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: other),
+                sourceType: String(describing: type(of: other)),
+                targetType: "bound SafePythonObject"
+            )
+        }
+        
+        return try bitShiftRight(other.toSafePythonObject(interpreter: interpreter))
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func bitShiftRightOperator(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            return try lhs.bitShiftRight(rhs)
+        } catch {
+            fatalError("Right shift failed: \(error).  Use `SafePythonObject.bitShiftRight()` for right shift that might throw.")
+        }
+    }
+    
+    /// Replaces this safe Python object with its Python right-shift result.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public mutating func bitShiftRightInPlace(_ other: PythonInterpreter.SafePythonObject) throws {
+        switch state {
+        case .bound:
+            let localInterpreter = interpreter
+            try localInterpreter.assumeIsolated {
+                self = try $0.syncInPlaceBitShiftRight(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+            }
+        case .deferredDouble, .deferredInt, .deferredString, .deferredBool:
+            if other.isBoundToPythonInterpreter {
+                let localInterpreter = other.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceBitShiftRight(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+                }
+            } else {
+                do {
+                    self = try bitShiftRight(other)
+                } catch let PythonError.typeError(_, opType1, opType2) {
+                    throw PythonError.typeError(operation: "in place right shift", opType1: opType1, opType2: opType2)
+                }
+            }
+        }
+    }
+    
+    /// Replaces this safe Python object with its right shift against a Python-convertible Swift value.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public mutating func bitShiftRightInPlace(_ other: any SafePythonConvertible) throws {
+        if let safeObject = other as? PythonInterpreter.SafePythonObject {
+            try bitShiftRightInPlace(safeObject)
+            return
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: other),
+                sourceType: String(describing: type(of: other)),
+                targetType: "bound SafePythonObject"
+            )
+        }
+        
+        try bitShiftRightInPlace(other.toSafePythonObject(interpreter: interpreter))
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func bitShiftRightInPlaceOperator(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            var result = lhs
+            try result.bitShiftRightInPlace(rhs)
+            return result
+        } catch {
+            fatalError("In place right shift failed: \(error).  Use `SafePythonObject.bitShiftRightInPlace()` for in place right shift that might throw.")
+        }
+    }
+    
     // MARK: Bitwise NOT
     
     /// Returns the Python bitwise inversion of this safe Python object.

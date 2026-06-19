@@ -7,12 +7,12 @@
 
 import Foundation
 
-public let PyBUF_SIMPLE      = Int32(0)
-public let PyBUF_WRITABLE    = Int32(1 << 0)
-public let PyBUF_FORMAT      = Int32(1 << 1)
-public let PyBUF_ND          = Int32(1 << 2)
-public let PyBUF_STRIDES     = Int32(1 << 3)
-public let PyBUF_C_CONTIGUOUS = Int32(1 << 4)
+public let PyBUF_SIMPLE: Int32 = 0
+public let PyBUF_WRITABLE: Int32 = 1 << 0
+public let PyBUF_FORMAT: Int32 = 1 << 1
+public let PyBUF_ND: Int32 = 1 << 2
+public let PyBUF_STRIDES: Int32 = 1 << 3
+public let PyBUF_C_CONTIGUOUS: Int32 = 1 << 4
 
 public struct Py_buffer {
     public var buf: UnsafeMutableRawPointer?

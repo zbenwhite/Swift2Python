@@ -1026,6 +1026,58 @@ public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectabl
         return try await interpreter.bitwiseXorInPlace(lhs: self, rhs: other.toPythonObject(interpreter: interpreter))
     }
     
+    /// Shifts this Python object left by a Python-convertible count using Python `<<` semantics.
+    ///
+    /// This delegates to CPython's `PyNumber_Lshift`, so Python controls integer behavior,
+    /// boolean behavior, overflow behavior, and error reporting.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible shift count.
+    /// - Returns: The Python left-shift result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
+    public func bitShiftLeft(_ other: PendingPythonConvertible) async throws -> PythonObject {
+        return try await interpreter.bitShiftLeft(lhs: self, rhs: other.toPythonObject(interpreter: interpreter))
+    }
+    
+    /// Replaces this Python object with its left shift by a Python-convertible count.
+    ///
+    /// This delegates to CPython's `PyNumber_InPlaceLshift`. Python may mutate mutable
+    /// objects in place or return a new object for immutable values.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible shift count.
+    /// - Returns: The Python in-place left-shift result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
+    public func bitShiftLeftInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
+        return try await interpreter.bitShiftLeftInPlace(lhs: self, rhs: other.toPythonObject(interpreter: interpreter))
+    }
+    
+    /// Shifts this Python object right by a Python-convertible count using Python `>>` semantics.
+    ///
+    /// This delegates to CPython's `PyNumber_Rshift`, so Python controls integer behavior,
+    /// boolean behavior, and error reporting.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible shift count.
+    /// - Returns: The Python right-shift result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
+    public func bitShiftRight(_ other: PendingPythonConvertible) async throws -> PythonObject {
+        return try await interpreter.bitShiftRight(lhs: self, rhs: other.toPythonObject(interpreter: interpreter))
+    }
+    
+    /// Replaces this Python object with its right shift by a Python-convertible count.
+    ///
+    /// This delegates to CPython's `PyNumber_InPlaceRshift`. Python may mutate mutable
+    /// objects in place or return a new object for immutable values.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible shift count.
+    /// - Returns: The Python in-place right-shift result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
+    public func bitShiftRightInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
+        return try await interpreter.bitShiftRightInPlace(lhs: self, rhs: other.toPythonObject(interpreter: interpreter))
+    }
+    
     /// Returns the Python bitwise inversion of this Python object using Python `~` semantics.
     ///
     /// This delegates to CPython's `PyNumber_Invert`, so Python controls integer behavior,

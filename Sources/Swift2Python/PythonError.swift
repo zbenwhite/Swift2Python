@@ -41,6 +41,7 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
     case tupleConversionFailed(expected: String, actual: String?)
     case tupleArityMismatch(expected: Int, actual: Int)
     case typeError(operation: String, opType1: String, opType2: String )
+    case valueError(String)
     case divideByZero
     
     
@@ -112,6 +113,8 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
             return "Tuple arity mismatch: expected \(expected) elements, got \(actual)"
         case .typeError(let operation, let opType1, let opType2):
             return "Operation \(operation) is invalid between type \(opType1) and \(opType2)"
+        case .valueError(let message):
+            return "Value error: \(message)"
         case .divideByZero:
             return "Attempted to divide by zero."
         }

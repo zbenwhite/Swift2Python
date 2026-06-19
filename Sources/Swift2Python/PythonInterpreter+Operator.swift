@@ -529,6 +529,122 @@ extension PythonInterpreter {
         }
     }
     
+    // MARK: Bit Shift Left
+    
+    internal func syncBitShiftLeft(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
+        let lhsPtr = getRegisteredPointer(forSafeObj:lhs)
+        let rhsPtr = getRegisteredPointer(forSafeObj:rhs)
+        
+        logger.trace("CPython API call in synchronous mode: PyNumber_Lshift")
+        guard let resultPtr = api.PyNumber_Lshift(lhsPtr, rhsPtr) else {
+            logger.error("PyNumber_Lshift returned NULL.  Throwing Python error.")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "left shift", opType1: "SafePythonObject", opType2: "SafePythonObject")
+        }
+        return newSafePythonObject(fromReturnedPointer: resultPtr)
+    }
+    
+    internal func bitShiftLeft(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
+        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
+        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_Lshift")
+        return try await withGIL {
+            guard let resultPtr = api.PyNumber_Lshift(lhsPtr, rhsPtr) else {
+                logger.error("PyNumber_Lshift returned NULL.  Throwing Python error.")
+                try throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "left shift", opType1: "PythonObject", opType2: "PythonObject")
+            }
+            return newPythonObject(fromReturnedPointer: resultPtr)
+        }
+    }
+    
+    internal func syncInPlaceBitShiftLeft(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
+        let lhsPtr = getRegisteredPointer(forSafeObj:lhs)
+        let rhsPtr = getRegisteredPointer(forSafeObj:rhs)
+        
+        logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceLshift")
+        guard let resultPtr = api.PyNumber_InPlaceLshift(lhsPtr, rhsPtr) else {
+            logger.error("PyNumber_InPlaceLshift returned NULL.  Throwing Python error.")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "in place left shift", opType1: "SafePythonObject", opType2: "SafePythonObject")
+        }
+        return newSafePythonObject(fromReturnedPointer: resultPtr)
+    }
+    
+    internal func bitShiftLeftInPlace(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
+        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
+        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_InPlaceLshift")
+        return try await withGIL {
+            guard let resultPtr = api.PyNumber_InPlaceLshift(lhsPtr, rhsPtr) else {
+                logger.error("PyNumber_InPlaceLshift returned NULL.  Throwing Python error.")
+                try throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "in place left shift", opType1: "PythonObject", opType2: "PythonObject")
+            }
+            return newPythonObject(fromReturnedPointer: resultPtr)
+        }
+    }
+    
+    // MARK: Bit Shift Right
+    
+    internal func syncBitShiftRight(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {
+        let lhsPtr = getRegisteredPointer(forSafeObj:lhs)
+        let rhsPtr = getRegisteredPointer(forSafeObj:rhs)
+        
+        logger.trace("CPython API call in synchronous mode: PyNumber_Rshift")
+        guard let resultPtr = api.PyNumber_Rshift(lhsPtr, rhsPtr) else {
+            logger.error("PyNumber_Rshift returned NULL.  Throwing Python error.")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "right shift", opType1: "SafePythonObject", opType2: "SafePythonObject")
+        }
+        return newSafePythonObject(fromReturnedPointer: resultPtr)
+    }
+    
+    internal func bitShiftRight(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
+        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
+        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_Rshift")
+        return try await withGIL {
+            guard let resultPtr = api.PyNumber_Rshift(lhsPtr, rhsPtr) else {
+                logger.error("PyNumber_Rshift returned NULL.  Throwing Python error.")
+                try throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "right shift", opType1: "PythonObject", opType2: "PythonObject")
+            }
+            return newPythonObject(fromReturnedPointer: resultPtr)
+        }
+    }
+    
+    internal func syncInPlaceBitShiftRight(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
+        let lhsPtr = getRegisteredPointer(forSafeObj:lhs)
+        let rhsPtr = getRegisteredPointer(forSafeObj:rhs)
+        
+        logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceRshift")
+        guard let resultPtr = api.PyNumber_InPlaceRshift(lhsPtr, rhsPtr) else {
+            logger.error("PyNumber_InPlaceRshift returned NULL.  Throwing Python error.")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "in place right shift", opType1: "SafePythonObject", opType2: "SafePythonObject")
+        }
+        return newSafePythonObject(fromReturnedPointer: resultPtr)
+    }
+    
+    internal func bitShiftRightInPlace(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
+        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
+        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_InPlaceRshift")
+        return try await withGIL {
+            guard let resultPtr = api.PyNumber_InPlaceRshift(lhsPtr, rhsPtr) else {
+                logger.error("PyNumber_InPlaceRshift returned NULL.  Throwing Python error.")
+                try throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "in place right shift", opType1: "PythonObject", opType2: "PythonObject")
+            }
+            return newPythonObject(fromReturnedPointer: resultPtr)
+        }
+    }
+    
     // MARK: Bitwise NOT
     
     internal func syncBitwiseNot(_ operand: SafePythonObject) throws -> SafePythonObject {

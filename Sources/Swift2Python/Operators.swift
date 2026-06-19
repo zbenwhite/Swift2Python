@@ -147,6 +147,26 @@ public extension PythonInterpreter.SafePythonObject {
         return PythonInterpreter.SafePythonObject.bitwiseXorOperator(lhs: lhs, rhs: rhs)
     }
 
+    /// Shifts a safe Python object left using Python `<<` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, the fully
+    /// deferred operand types do not support left shift, a deferred shift count is negative,
+    /// or a deferred result cannot be represented, this traps with `fatalError`. Use
+    /// `SafePythonObject.bitShiftLeft(_:)` when left shift can fail and should be handled.
+    static func << (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        return PythonInterpreter.SafePythonObject.bitShiftLeftOperator(lhs: lhs, rhs: rhs)
+    }
+
+    /// Shifts a safe Python object right using Python `>>` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, the fully
+    /// deferred operand types do not support right shift, or a deferred shift count is negative,
+    /// this traps with `fatalError`. Use `SafePythonObject.bitShiftRight(_:)` when right shift
+    /// can fail and should be handled.
+    static func >> (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        return PythonInterpreter.SafePythonObject.bitShiftRightOperator(lhs: lhs, rhs: rhs)
+    }
+
     /// Replaces a safe Python object with its Python bitwise AND result using `&=` semantics.
     ///
     /// This operator is non-throwing. If Python raises, conversion fails, or the fully
@@ -172,6 +192,26 @@ public extension PythonInterpreter.SafePythonObject {
     /// Use `SafePythonObject.bitwiseXorInPlace(_:)` when in-place bitwise XOR can fail and should be handled.
     static func ^= (lhs: inout PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) {
         lhs = PythonInterpreter.SafePythonObject.bitwiseXorInPlaceOperator(lhs: lhs, rhs: rhs)
+    }
+
+    /// Replaces a safe Python object with its Python left-shift result using `<<=` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, the fully
+    /// deferred operand types do not support left shift, a deferred shift count is negative,
+    /// or a deferred result cannot be represented, this traps with `fatalError`. Use
+    /// `SafePythonObject.bitShiftLeftInPlace(_:)` when in-place left shift can fail and should be handled.
+    static func <<= (lhs: inout PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) {
+        lhs = PythonInterpreter.SafePythonObject.bitShiftLeftInPlaceOperator(lhs: lhs, rhs: rhs)
+    }
+
+    /// Replaces a safe Python object with its Python right-shift result using `>>=` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, the fully
+    /// deferred operand types do not support right shift, or a deferred shift count is negative,
+    /// this traps with `fatalError`. Use `SafePythonObject.bitShiftRightInPlace(_:)` when in-place
+    /// right shift can fail and should be handled.
+    static func >>= (lhs: inout PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) {
+        lhs = PythonInterpreter.SafePythonObject.bitShiftRightInPlaceOperator(lhs: lhs, rhs: rhs)
     }
 
     /// Returns the Python bitwise inversion of a safe Python object using `~` semantics.
