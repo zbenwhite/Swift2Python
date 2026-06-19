@@ -790,6 +790,39 @@ public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectabl
     
     // MARK: Arithmetic functions
     
+    /// Applies Python unary plus to this Python object using Python `+x` semantics.
+    ///
+    /// This delegates to CPython's `PyNumber_Positive`, so Python controls type coercion,
+    /// arbitrary-precision integer behavior, and error reporting.
+    ///
+    /// - Returns: The Python unary plus result.
+    /// - Throws: `PythonError.pythonException` if Python raises.
+    public func positive() async throws -> PythonObject {
+        return try await interpreter.positive(self)
+    }
+    
+    /// Applies Python unary minus to this Python object using Python `-x` semantics.
+    ///
+    /// This delegates to CPython's `PyNumber_Negative`, so Python controls type coercion,
+    /// arbitrary-precision integer behavior, and error reporting.
+    ///
+    /// - Returns: The Python unary minus result.
+    /// - Throws: `PythonError.pythonException` if Python raises.
+    public func negative() async throws -> PythonObject {
+        return try await interpreter.negative(self)
+    }
+    
+    /// Returns the Python absolute value of this Python object using Python `abs(x)` semantics.
+    ///
+    /// This delegates to CPython's `PyNumber_Absolute`, so Python controls type coercion,
+    /// arbitrary-precision integer behavior, and error reporting.
+    ///
+    /// - Returns: The Python absolute value result.
+    /// - Throws: `PythonError.pythonException` if Python raises.
+    public func absolute() async throws -> PythonObject {
+        return try await interpreter.absolute(self)
+    }
+    
     /// Adds a Python-convertible value to this Python object using Python `+` semantics.
     ///
     /// This delegates to CPython's `PyNumber_Add`, so Python controls type coercion,

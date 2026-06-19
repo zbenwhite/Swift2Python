@@ -14,6 +14,158 @@ extension PythonInterpreter.SafePythonObject {
     
     
     
+    // MARK: Unary Positive
+    
+    /// Returns the Python unary-plus result of this safe Python object.
+    ///
+    /// This follows Python `+x` semantics. If this object is bound to an interpreter,
+    /// the operation is delegated to Python with `PyNumber_Positive`, allowing custom
+    /// Python objects to implement `__pos__`. Fully deferred `Int` and `Double` values
+    /// return their numeric value unchanged; fully deferred `Bool` produces a deferred
+    /// integer, matching Python's `+True == 1` and `+False == 0` behavior.
+    ///
+    /// - Returns: The Python unary-plus result.
+    /// - Throws: `PythonError.safePythonException` if Python raises, or `PythonError.typeError`
+    ///   for invalid fully deferred primitive values.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func positive() throws -> PythonInterpreter.SafePythonObject {
+        switch state {
+        case .bound:
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                try $0.syncPositive(self.toSafePythonObject(interpreter: $0))
+            }
+        case .deferredDouble(let value):
+            return PythonInterpreter.SafePythonObject(floatLiteral: value)
+        case .deferredInt(let value):
+            return PythonInterpreter.SafePythonObject(integerLiteral: value)
+        case .deferredBool(let value):
+            return PythonInterpreter.SafePythonObject(integerLiteral: value ? 1 : 0)
+        case .deferredString:
+            throw PythonError.typeError(operation: "unary plus", opType1: Self.deferredTypeName(self), opType2: "None")
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func positiveOperator(_ operand: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            return try operand.positive()
+        } catch {
+            fatalError("Unary plus failed: \(error).  Use `SafePythonObject.positive()` for unary plus that might throw.")
+        }
+    }
+    
+    // MARK: Unary Negative
+    
+    private static func checkedDeferredIntegerNegation(_ value: Int) throws -> PythonInterpreter.SafePythonObject {
+        let result = value.multipliedReportingOverflow(by: -1)
+        guard !result.overflow else {
+            throw PythonError.conversionOverflow(
+                value: "-\(value)",
+                sourceType: "deferred Python integer negation",
+                targetType: "Swift Int"
+            )
+        }
+        
+        return PythonInterpreter.SafePythonObject(integerLiteral: result.partialValue)
+    }
+    
+    /// Returns the Python unary-minus result of this safe Python object.
+    ///
+    /// This follows Python `-x` semantics. If this object is bound to an interpreter,
+    /// the operation is delegated to Python with `PyNumber_Negative`, allowing custom
+    /// Python objects to implement `__neg__`. Fully deferred numeric and boolean values
+    /// are handled locally. Deferred `Int.min` throws `PythonError.conversionOverflow`
+    /// because Python would produce an arbitrary-precision integer that cannot fit in
+    /// Swift2Python's deferred `Int` storage.
+    ///
+    /// - Returns: The Python unary-minus result.
+    /// - Throws: `PythonError.safePythonException` if Python raises, `PythonError.typeError`
+    ///   for invalid fully deferred primitive values, or `PythonError.conversionOverflow`
+    ///   if fully deferred integer negation exceeds Swift2Python's deferred `Int` storage.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func negative() throws -> PythonInterpreter.SafePythonObject {
+        switch state {
+        case .bound:
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                try $0.syncNegative(self.toSafePythonObject(interpreter: $0))
+            }
+        case .deferredDouble(let value):
+            return PythonInterpreter.SafePythonObject(floatLiteral: -value)
+        case .deferredInt(let value):
+            return try Self.checkedDeferredIntegerNegation(value)
+        case .deferredBool(let value):
+            return PythonInterpreter.SafePythonObject(integerLiteral: value ? -1 : 0)
+        case .deferredString:
+            throw PythonError.typeError(operation: "unary minus", opType1: Self.deferredTypeName(self), opType2: "None")
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func negativeOperator(_ operand: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            return try operand.negative()
+        } catch {
+            fatalError("Unary minus failed: \(error).  Use `SafePythonObject.negative()` for unary minus that might throw.")
+        }
+    }
+    
+    // MARK: Absolute Value
+    
+    private static func checkedDeferredIntegerAbsolute(_ value: Int) throws -> PythonInterpreter.SafePythonObject {
+        guard value != Int.min else {
+            throw PythonError.conversionOverflow(
+                value: "abs(\(value))",
+                sourceType: "deferred Python integer absolute value",
+                targetType: "Swift Int"
+            )
+        }
+        
+        return PythonInterpreter.SafePythonObject(integerLiteral: Swift.abs(value))
+    }
+    
+    /// Returns the Python absolute value of this safe Python object.
+    ///
+    /// This follows Python `abs(x)` semantics. If this object is bound to an interpreter,
+    /// the operation is delegated to Python with `PyNumber_Absolute`, allowing custom
+    /// Python objects to implement `__abs__`. Fully deferred numeric and boolean values
+    /// are handled locally. Deferred `Int.min` throws `PythonError.conversionOverflow`
+    /// because Python would produce an arbitrary-precision integer that cannot fit in
+    /// Swift2Python's deferred `Int` storage.
+    ///
+    /// - Returns: The Python absolute value result.
+    /// - Throws: `PythonError.safePythonException` if Python raises, `PythonError.typeError`
+    ///   for invalid fully deferred primitive values, or `PythonError.conversionOverflow`
+    ///   if fully deferred integer absolute value exceeds Swift2Python's deferred `Int` storage.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func absolute() throws -> PythonInterpreter.SafePythonObject {
+        switch state {
+        case .bound:
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                try $0.syncAbsolute(self.toSafePythonObject(interpreter: $0))
+            }
+        case .deferredDouble(let value):
+            return PythonInterpreter.SafePythonObject(floatLiteral: Swift.abs(value))
+        case .deferredInt(let value):
+            return try Self.checkedDeferredIntegerAbsolute(value)
+        case .deferredBool(let value):
+            return PythonInterpreter.SafePythonObject(integerLiteral: value ? 1 : 0)
+        case .deferredString:
+            throw PythonError.typeError(operation: "absolute value", opType1: Self.deferredTypeName(self), opType2: "None")
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func absoluteOperator(_ operand: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            return try operand.absolute()
+        } catch {
+            fatalError("Absolute value failed: \(error).  Use `SafePythonObject.absolute()` for absolute value that might throw.")
+        }
+    }
+    
     // MARK: Addition
     
     /// Adds two fully deferred integer values without allowing Swift integer overflow.

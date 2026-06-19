@@ -7,6 +7,90 @@
 
 extension PythonInterpreter {
     
+    // MARK: Unary Positive
+    
+    internal func syncPositive(_ operand: SafePythonObject) throws -> SafePythonObject {
+        let operandPtr = getRegisteredPointer(forSafeObj: operand)
+        
+        logger.trace("CPython API call in synchronous mode: PyNumber_Positive")
+        guard let resultPtr = api.PyNumber_Positive(operandPtr) else {
+            logger.error("PyNumber_Positive returned NULL.  Throwing Python error.")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "unary plus", opType1: "SafePythonObject", opType2: "None")
+        }
+        return newSafePythonObject(fromReturnedPointer: resultPtr)
+    }
+    
+    internal func positive(_ operand: PythonObject) async throws -> PythonObject {
+        let operandPtr = getRegisteredPointer(forPythonObject: operand)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_Positive")
+        return try await withGIL {
+            guard let resultPtr = api.PyNumber_Positive(operandPtr) else {
+                logger.error("PyNumber_Positive returned NULL.  Throwing Python error.")
+                try throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "unary plus", opType1: "PythonObject", opType2: "None")
+            }
+            return newPythonObject(fromReturnedPointer: resultPtr)
+        }
+    }
+    
+    // MARK: Unary Negative
+    
+    internal func syncNegative(_ operand: SafePythonObject) throws -> SafePythonObject {
+        let operandPtr = getRegisteredPointer(forSafeObj: operand)
+        
+        logger.trace("CPython API call in synchronous mode: PyNumber_Negative")
+        guard let resultPtr = api.PyNumber_Negative(operandPtr) else {
+            logger.error("PyNumber_Negative returned NULL.  Throwing Python error.")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "unary minus", opType1: "SafePythonObject", opType2: "None")
+        }
+        return newSafePythonObject(fromReturnedPointer: resultPtr)
+    }
+    
+    internal func negative(_ operand: PythonObject) async throws -> PythonObject {
+        let operandPtr = getRegisteredPointer(forPythonObject: operand)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_Negative")
+        return try await withGIL {
+            guard let resultPtr = api.PyNumber_Negative(operandPtr) else {
+                logger.error("PyNumber_Negative returned NULL.  Throwing Python error.")
+                try throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "unary minus", opType1: "PythonObject", opType2: "None")
+            }
+            return newPythonObject(fromReturnedPointer: resultPtr)
+        }
+    }
+    
+    // MARK: Absolute Value
+    
+    internal func syncAbsolute(_ operand: SafePythonObject) throws -> SafePythonObject {
+        let operandPtr = getRegisteredPointer(forSafeObj: operand)
+        
+        logger.trace("CPython API call in synchronous mode: PyNumber_Absolute")
+        guard let resultPtr = api.PyNumber_Absolute(operandPtr) else {
+            logger.error("PyNumber_Absolute returned NULL.  Throwing Python error.")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "absolute value", opType1: "SafePythonObject", opType2: "None")
+        }
+        return newSafePythonObject(fromReturnedPointer: resultPtr)
+    }
+    
+    internal func absolute(_ operand: PythonObject) async throws -> PythonObject {
+        let operandPtr = getRegisteredPointer(forPythonObject: operand)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_Absolute")
+        return try await withGIL {
+            guard let resultPtr = api.PyNumber_Absolute(operandPtr) else {
+                logger.error("PyNumber_Absolute returned NULL.  Throwing Python error.")
+                try throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "absolute value", opType1: "PythonObject", opType2: "None")
+            }
+            return newPythonObject(fromReturnedPointer: resultPtr)
+        }
+    }
+    
     // MARK: Addition
     
     internal func syncAdd(_ lhs: SafePythonObject, _ rhs: SafePythonObject) throws -> SafePythonObject {

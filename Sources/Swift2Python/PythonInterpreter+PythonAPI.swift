@@ -50,6 +50,7 @@ extension PythonInterpreter {
         let PyMapping_Items: (@convention(c) (UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?)
         let PyMapping_Keys: (@convention(c) (UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?)
         let PyMapping_Values: (@convention(c) (UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?)
+        let PyNumber_Absolute: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_Add: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_And: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_InPlaceAdd: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
@@ -66,7 +67,9 @@ extension PythonInterpreter {
         let PyNumber_Invert: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_Lshift: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_Multiply: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
+        let PyNumber_Negative: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_Or: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
+        let PyNumber_Positive: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_Power: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?)
         let PyNumber_Remainder: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyNumber_Rshift: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
@@ -553,6 +556,8 @@ extension PythonInterpreter {
                 "PyMapping_Keys", as: (@convention(c) (UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self).function,
             PyMapping_Values: try await runtime.loadSendableSymbol(
                 "PyMapping_Values", as: (@convention(c) (UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self).function,
+            PyNumber_Absolute: try await runtime.loadSendableSymbol(
+                "PyNumber_Absolute", as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             PyNumber_Add: try await runtime.loadSendableSymbol(
                 "PyNumber_Add", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             PyNumber_And: try await runtime.loadSendableSymbol(
@@ -585,8 +590,12 @@ extension PythonInterpreter {
                 "PyNumber_Lshift", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             PyNumber_Multiply: try await runtime.loadSendableSymbol(
                 "PyNumber_Multiply", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
+            PyNumber_Negative: try await runtime.loadSendableSymbol(
+                "PyNumber_Negative", as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             PyNumber_Or: try await runtime.loadSendableSymbol(
                 "PyNumber_Or", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
+            PyNumber_Positive: try await runtime.loadSendableSymbol(
+                "PyNumber_Positive", as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             PyNumber_Power: try await runtime.loadSendableSymbol(
                     "PyNumber_Power", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?).self).function,
             PyNumber_Remainder: try await runtime.loadSendableSymbol(

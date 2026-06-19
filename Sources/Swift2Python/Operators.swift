@@ -10,6 +10,25 @@ infix operator **= : AssignmentPrecedence
 
 public extension PythonInterpreter.SafePythonObject {
     
+    /// Returns the Python unary-plus result of a safe Python object using `+x` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, or the fully
+    /// deferred operand type does not support unary plus, this traps with `fatalError`.
+    /// Use `SafePythonObject.positive()` when unary plus can fail and should be handled.
+    static prefix func + (_ operand: Self) -> Self {
+        return PythonInterpreter.SafePythonObject.positiveOperator(operand)
+    }
+    
+    /// Returns the Python unary-minus result of a safe Python object using `-x` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, the fully
+    /// deferred operand type does not support unary minus, or a deferred integer result
+    /// cannot be represented, this traps with `fatalError`. Use `SafePythonObject.negative()`
+    /// when unary minus can fail and should be handled.
+    static prefix func - (_ operand: Self) -> Self {
+        return PythonInterpreter.SafePythonObject.negativeOperator(operand)
+    }
+    
     /// Adds two safe Python objects using Python `+` semantics.
     ///
     /// This operator is non-throwing. If Python raises, conversion fails, or deferred
@@ -223,6 +242,16 @@ public extension PythonInterpreter.SafePythonObject {
         return PythonInterpreter.SafePythonObject.bitwiseNotOperator(operand)
     }
 
+}
+
+/// Returns the Python absolute value of a safe Python object using `abs(x)` semantics.
+///
+/// This overload is non-throwing. If Python raises, conversion fails, the fully deferred
+/// operand type does not support absolute value, or a deferred integer result cannot be
+/// represented, this traps with `fatalError`. Use `SafePythonObject.absolute()` when absolute
+/// value can fail and should be handled.
+public func abs(_ operand: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+    return PythonInterpreter.SafePythonObject.absoluteOperator(operand)
 }
 
 
