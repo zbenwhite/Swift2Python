@@ -946,6 +946,34 @@ public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectabl
         return try await interpreter.powerInPlace(self, other.toPythonObject(interpreter: interpreter))
     }
     
+    // MARK: Bitwise functions
+    
+    /// Combines this Python object with a Python-convertible value using Python bitwise `&` semantics.
+    ///
+    /// This delegates to CPython's `PyNumber_And`, so Python controls integer behavior,
+    /// boolean behavior, and error reporting.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible value to combine with this object.
+    /// - Returns: The Python bitwise AND result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
+    public func bitwiseAnd(_ other: PendingPythonConvertible) async throws -> PythonObject {
+        return try await interpreter.bitwiseAnd(lhs: self, rhs: other.toPythonObject(interpreter: interpreter))
+    }
+    
+    /// Replaces this Python object with its bitwise AND against a Python-convertible value.
+    ///
+    /// This delegates to CPython's `PyNumber_InPlaceAnd`. Python may mutate mutable
+    /// objects in place or return a new object for immutable values.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible value to combine with this object.
+    /// - Returns: The Python in-place bitwise AND result.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
+    public func bitwiseAndInPlace(_ other: PendingPythonConvertible) async throws -> PythonObject {
+        return try await interpreter.bitwiseAndInPlace(lhs: self, rhs: other.toPythonObject(interpreter: interpreter))
+    }
+    
     // MARK: Trueness
     
     public func isTrue() async throws -> Bool {

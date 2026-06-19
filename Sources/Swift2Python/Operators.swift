@@ -10,18 +10,6 @@ infix operator **= : AssignmentPrecedence
 
 public extension PythonInterpreter.SafePythonObject {
     
-    //       if they are both unbound and if the internal types are able to be operated on,
-    //       then these operations might still make sense.  Example:
-    //           let x: SafePythonObject = 5
-    //           x += 10
-    //           a.value += x
-    //
-    //       The x += 10 can be done correctly without erroring out and this code can work.
-    //       It's hard to imagine what this user thinks he is doing, but it's also hard to imagine
-    //       a downside to just making it work right instead of making it a catastrophic failure mode.
-    //       Because swift is compiled, the code it going to look messy.  I also need to implement
-    //       the operations as Python would.
-    
     /// Adds two safe Python objects using Python `+` semantics.
     ///
     /// This operator is non-throwing. If Python raises, conversion fails, or deferred
@@ -132,14 +120,13 @@ public extension PythonInterpreter.SafePythonObject {
         base = PythonInterpreter.SafePythonObject.powerInPlaceOperator(base: base, exponent: exponent)
     }
     
+    /// Combines two safe Python objects using Python bitwise `&` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, or the fully
+    /// deferred operand types do not support bitwise AND, this traps with `fatalError`.
+    /// Use `SafePythonObject.bitwiseAnd(_:)` when bitwise AND can fail and should be handled.
     static func & (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        if lhs.isBoundToPythonInterpreter {
-            return lhs.bitwiseAndOperator(lhs, rhs)
-        } else if rhs.isBoundToPythonInterpreter {
-            return rhs.bitwiseAndOperator(lhs, rhs)
-        } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonBitwiseAnd(lhs:lhs, rhs:rhs)
-        }
+        return PythonInterpreter.SafePythonObject.bitwiseAndOperator(lhs: lhs, rhs: rhs)
     }
 
     static func | (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
@@ -162,15 +149,13 @@ public extension PythonInterpreter.SafePythonObject {
         }
     }
 
-    // Bitwise and in place
+    /// Replaces a safe Python object with its Python bitwise AND result using `&=` semantics.
+    ///
+    /// This operator is non-throwing. If Python raises, conversion fails, or the fully
+    /// deferred operand types do not support bitwise AND, this traps with `fatalError`.
+    /// Use `SafePythonObject.bitwiseAndInPlace(_:)` when in-place bitwise AND can fail and should be handled.
     static func &= (lhs: inout PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) {
-        if lhs.isBoundToPythonInterpreter {
-            lhs = lhs.bitwiseAndInPlaceOperator(lhs, rhs)
-        } else if rhs.isBoundToPythonInterpreter {
-            lhs = rhs.bitwiseAndInPlaceOperator(lhs, rhs)
-        } else {
-            lhs = PythonInterpreter.SafePythonObject.unboundPythonBitwiseAnd(lhs:lhs, rhs:rhs)
-        }
+        lhs = PythonInterpreter.SafePythonObject.bitwiseAndInPlaceOperator(lhs: lhs, rhs: rhs)
     }
 
     // Bitwise or in place

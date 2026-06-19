@@ -1905,65 +1905,203 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Bitwise AND
 
-    // Python bitwise AND results:
-    static internal func unboundPythonBitwiseAnd(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        switch lhs.state {
+    private static func deferredBitwiseAndTypeName(_ object: PythonInterpreter.SafePythonObject) -> String {
+        switch object.state {
         case .bound:
-            fatalError("This can never happen.")
+            return "SafePythonObject"
         case .deferredDouble:
-            fatalError("Python TypeError")
+            return "Double"
+        case .deferredInt:
+            return "Int"
+        case .deferredString:
+            return "String"
+        case .deferredBool:
+            return "Bool"
+        }
+    }
+    
+    /// Returns the Python bitwise AND of two safe Python objects.
+    ///
+    /// This follows Python `&` semantics. If either operand is already bound to an
+    /// interpreter, the operation is delegated to Python with `PyNumber_And`. If both
+    /// operands are deferred safe values, Swift2Python locally supports the Python-valid
+    /// primitive combinations: `Int & Int`, `Int & Bool`, `Bool & Int`, and `Bool & Bool`.
+    ///
+    /// Fully deferred `Bool & Bool` returns a deferred boolean, matching Python's boolean
+    /// bitwise result. Mixed integer/boolean operands return a deferred integer.
+    ///
+    /// - Parameters:
+    ///   - other: The safe Python object to combine with this object.
+    /// - Returns: The Python bitwise AND result.
+    /// - Throws: `PythonError.safePythonException` if Python raises, or `PythonError.typeError`
+    ///   for invalid fully deferred primitive combinations.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func bitwiseAnd(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+        switch state {
+        case .bound:
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                try $0.syncBitwiseAnd(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
+            }
+            
         case .deferredInt(let lhsVal):
-            switch rhs.state {
+            switch other.state {
             case .bound:
-                fatalError("This can never happen.")
-            case .deferredDouble:
-                fatalError("Python TypeError")
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncBitwiseAnd(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
+                }
             case .deferredInt(let rhsVal):
                 return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal & rhsVal)
-            case .deferredString:
-                fatalError("Python TypeError")
             case .deferredBool(let rhsVal):
                 return PythonInterpreter.SafePythonObject(integerLiteral: lhsVal & (rhsVal ? 1 : 0))
+            case .deferredDouble, .deferredString:
+                throw PythonError.typeError(operation: "bitwise AND", opType1: "Int", opType2: Self.deferredBitwiseAndTypeName(other))
             }
-        case .deferredString:
-            fatalError("Python TypeError")
+            
         case .deferredBool(let lhsVal):
-            switch rhs.state {
+            switch other.state {
             case .bound:
-                fatalError("This can never happen.")
-            case .deferredDouble:
-                fatalError("Python TypeError")
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncBitwiseAnd(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
+                }
             case .deferredInt(let rhsVal):
                 return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) & rhsVal)
-            case .deferredString:
-                fatalError("Python TypeError")
             case .deferredBool(let rhsVal):
-                return PythonInterpreter.SafePythonObject(integerLiteral: (lhsVal ? 1 : 0) & (rhsVal ? 1 : 0))
+                return PythonInterpreter.SafePythonObject(booleanLiteral: lhsVal && rhsVal)
+            case .deferredDouble, .deferredString:
+                throw PythonError.typeError(operation: "bitwise AND", opType1: "Bool", opType2: Self.deferredBitwiseAndTypeName(other))
+            }
+            
+        case .deferredDouble, .deferredString:
+            switch other.state {
+            case .bound:
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncBitwiseAnd(self.toSafePythonObject(interpreter: $0), other.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble, .deferredInt, .deferredString, .deferredBool:
+                throw PythonError.typeError(
+                    operation: "bitwise AND",
+                    opType1: Self.deferredBitwiseAndTypeName(self),
+                    opType2: Self.deferredBitwiseAndTypeName(other)
+                )
             }
         }
     }
     
+    /// Returns the Python bitwise AND of this safe Python object and a Python-convertible Swift value.
+    ///
+    /// This overload adapts typed Swift values such as `Int` and `Bool`. Existing
+    /// `SafePythonObject` values are forwarded to `bitwiseAnd(_ other: SafePythonObject)`.
+    /// The receiver must already be bound to an interpreter unless `other` is already a
+    /// safe object, because general conversion needs an interpreter.
+    ///
+    /// - Parameters:
+    ///   - other: The Swift value to convert and combine with this object.
+    /// - Returns: The Python bitwise AND result.
+    /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but this
+    ///   object is still deferred, or `PythonError` if conversion or Python bitwise AND fails.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    internal func bitwiseAndOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
-        do {
-            let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                try $0.syncBitwiseAnd(lhs.toSafePythonObject(interpreter: $0), rhs.toSafePythonObject(interpreter: $0))
-            }
-        } catch {
-            fatalError("Failed: \(error)")
+    public func bitwiseAnd(_ other: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
+        if let safeObject = other as? PythonInterpreter.SafePythonObject {
+            return try bitwiseAnd(safeObject)
         }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: other),
+                sourceType: String(describing: type(of: other)),
+                targetType: "bound SafePythonObject"
+            )
+        }
+        
+        return try bitwiseAnd(other.toSafePythonObject(interpreter: interpreter))
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    internal func bitwiseAndInPlaceOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
+    static internal func bitwiseAndOperator(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
         do {
-            let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                try $0.syncInPlaceBitwiseAnd(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
-            }
+            return try lhs.bitwiseAnd(rhs)
         } catch {
-            fatalError("Failed: \(error)")
+            fatalError("Bitwise AND failed: \(error).  Use `SafePythonObject.bitwiseAnd()` for bitwise AND that might throw.")
+        }
+    }
+    
+    /// Replaces this safe Python object with its Python bitwise AND result.
+    ///
+    /// This follows Python `&=` semantics. If this object is bound, or if the right-hand
+    /// operand is bound, the operation is delegated to Python with `PyNumber_InPlaceAnd`.
+    /// For fully deferred values, this applies the same valid primitive combinations as
+    /// `bitwiseAnd(_:)` and stores the deferred result in this object.
+    ///
+    /// - Parameters:
+    ///   - other: The safe Python object to combine with this object.
+    /// - Throws: `PythonError.safePythonException` if Python raises, or `PythonError.typeError`
+    ///   for invalid fully deferred primitive combinations.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public mutating func bitwiseAndInPlace(_ other: PythonInterpreter.SafePythonObject) throws {
+        switch state {
+        case .bound:
+            let localInterpreter = interpreter
+            try localInterpreter.assumeIsolated {
+                self = try $0.syncInPlaceBitwiseAnd(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+            }
+            
+        case .deferredDouble, .deferredInt, .deferredString, .deferredBool:
+            if other.isBoundToPythonInterpreter {
+                let localInterpreter = other.interpreter
+                try localInterpreter.assumeIsolated {
+                    self = try $0.syncInPlaceBitwiseAnd(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+                }
+            } else {
+                do {
+                    self = try bitwiseAnd(other)
+                } catch let PythonError.typeError(_, opType1, opType2) {
+                    throw PythonError.typeError(operation: "in place bitwise AND", opType1: opType1, opType2: opType2)
+                }
+            }
+        }
+    }
+    
+    /// Replaces this safe Python object with its bitwise AND against a Python-convertible Swift value.
+    ///
+    /// This overload adapts typed Swift values such as `Int` and `Bool`. Existing
+    /// `SafePythonObject` values are forwarded to `bitwiseAndInPlace(_ other: SafePythonObject)`.
+    /// The receiver must already be bound to an interpreter unless `other` is already a
+    /// safe object, because general conversion needs an interpreter.
+    ///
+    /// - Parameters:
+    ///   - other: The Swift value to convert and combine with this object.
+    /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but this
+    ///   object is still deferred, or `PythonError` if conversion or Python bitwise AND fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public mutating func bitwiseAndInPlace(_ other: any SafePythonConvertible) throws {
+        if let safeObject = other as? PythonInterpreter.SafePythonObject {
+            try bitwiseAndInPlace(safeObject)
+            return
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: other),
+                sourceType: String(describing: type(of: other)),
+                targetType: "bound SafePythonObject"
+            )
+        }
+        
+        try bitwiseAndInPlace(other.toSafePythonObject(interpreter: interpreter))
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func bitwiseAndInPlaceOperator(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            var result = lhs
+            try result.bitwiseAndInPlace(rhs)
+            return result
+        } catch {
+            fatalError("In place bitwise AND failed: \(error).  Use `SafePythonObject.bitwiseAndInPlace()` for in place bitwise AND that might throw.")
         }
     }
     

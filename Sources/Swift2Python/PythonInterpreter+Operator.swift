@@ -364,9 +364,25 @@ extension PythonInterpreter {
         logger.trace("CPython API call in synchronous mode: PyNumber_And")
         guard let resultPtr = api.PyNumber_And(lhsPtr, rhsPtr) else {
             logger.error("PyNumber_And returned NULL.  Throwing Python error.")
-            throw PythonError.nullPointer("Python '&' failed")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "bitwise AND", opType1: "SafePythonObject", opType2: "SafePythonObject")
         }
         return newSafePythonObject(fromReturnedPointer: resultPtr)
+    }
+    
+    internal func bitwiseAnd(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
+        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
+        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_And")
+        return try await withGIL {
+            guard let resultPtr = api.PyNumber_And(lhsPtr, rhsPtr) else {
+                logger.error("PyNumber_And returned NULL.  Throwing Python error.")
+                try throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "bitwise AND", opType1: "PythonObject", opType2: "PythonObject")
+            }
+            return newPythonObject(fromReturnedPointer: resultPtr)
+        }
     }
     
     internal func syncInPlaceBitwiseAnd(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
@@ -376,9 +392,25 @@ extension PythonInterpreter {
         logger.trace("CPython API call in synchronous mode: PyNumber_InPlaceAnd")
         guard let resultPtr = api.PyNumber_InPlaceAnd(lhsPtr, rhsPtr) else {
             logger.error("PyNumber_InPlaceAnd returned NULL.  Throwing Python error.")
-            throw PythonError.nullPointer("Python '&=' failed")
+            try throwSafePythonErrorIfPresent()
+            throw PythonError.typeError(operation: "in place bitwise AND", opType1: "SafePythonObject", opType2: "SafePythonObject")
         }
         return newSafePythonObject(fromReturnedPointer: resultPtr)
+    }
+    
+    internal func bitwiseAndInPlace(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
+        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
+        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        
+        logger.trace("CPython API call in async mode: PyNumber_InPlaceAnd")
+        return try await withGIL {
+            guard let resultPtr = api.PyNumber_InPlaceAnd(lhsPtr, rhsPtr) else {
+                logger.error("PyNumber_InPlaceAnd returned NULL.  Throwing Python error.")
+                try throwPythonErrorIfPresent()
+                throw PythonError.typeError(operation: "in place bitwise AND", opType1: "PythonObject", opType2: "PythonObject")
+            }
+            return newPythonObject(fromReturnedPointer: resultPtr)
+        }
     }
     
     // MARK: Bitwise OR
