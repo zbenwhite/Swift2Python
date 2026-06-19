@@ -789,6 +789,15 @@ public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectabl
         return try await interpreter.lessThanOrEqual(lhs: self, rhs: other)
     }
     
+    /// Returns true when this Python object compares greater than another value using Python `>` semantics.
+    ///
+    /// This delegates to CPython's rich comparison machinery, so Python controls custom comparison
+    /// methods, numeric coercion, and error reporting.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible value to compare against.
+    /// - Returns: `true` when `self > other`; otherwise `false`.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
     public func greaterThan(_ other: PendingPythonConvertible) async throws -> Bool {
         return try await interpreter.greaterThan(lhs: self, rhs: other)
     }

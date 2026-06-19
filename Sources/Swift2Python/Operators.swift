@@ -293,6 +293,11 @@ extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
         return PythonInterpreter.SafePythonObject.lessThanOrEqualsComparable(lhs:lhs, rhs:rhs)
     }
 
+    /// Returns true when the left safe Python object compares greater than the right using Python `>` semantics.
+    ///
+    /// This `Comparable` overload is non-throwing. If Python raises, conversion fails, or the fully
+    /// deferred operand types do not support greater-than comparison, this traps with `fatalError`.
+    /// Use `SafePythonObject.greaterThan(_:)` when comparison can fail and should be handled.
     public static func > (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
         return PythonInterpreter.SafePythonObject.greaterThanComparable(lhs:lhs, rhs:rhs)
     }
@@ -330,7 +335,7 @@ public extension PythonInterpreter.SafePythonObject {
     /// operand types do not support less-than comparison, this traps with `fatalError`. Use
     /// `SafePythonObject.lessThan(_:)` when comparison can fail and should be handled.
     static func < (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        return PythonInterpreter.SafePythonObject.unboundPythonLessThan(lhs: lhs, rhs: rhs)
+        return PythonInterpreter.SafePythonObject.lessThanOp(lhs: lhs, rhs: rhs)
     }
 
     static func <= (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
@@ -343,14 +348,13 @@ public extension PythonInterpreter.SafePythonObject {
         }
     }
 
+    /// Returns the Python bool result of comparing two safe Python objects using Python `>` semantics.
+    ///
+    /// This overload is non-throwing. If Python raises, conversion fails, or the fully deferred
+    /// operand types do not support greater-than comparison, this traps with `fatalError`. Use
+    /// `SafePythonObject.greaterThan(_:)` when comparison can fail and should be handled.
     static func > (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        if lhs.isBoundToPythonInterpreter {
-            return lhs.greaterThanOperator(lhs, rhs)
-        } else if rhs.isBoundToPythonInterpreter {
-            return rhs.greaterThanOperator(lhs, rhs)
-        } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonGreaterThan(lhs:lhs, rhs:rhs)
-        }
+        return PythonInterpreter.SafePythonObject.greaterThanOp(lhs: lhs, rhs: rhs)
     }
 
     static func >= (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {

@@ -222,8 +222,191 @@ struct CompareOpsTests {
     }
     
     // MARK: O<=_xxx Less Than or Equal Tests
-    // MARK: O<_xxx Greater Than Tests
-    // MARK: O<=_xxx Greater Than or Equal Tests
+    // MARK: O>_xxx Greater Than Tests
+    
+    @Test("O>_001: Greater Than Operator Integer")
+    func greaterThanOperatorInteger() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundSmall = try 4.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundLarge = try 9.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundSmall: PythonInterpreter.SafePythonObject = 4
+            let unboundLarge: PythonInterpreter.SafePythonObject = 9
+            let boundTrue = try true.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundFalse: PythonInterpreter.SafePythonObject = false
+            
+            let boolCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Bool)] = [
+                ("bound large > bound small", boundLarge, boundSmall, true),
+                ("bound small > bound large", boundSmall, boundLarge, false),
+                ("bound large > unbound small", boundLarge, unboundSmall, true),
+                ("unbound large > bound small", unboundLarge, boundSmall, true),
+                ("unbound small > unbound large", unboundSmall, unboundLarge, false),
+                ("bound true > unbound false", boundTrue, unboundFalse, true),
+                ("unbound false > bound true", unboundFalse, boundTrue, false)
+            ]
+            
+            for (description, lhs, rhs, expected) in boolCases {
+                let result: Bool = lhs > rhs
+                #expect(result == expected, Comment(rawValue: description))
+            }
+            
+            for (description, lhs, rhs, expected) in boolCases {
+                let result: PythonInterpreter.SafePythonObject = lhs > rhs
+                #expect(try Bool(result) == expected, Comment(rawValue: description))
+            }
+        }
+    }
+    
+    @Test("O>_002: Greater Than Operator Double")
+    func greaterThanOperatorDouble() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundDouble = try 3.5.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundInt = try 3.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundDouble: PythonInterpreter.SafePythonObject = 5.5
+            let unboundInt: PythonInterpreter.SafePythonObject = 5
+            let unboundTrue: PythonInterpreter.SafePythonObject = true
+            
+            let cases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Bool)] = [
+                ("bound double > bound int", boundDouble, boundInt, true),
+                ("bound int > bound double", boundInt, boundDouble, false),
+                ("unbound double > unbound int", unboundDouble, unboundInt, true),
+                ("unbound int > unbound double", unboundInt, unboundDouble, false),
+                ("bound double > unbound true", boundDouble, unboundTrue, true),
+                ("unbound true > bound double", unboundTrue, boundDouble, false)
+            ]
+            
+            for (description, lhs, rhs, expected) in cases {
+                let result: Bool = lhs > rhs
+                #expect(result == expected, Comment(rawValue: description))
+            }
+        }
+    }
+    
+    @Test("O>_003: Greater Than Operator String")
+    func greaterThanOperatorString() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundA = try "abc".toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundB = try "abd".toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundA: PythonInterpreter.SafePythonObject = "abc"
+            let unboundB: PythonInterpreter.SafePythonObject = "abd"
+            
+            let cases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Bool)] = [
+                ("bound string > bound string", boundB, boundA, true),
+                ("bound string reverse", boundA, boundB, false),
+                ("bound string > unbound string", boundB, unboundA, true),
+                ("unbound string > bound string", unboundB, boundA, true),
+                ("unbound string reverse", unboundA, unboundB, false)
+            ]
+            
+            for (description, lhs, rhs, expected) in cases {
+                let result: Bool = lhs > rhs
+                #expect(result == expected, Comment(rawValue: description))
+            }
+        }
+    }
+    
+    @Test("O>_005: PythonObject async greater than")
+    func greaterThanPythonObject() async throws {
+        let largeInt = try await 9.toPythonObject(interpreter: interpreter)
+        #expect(try await largeInt.greaterThan(4))
+        #expect(try await largeInt.greaterThan(9) == false)
+        
+        let doubleObject = try await 3.5.toPythonObject(interpreter: interpreter)
+        #expect(try await doubleObject.greaterThan(3))
+        
+        let stringObject = try await "abd".toPythonObject(interpreter: interpreter)
+        #expect(try await stringObject.greaterThan("abc"))
+        
+        let boolObject = try await true.toPythonObject(interpreter: interpreter)
+        #expect(try await boolObject.greaterThan(false))
+    }
+    
+    @Test("O>_006: PythonObject async greater than error checking")
+    func greaterThanPythonObjectError() async throws {
+        let stringObject = try await "abc".toPythonObject(interpreter: interpreter)
+        
+        let thrownError = await #expect(throws: PythonError.self) {
+            _ = try await stringObject.greaterThan(1)
+        }
+        
+        if case .pythonException = thrownError {
+            // expected
+        } else {
+            Issue.record("Expected .pythonException for PythonObject greater-than error, but got \(String(describing: thrownError))")
+        }
+    }
+    
+    @Test("O>_009: Greater Than deferred Int and Double exactness")
+    func greaterThanDeferredIntDoubleExactness() throws {
+        let maxInt = PythonInterpreter.SafePythonObject(integerLiteral: Int.max)
+        let maxIntRoundedToDouble = PythonInterpreter.SafePythonObject(floatLiteral: Double(Int.max))
+        let doublePastExactIntegerPrecision = PythonInterpreter.SafePythonObject(floatLiteral: 9_007_199_254_740_992.0)
+        let intPastExactIntegerPrecision = PythonInterpreter.SafePythonObject(integerLiteral: 9_007_199_254_740_993)
+        let nanValue = PythonInterpreter.SafePythonObject(floatLiteral: Double.nan)
+        
+        #expect(try Bool(maxInt.greaterThan(maxIntRoundedToDouble)) == false)
+        #expect(try Bool(maxIntRoundedToDouble.greaterThan(maxInt)) == true)
+        #expect(try Bool(doublePastExactIntegerPrecision.greaterThan(intPastExactIntegerPrecision)) == false)
+        #expect(try Bool(intPastExactIntegerPrecision.greaterThan(doublePastExactIntegerPrecision)) == true)
+        let one = PythonInterpreter.SafePythonObject(integerLiteral: 1)
+        #expect(try Bool(nanValue.greaterThan(one)) == false)
+        #expect(try Bool(maxInt.greaterThan(nanValue)) == false)
+    }
+    
+    @Test("O>_010: SafePythonObject greater than error checking")
+    func safeGreaterThanErrors() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundString = try "abc".toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundInt = try 1.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundString: PythonInterpreter.SafePythonObject = "abc"
+            let unboundInt: PythonInterpreter.SafePythonObject = 1
+            let unboundDouble: PythonInterpreter.SafePythonObject = 1.5
+            let unboundBool: PythonInterpreter.SafePythonObject = true
+            
+            let unboundTypeErrorCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, String, String)] = [
+                ("unbound string > unbound int", unboundString, unboundInt, "String", "Int"),
+                ("unbound int > unbound string", unboundInt, unboundString, "Int", "String"),
+                ("unbound string > unbound double", unboundString, unboundDouble, "String", "Double"),
+                ("unbound bool > unbound string", unboundBool, unboundString, "Bool", "String")
+            ]
+            
+            for (description, lhs, rhs, expectedType1, expectedType2) in unboundTypeErrorCases {
+                let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                    _ = try lhs.greaterThan(rhs)
+                }
+                
+                if case let .typeError(operation, opType1, opType2) = thrownError {
+                    #expect(operation == "greater than", Comment(rawValue: description))
+                    #expect(opType1 == expectedType1, Comment(rawValue: description))
+                    #expect(opType2 == expectedType2, Comment(rawValue: description))
+                } else {
+                    Issue.record("Expected .typeError for \(description), but got \(String(describing: thrownError))")
+                }
+            }
+            
+            let boundExceptionCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject)] = [
+                ("bound string > bound int", boundString, boundInt),
+                ("bound string > unbound int", boundString, unboundInt),
+                ("unbound string > bound int", unboundString, boundInt),
+                ("bound int > bound string", boundInt, boundString),
+                ("bound int > unbound string", boundInt, unboundString),
+                ("unbound int > bound string", unboundInt, boundString)
+            ]
+            
+            for (description, lhs, rhs) in boundExceptionCases {
+                let thrownError = #expect(throws: PythonError.self, Comment(rawValue: description)) {
+                    _ = try lhs.greaterThan(rhs)
+                }
+                
+                if case .safePythonException = thrownError {
+                    // expected
+                } else {
+                    Issue.record("Expected .safePythonException for \(description), but got \(String(describing: thrownError))")
+                }
+            }
+        }
+    }
+    
+    // MARK: O>=_xxx Greater Than or Equal Tests
     // MARK: O==_xxx Equality Tests
     // MARK: O!=_xxx Not Equals Tests
 }
