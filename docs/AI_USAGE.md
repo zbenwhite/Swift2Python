@@ -10,6 +10,222 @@ This file is written for coding agents and AI assistants that generate Swift2Pyt
 - Prefer Swift conversion initializers such as `Int(pyObject)`, `String(pyObject)`, and `Double(pyObject)` over direct `convertTo...` calls in examples and user-facing code.
 - Do not import `builtins` manually for common builtins access. Use `interpreter.builtins`.
 
+## Operators
+
+Operator support for arithmetic, bitwise, and comparison operations is release-ready. Treat the public operator APIs and their throwing alternatives as the canonical way to express Python operations in Swift2Python.
+
+### Choosing The Right Operator API
+
+Use async ``PythonObject`` methods in normal Swift concurrency code:
+
+```swift
+let lhs = try await interpreter.convertToPython(10)
+let rhs = try await interpreter.convertToPython(3)
+let result = try await lhs.add(rhs)
+let isGreater = try await lhs.greaterThan(rhs)
+```
+
+Use throwing ``PythonInterpreter.SafePythonObject`` methods inside `withIsolatedContext` when the operation can fail and the caller should handle the error:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let lhs: PythonInterpreter.SafePythonObject = 10
+    let rhs: PythonInterpreter.SafePythonObject = 0
+    let result = try lhs.divide(divisor: rhs)
+    print(try Double(result))
+}
+```
+
+Use ``PythonInterpreter.SafePythonObject`` operators only for short expressions where failure is a programmer error. Operators are non-throwing and trap with `fatalError` if Python raises, conversion fails, or a fully deferred result cannot be represented:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let lhs: PythonInterpreter.SafePythonObject = 10
+    let rhs: PythonInterpreter.SafePythonObject = 3
+    let result = lhs + rhs
+    let ok = lhs > rhs
+}
+```
+
+Do not generate operator code for user input, mixed unknown Python values, or examples intended to demonstrate error handling. Generate the throwing method form instead.
+
+### Safe Arithmetic Methods
+
+For ``PythonInterpreter.SafePythonObject`` arithmetic, prefer these throwing methods when failure should be handled:
+
+```swift
+try value.positive()
+try value.negative()
+try value.absolute()
+try lhs.add(rhs)
+try lhs.subtract(subtrahend: rhs)
+try lhs.multiply(rhs)
+try lhs.divide(divisor: rhs)
+try lhs.modulus(divisor: rhs)
+try lhs.power(exponent: rhs)
+```
+
+The matching operators are:
+
+```swift
++value
+-value
+abs(value)
+lhs + rhs
+lhs - rhs
+lhs * rhs
+lhs / rhs
+lhs % rhs
+lhs ** rhs
+lhs += rhs
+lhs -= rhs
+lhs *= rhs
+lhs /= rhs
+lhs %= rhs
+lhs **= rhs
+```
+
+### Safe Bitwise Methods
+
+For ``PythonInterpreter.SafePythonObject`` bitwise operations, prefer these throwing methods when failure should be handled:
+
+```swift
+try lhs.bitwiseAnd(rhs)
+try lhs.bitwiseOr(rhs)
+try lhs.bitwiseXor(rhs)
+try value.bitwiseInvert()
+try lhs.bitShiftLeft(rhs)
+try lhs.bitShiftRight(rhs)
+```
+
+The matching operators are:
+
+```swift
+lhs & rhs
+lhs | rhs
+lhs ^ rhs
+~value
+lhs << rhs
+lhs >> rhs
+lhs &= rhs
+lhs |= rhs
+lhs ^= rhs
+lhs <<= rhs
+lhs >>= rhs
+```
+
+### Safe Comparison Methods
+
+For normal comparisons, use the Bool-returning methods:
+
+```swift
+try lhs.equal(rhs)
+try lhs.notEqual(rhs)
+try lhs.lessThan(rhs)
+try lhs.lessThanOrEqual(rhs)
+try lhs.greaterThan(rhs)
+try lhs.greaterThanOrEqual(rhs)
+```
+
+The matching operators are:
+
+```swift
+lhs == rhs
+lhs != rhs
+lhs < rhs
+lhs <= rhs
+lhs > rhs
+lhs >= rhs
+```
+
+`SafePythonObject` comparison operators return Swift `Bool` in normal comparison contexts. They can also return a Python bool object when assigned to `SafePythonObject`:
+
+```swift
+let swiftBool: Bool = lhs < rhs
+let pythonBool: PythonInterpreter.SafePythonObject = lhs < rhs
+```
+
+Use raw Python comparison result methods only when you intentionally need Python's `PyObject_RichCompare` result as a ``PythonInterpreter.SafePythonObject``:
+
+```swift
+try lhs.equalPython(rhs)
+try lhs.notEqualPython(rhs)
+try lhs.lessThanPython(rhs)
+try lhs.lessThanOrEqualPython(rhs)
+try lhs.greaterThanPython(rhs)
+try lhs.greaterThanOrEqualPython(rhs)
+```
+
+Do not use `*Python` comparison methods for ordinary boolean decisions. Use them only for custom Python classes whose rich comparison may return a non-`bool` object that must be preserved.
+
+### Async PythonObject Methods
+
+For ``PythonObject``, use async throwing methods. There are no Swift operator overloads for async `PythonObject` operations.
+
+Arithmetic:
+
+```swift
+try await value.absolute()
+try await value.positive()
+try await value.negative()
+try await lhs.add(rhs)
+try await lhs.addInPlace(rhs)
+try await lhs.subtract(rhs)
+try await lhs.subtractInPlace(rhs)
+try await lhs.multiply(rhs)
+try await lhs.multiplyInPlace(rhs)
+try await lhs.divide(rhs)
+try await lhs.divideInPlace(rhs)
+try await lhs.modulus(rhs)
+try await lhs.modulusInPlace(rhs)
+try await lhs.power(rhs)
+try await lhs.powerInPlace(rhs)
+```
+
+Bitwise:
+
+```swift
+try await lhs.bitwiseAnd(rhs)
+try await lhs.bitwiseAndInPlace(rhs)
+try await lhs.bitwiseOr(rhs)
+try await lhs.bitwiseOrInPlace(rhs)
+try await lhs.bitwiseXor(rhs)
+try await lhs.bitwiseXorInPlace(rhs)
+try await value.bitwiseInvert()
+try await lhs.bitShiftLeft(rhs)
+try await lhs.bitShiftLeftInPlace(rhs)
+try await lhs.bitShiftRight(rhs)
+try await lhs.bitShiftRightInPlace(rhs)
+```
+
+Comparisons return Swift `Bool`:
+
+```swift
+try await lhs.equal(rhs)
+try await lhs.notEqual(rhs)
+try await lhs.lessThan(rhs)
+try await lhs.lessThanOrEqual(rhs)
+try await lhs.greaterThan(rhs)
+try await lhs.greaterThanOrEqual(rhs)
+```
+
+### Error Behavior
+
+Async ``PythonObject`` methods throw `PythonError.pythonException` when Python raises and may also throw conversion errors.
+
+Throwing ``PythonInterpreter.SafePythonObject`` methods throw `PythonError.safePythonException` for Python failures, `PythonError.typeError` for invalid fully deferred primitive combinations, `PythonError.divisionByZero` for fully deferred zero division or modulus, and `PythonError.overflowError` when a fully deferred integer result cannot fit in Swift2Python's deferred storage.
+
+Safe operators use the same underlying behavior, but they cannot throw. They trap on failure. Do not write generated code that catches around an operator; use the throwing method instead.
+
+### Do Not Add Duplicate Operator APIs
+
+Do not add alternate names for existing operations unless the user explicitly requests a new API. In particular:
+
+- Do not add `equals` or `notEquals`; use `equal` and `notEqual`.
+- Do not add plural comparison names such as `lessThanOrEquals`; use `lessThanOrEqual` and `greaterThanOrEqual`.
+- Do not add custom async operators for ``PythonObject``. Swift operators cannot be async or throwing in the way these APIs need.
+- Do not bypass the public methods by calling low-level CPython wrappers directly.
+
 ## Tuples
 
 Tuple support is release-ready and should be treated as complete. Do not invent new tuple helpers unless the user explicitly asks for a new API.
