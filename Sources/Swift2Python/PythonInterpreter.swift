@@ -16,7 +16,6 @@
 // TODO: custom ENV variables to find python
 // [2026-04-25]: DONE: unbind or something to let SafePythonObject become a PythonObject at the end of the isolated closure
 // TODO: understand free threaded python
-// TODO: choose "Equal" or "Equals" for comparison function naming and only use one
 // [2026-04-25]: DONE: Use the InPlace Python APIs for InPlace just in case the operators are overloaded in python.
 
 import Logging

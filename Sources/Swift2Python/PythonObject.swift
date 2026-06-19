@@ -764,12 +764,30 @@ public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectabl
     
     // MARK: Comparison functions
     
-    public func equals(_ other: PendingPythonConvertible) async throws -> Bool {
-        return try await interpreter.equals(lhs: self, rhs: other)
+    /// Returns true when this Python object compares equal to another value using Python `==` semantics.
+    ///
+    /// This delegates to CPython's rich comparison machinery, so Python controls custom comparison
+    /// methods, numeric coercion, and error reporting.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible value to compare against.
+    /// - Returns: `true` when `self == other`; otherwise `false`.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
+    public func equal(_ other: PendingPythonConvertible) async throws -> Bool {
+        return try await interpreter.equal(lhs: self, rhs: other)
     }
     
-    public func notEquals(_ other: PendingPythonConvertible) async throws -> Bool {
-        return try await interpreter.notEquals(lhs: self, rhs: other)
+    /// Returns true when this Python object compares not equal to another value using Python `!=` semantics.
+    ///
+    /// This delegates to CPython's rich comparison machinery, so Python controls custom comparison
+    /// methods, numeric coercion, and error reporting.
+    ///
+    /// - Parameters:
+    ///   - other: The Python-convertible value to compare against.
+    /// - Returns: `true` when `self != other`; otherwise `false`.
+    /// - Throws: `PythonError.pythonException` if Python raises, or `PythonError` if conversion fails.
+    public func notEqual(_ other: PendingPythonConvertible) async throws -> Bool {
+        return try await interpreter.notEqual(lhs: self, rhs: other)
     }
     
     /// Returns true when this Python object compares less than another value using Python `<` semantics.

@@ -411,7 +411,7 @@ extension PythonInterpreter {
         // A less than or equal that throws.  Operators cause fatalError()
         // so use this whenever anything might go wrong.
         @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-        public func lessThanOrEquals(_ other: SafePythonConvertible) throws -> Bool {
+        public func lessThanOrEqual(_ other: SafePythonConvertible) throws -> Bool {
             let localInterpreter = interpreter
             let lhs = self
             return try localInterpreter.assumeIsolated {
@@ -435,7 +435,7 @@ extension PythonInterpreter {
         // A greater than or equal that throws.  Operators cause fatalError()
         // so use this whenever anything might go wrong.
         @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-        public func greaterThanOrEquals(_ other: SafePythonConvertible) throws -> Bool {
+        public func greaterThanOrEqual(_ other: SafePythonConvertible) throws -> Bool {
             let localInterpreter = interpreter
             let lhs = self
             return try localInterpreter.assumeIsolated {

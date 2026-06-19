@@ -53,8 +53,8 @@ extension PythonInterpreter {
     
     // MARK: Comparion Support (async mode)
     
-    public func equals(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
-        logger.trace("Equals comparison for PythonObject (async)")
+    public func equal(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
+        logger.trace("Equal comparison for PythonObject (async)")
         let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
         let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
         let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
@@ -64,8 +64,8 @@ extension PythonInterpreter {
         }
     }
     
-    public func notEquals(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
-        logger.trace("Not equals comparison for PythonObject (async)")
+    public func notEqual(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
+        logger.trace("Not equal comparison for PythonObject (async)")
         let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
         let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
         let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
@@ -120,9 +120,9 @@ extension PythonInterpreter {
     
     
     
-    // MARK: Equals Operator
+    // MARK: Equal Operator
     
-    internal func syncDoubleEquals(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
+    internal func syncEqual(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
         let lhsPtr = getRegisteredPointer(forSafeObj:lhs)
         let rhsPtr = getRegisteredPointer(forSafeObj:rhs)
         
@@ -134,15 +134,15 @@ extension PythonInterpreter {
         return resultObj
     }
     
-    internal func syncDoubleEqualsEquatable(lhs: SafePythonObject, rhs: SafePythonObject) throws -> Bool {
+    internal func syncEqualEquatable(lhs: SafePythonObject, rhs: SafePythonObject) throws -> Bool {
         let lhsPtr = getRegisteredPointer(forSafeObj:lhs)
         let rhsPtr = getRegisteredPointer(forSafeObj:rhs)
         return try richCompareBool(lhsPtr, rhsPtr, .equal, orElse: { try throwSafePythonError() } )
     }
     
-    // MARK: Not Equals Operator
+    // MARK: Not Equal Operator
     
-    internal func syncNotEquals(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
+    internal func syncNotEqual(lhs: SafePythonObject, rhs: SafePythonObject) throws -> SafePythonObject {
         let lhsPtr = getRegisteredPointer(forSafeObj:lhs)
         let rhsPtr = getRegisteredPointer(forSafeObj:rhs)
         
@@ -154,7 +154,7 @@ extension PythonInterpreter {
         return resultObj
     }
     
-    internal func syncNotEqualsEquatable(lhs: SafePythonObject, rhs: SafePythonObject) throws -> Bool {
+    internal func syncNotEqualEquatable(lhs: SafePythonObject, rhs: SafePythonObject) throws -> Bool {
         let lhsPtr = getRegisteredPointer(forSafeObj:lhs)
         let rhsPtr = getRegisteredPointer(forSafeObj:rhs)
         return try richCompareBool(lhsPtr, rhsPtr, .notEqual, orElse: { try throwSafePythonError() } )

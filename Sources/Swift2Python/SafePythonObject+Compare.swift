@@ -23,191 +23,414 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    // MARK: Compare Equals
+    // MARK: Compare Equal
     
-    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    internal func doubleEqualsEquatableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
-        do {
-            let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                try $0.syncDoubleEqualsEquatable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
-            }
-        } catch {
-            fatalError("Failed: \(error)")
-        }
+    private static func deferredDouble(_ lhs: Double, isEqualTo rhs: Int) -> Bool {
+        guard !lhs.isNaN else { return false }
+        return !Self.deferredDouble(lhs, isLessThan: rhs) && !Self.deferredInt(rhs, isLessThan: lhs)
     }
     
-    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    internal func doubleEqualsOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
-        do {
-            let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                try $0.syncDoubleEquals(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
-            }
-        } catch {
-            fatalError("Failed: \(error)")
-        }
+    private static func deferredInt(_ lhs: Int, isEqualTo rhs: Double) -> Bool {
+        guard !rhs.isNaN else { return false }
+        return !Self.deferredInt(lhs, isLessThan: rhs) && !Self.deferredDouble(rhs, isLessThan: lhs)
     }
     
+    /// Compares this safe Python object with another using Python `==` semantics.
+    ///
+    /// If either operand is bound to an interpreter, this delegates to Python's rich comparison
+    /// machinery so custom Python objects and Python's exception behavior are preserved. Fully
+    /// deferred values are compared locally with Python-compatible bool/int behavior.
+    ///
+    /// - Parameters:
+    ///   - other: The safe Python object to compare against.
+    /// - Returns: A safe Python bool object containing the comparison result.
+    /// - Throws: `PythonError.safePythonException` if Python raises.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    static internal func unboundPythonDoubleEquals(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        PythonInterpreter.SafePythonObject(booleanLiteral: unboundPythonDoubleEqualsEquatable(lhs: lhs, rhs: rhs))
-    }
-    
-    static internal func unboundPythonDoubleEqualsEquatable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
-        switch lhs.state {
+    public func equal(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+        switch state {
         case .bound:
-            fatalError("This can never happen.")
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                try $0.syncEqual(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+            }
             
         case .deferredDouble(let lhsVal):
-            switch rhs.state {
+            switch other.state {
             case .bound:
-                fatalError("This can never happen.")
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncEqual(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+                }
             case .deferredDouble(let rhsVal):
-                return lhsVal == rhsVal
+                return PythonInterpreter.SafePythonObject(booleanLiteral: lhsVal == rhsVal)
             case .deferredInt(let rhsVal):
-                return lhsVal == Double(rhsVal)
+                return PythonInterpreter.SafePythonObject(booleanLiteral: Self.deferredDouble(lhsVal, isEqualTo: rhsVal))
             case .deferredString:
-                fatalError("Python TypeError")
+                return PythonInterpreter.SafePythonObject(booleanLiteral: false)
             case .deferredBool(let rhsVal):
-                return lhsVal == (rhsVal ? 1.0 : 0.0)
+                return PythonInterpreter.SafePythonObject(booleanLiteral: lhsVal == (rhsVal ? 1.0 : 0.0))
             }
             
         case .deferredInt(let lhsVal):
-            switch rhs.state {
+            switch other.state {
             case .bound:
-                fatalError("This can never happen.")
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncEqual(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+                }
             case .deferredDouble(let rhsVal):
-                return Double(lhsVal) == rhsVal
+                return PythonInterpreter.SafePythonObject(booleanLiteral: Self.deferredInt(lhsVal, isEqualTo: rhsVal))
             case .deferredInt(let rhsVal):
-                return lhsVal == rhsVal
+                return PythonInterpreter.SafePythonObject(booleanLiteral: lhsVal == rhsVal)
             case .deferredString:
-                fatalError("Python TypeError")
+                return PythonInterpreter.SafePythonObject(booleanLiteral: false)
             case .deferredBool(let rhsVal):
-                return lhsVal == (rhsVal ? 1 : 0)
+                return PythonInterpreter.SafePythonObject(booleanLiteral: lhsVal == (rhsVal ? 1 : 0))
             }
             
         case .deferredString(let lhsVal):
-            switch rhs.state {
+            switch other.state {
             case .bound:
-                fatalError("This can never happen.")
-            case .deferredDouble:
-                fatalError("Python TypeError")
-            case .deferredInt:
-                fatalError("Python TypeError")
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncEqual(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble, .deferredInt, .deferredBool:
+                return PythonInterpreter.SafePythonObject(booleanLiteral: false)
             case .deferredString(let rhsVal):
-                return lhsVal == rhsVal
-            case .deferredBool:
-                fatalError("Python TypeError")
+                return PythonInterpreter.SafePythonObject(booleanLiteral: lhsVal == rhsVal)
             }
             
         case .deferredBool(let lhsVal):
-            switch rhs.state {
+            switch other.state {
             case .bound:
-                fatalError("This can never happen.")
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncEqual(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+                }
             case .deferredDouble(let rhsVal):
-                return (lhsVal ? 1.0 : 0.0) == rhsVal
+                return PythonInterpreter.SafePythonObject(booleanLiteral: (lhsVal ? 1.0 : 0.0) == rhsVal)
             case .deferredInt(let rhsVal):
-                return (lhsVal ? 1 : 0) == rhsVal
+                return PythonInterpreter.SafePythonObject(booleanLiteral: (lhsVal ? 1 : 0) == rhsVal)
             case .deferredString:
-                fatalError("Python TypeError")
+                return PythonInterpreter.SafePythonObject(booleanLiteral: false)
             case .deferredBool(let rhsVal):
-                return lhsVal == rhsVal
+                return PythonInterpreter.SafePythonObject(booleanLiteral: lhsVal == rhsVal)
             }
         }
     }
     
+    /// Compares this safe Python object with a Swift value using Python `==` semantics.
+    ///
+    /// Fully deferred objects can only compare directly against another `SafePythonObject`, because
+    /// general `SafePythonConvertible` conversion needs an interpreter.
+    ///
+    /// - Parameters:
+    ///   - other: The Swift value to convert and compare against.
+    /// - Returns: A safe Python bool object containing the comparison result.
+    /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but this object
+    ///   is still deferred, or `PythonError` if conversion or Python comparison fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func equal(_ other: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
+        if let safeObject = other as? PythonInterpreter.SafePythonObject {
+            return try equal(safeObject)
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: other),
+                sourceType: String(describing: type(of: other)),
+                targetType: "SafePythonObject"
+            )
+        }
+        
+        let localInterpreter = interpreter
+        return try localInterpreter.assumeIsolated {
+            try $0.syncEqual(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+        }
+    }
     
-    // MARK: Compare Not Equals
+    static internal func equalOp(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            return try lhs.equal(rhs)
+        } catch {
+            fatalError("Comparison failed: \(error). Use `SafePythonObject.equal(_:)` for comparisons that might throw.")
+        }
+    }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    internal func notEqualsEquatableOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> Bool {
+    static internal func equalEquatable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
         do {
-            let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                try $0.syncNotEqualsEquatable(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
+            switch lhs.state {
+            case .bound:
+                let localInterpreter = lhs.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncEqualEquatable(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    let localInterpreter = rhs.interpreter
+                    return try localInterpreter.assumeIsolated {
+                        try $0.syncEqualEquatable(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
+                    }
+                case .deferredDouble(let rhsVal):
+                    return lhsVal == rhsVal
+                case .deferredInt(let rhsVal):
+                    return Self.deferredDouble(lhsVal, isEqualTo: rhsVal)
+                case .deferredString:
+                    return false
+                case .deferredBool(let rhsVal):
+                    return lhsVal == (rhsVal ? 1.0 : 0.0)
+                }
+            case .deferredInt(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    let localInterpreter = rhs.interpreter
+                    return try localInterpreter.assumeIsolated {
+                        try $0.syncEqualEquatable(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
+                    }
+                case .deferredDouble(let rhsVal):
+                    return Self.deferredInt(lhsVal, isEqualTo: rhsVal)
+                case .deferredInt(let rhsVal):
+                    return lhsVal == rhsVal
+                case .deferredString:
+                    return false
+                case .deferredBool(let rhsVal):
+                    return lhsVal == (rhsVal ? 1 : 0)
+                }
+            case .deferredString(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    let localInterpreter = rhs.interpreter
+                    return try localInterpreter.assumeIsolated {
+                        try $0.syncEqualEquatable(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
+                    }
+                case .deferredDouble, .deferredInt, .deferredBool:
+                    return false
+                case .deferredString(let rhsVal):
+                    return lhsVal == rhsVal
+                }
+            case .deferredBool(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    let localInterpreter = rhs.interpreter
+                    return try localInterpreter.assumeIsolated {
+                        try $0.syncEqualEquatable(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
+                    }
+                case .deferredDouble(let rhsVal):
+                    return (lhsVal ? 1.0 : 0.0) == rhsVal
+                case .deferredInt(let rhsVal):
+                    return (lhsVal ? 1 : 0) == rhsVal
+                case .deferredString:
+                    return false
+                case .deferredBool(let rhsVal):
+                    return lhsVal == rhsVal
+                }
             }
         } catch {
-            fatalError("Failed: \(error)")
+            fatalError("Comparison failed: \(error). Use `SafePythonObject.equal(_:)` for comparisons that might throw.")
         }
     }
     
+    
+    // MARK: Compare Not Equal
+    
+    /// Compares this safe Python object with another using Python `!=` semantics.
+    ///
+    /// If either operand is bound to an interpreter, this delegates to Python's rich comparison
+    /// machinery so custom Python objects and Python's exception behavior are preserved. Fully
+    /// deferred values are compared locally with Python-compatible bool/int behavior.
+    ///
+    /// - Parameters:
+    ///   - other: The safe Python object to compare against.
+    /// - Returns: A safe Python bool object containing the comparison result.
+    /// - Throws: `PythonError.safePythonException` if Python raises.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    internal func notEqualsOperator(_ lhs: SafePythonConvertible, _ rhs: SafePythonConvertible) -> PythonInterpreter.SafePythonObject {
-        do {
-            let localInterpreter = interpreter
-            return try localInterpreter.assumeIsolated {
-                try $0.syncNotEquals(lhs:lhs.toSafePythonObject(interpreter: $0), rhs:rhs.toSafePythonObject(interpreter: $0))
-            }
-        } catch {
-            fatalError("Failed: \(error)")
-        }
-    }
-    
-    static internal func unboundPythonNotEquals(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        PythonInterpreter.SafePythonObject(booleanLiteral: unboundPythonNotEqualsEquatable(lhs: lhs, rhs: rhs))
-    }
-    
-    static internal func unboundPythonNotEqualsEquatable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
-        switch lhs.state {
+    public func notEqual(_ other: PythonInterpreter.SafePythonObject) throws -> PythonInterpreter.SafePythonObject {
+        switch state {
         case .bound:
-            fatalError("This can never happen.")
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                try $0.syncNotEqual(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+            }
             
         case .deferredDouble(let lhsVal):
-            switch rhs.state {
+            switch other.state {
             case .bound:
-                fatalError("This can never happen.")
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncNotEqual(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+                }
             case .deferredDouble(let rhsVal):
-                return lhsVal != rhsVal
+                return PythonInterpreter.SafePythonObject(booleanLiteral: lhsVal != rhsVal)
             case .deferredInt(let rhsVal):
-                return lhsVal != Double(rhsVal)
+                return PythonInterpreter.SafePythonObject(booleanLiteral: !Self.deferredDouble(lhsVal, isEqualTo: rhsVal))
             case .deferredString:
-                fatalError("Python TypeError")
+                return PythonInterpreter.SafePythonObject(booleanLiteral: true)
             case .deferredBool(let rhsVal):
-                return lhsVal != (rhsVal ? 1.0 : 0.0)
+                return PythonInterpreter.SafePythonObject(booleanLiteral: lhsVal != (rhsVal ? 1.0 : 0.0))
             }
             
         case .deferredInt(let lhsVal):
-            switch rhs.state {
+            switch other.state {
             case .bound:
-                fatalError("This can never happen.")
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncNotEqual(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+                }
             case .deferredDouble(let rhsVal):
-                return Double(lhsVal) != rhsVal
+                return PythonInterpreter.SafePythonObject(booleanLiteral: !Self.deferredInt(lhsVal, isEqualTo: rhsVal))
             case .deferredInt(let rhsVal):
-                return lhsVal != rhsVal
+                return PythonInterpreter.SafePythonObject(booleanLiteral: lhsVal != rhsVal)
             case .deferredString:
-                fatalError("Python TypeError")
+                return PythonInterpreter.SafePythonObject(booleanLiteral: true)
             case .deferredBool(let rhsVal):
-                return lhsVal != (rhsVal ? 1 : 0)
+                return PythonInterpreter.SafePythonObject(booleanLiteral: lhsVal != (rhsVal ? 1 : 0))
             }
             
         case .deferredString(let lhsVal):
-            switch rhs.state {
+            switch other.state {
             case .bound:
-                fatalError("This can never happen.")
-            case .deferredDouble:
-                fatalError("Python TypeError")
-            case .deferredInt:
-                fatalError("Python TypeError")
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncNotEqual(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble, .deferredInt, .deferredBool:
+                return PythonInterpreter.SafePythonObject(booleanLiteral: true)
             case .deferredString(let rhsVal):
-                return lhsVal != rhsVal
-            case .deferredBool:
-                fatalError("Python TypeError")
+                return PythonInterpreter.SafePythonObject(booleanLiteral: lhsVal != rhsVal)
             }
             
         case .deferredBool(let lhsVal):
-            switch rhs.state {
+            switch other.state {
             case .bound:
-                fatalError("This can never happen.")
+                let localInterpreter = other.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncNotEqual(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+                }
             case .deferredDouble(let rhsVal):
-                return (lhsVal ? 1.0 : 0.0) != rhsVal
+                return PythonInterpreter.SafePythonObject(booleanLiteral: (lhsVal ? 1.0 : 0.0) != rhsVal)
             case .deferredInt(let rhsVal):
-                return (lhsVal ? 1 : 0) != rhsVal
+                return PythonInterpreter.SafePythonObject(booleanLiteral: (lhsVal ? 1 : 0) != rhsVal)
             case .deferredString:
-                fatalError("Python TypeError")
+                return PythonInterpreter.SafePythonObject(booleanLiteral: true)
             case .deferredBool(let rhsVal):
-                return lhsVal != rhsVal
+                return PythonInterpreter.SafePythonObject(booleanLiteral: lhsVal != rhsVal)
             }
+        }
+    }
+    
+    /// Compares this safe Python object with a Swift value using Python `!=` semantics.
+    ///
+    /// Fully deferred objects can only compare directly against another `SafePythonObject`, because
+    /// general `SafePythonConvertible` conversion needs an interpreter.
+    ///
+    /// - Parameters:
+    ///   - other: The Swift value to convert and compare against.
+    /// - Returns: A safe Python bool object containing the comparison result.
+    /// - Throws: `PythonError.conversionType` if conversion requires an interpreter but this object
+    ///   is still deferred, or `PythonError` if conversion or Python comparison fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func notEqual(_ other: any SafePythonConvertible) throws -> PythonInterpreter.SafePythonObject {
+        if let safeObject = other as? PythonInterpreter.SafePythonObject {
+            return try notEqual(safeObject)
+        }
+        
+        guard isBoundToPythonInterpreter else {
+            throw PythonError.conversionType(
+                value: String(describing: other),
+                sourceType: String(describing: type(of: other)),
+                targetType: "SafePythonObject"
+            )
+        }
+        
+        let localInterpreter = interpreter
+        return try localInterpreter.assumeIsolated {
+            try $0.syncNotEqual(lhs: self.toSafePythonObject(interpreter: $0), rhs: other.toSafePythonObject(interpreter: $0))
+        }
+    }
+    
+    static internal func notEqualOp(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
+        do {
+            return try lhs.notEqual(rhs)
+        } catch {
+            fatalError("Comparison failed: \(error). Use `SafePythonObject.notEqual(_:)` for comparisons that might throw.")
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    static internal func notEqualEquatable(lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
+        do {
+            switch lhs.state {
+            case .bound:
+                let localInterpreter = lhs.interpreter
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncNotEqualEquatable(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
+                }
+            case .deferredDouble(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    let localInterpreter = rhs.interpreter
+                    return try localInterpreter.assumeIsolated {
+                        try $0.syncNotEqualEquatable(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
+                    }
+                case .deferredDouble(let rhsVal):
+                    return lhsVal != rhsVal
+                case .deferredInt(let rhsVal):
+                    return !Self.deferredDouble(lhsVal, isEqualTo: rhsVal)
+                case .deferredString:
+                    return true
+                case .deferredBool(let rhsVal):
+                    return lhsVal != (rhsVal ? 1.0 : 0.0)
+                }
+            case .deferredInt(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    let localInterpreter = rhs.interpreter
+                    return try localInterpreter.assumeIsolated {
+                        try $0.syncNotEqualEquatable(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
+                    }
+                case .deferredDouble(let rhsVal):
+                    return !Self.deferredInt(lhsVal, isEqualTo: rhsVal)
+                case .deferredInt(let rhsVal):
+                    return lhsVal != rhsVal
+                case .deferredString:
+                    return true
+                case .deferredBool(let rhsVal):
+                    return lhsVal != (rhsVal ? 1 : 0)
+                }
+            case .deferredString(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    let localInterpreter = rhs.interpreter
+                    return try localInterpreter.assumeIsolated {
+                        try $0.syncNotEqualEquatable(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
+                    }
+                case .deferredDouble, .deferredInt, .deferredBool:
+                    return true
+                case .deferredString(let rhsVal):
+                    return lhsVal != rhsVal
+                }
+            case .deferredBool(let lhsVal):
+                switch rhs.state {
+                case .bound:
+                    let localInterpreter = rhs.interpreter
+                    return try localInterpreter.assumeIsolated {
+                        try $0.syncNotEqualEquatable(lhs: lhs.toSafePythonObject(interpreter: $0), rhs: rhs.toSafePythonObject(interpreter: $0))
+                    }
+                case .deferredDouble(let rhsVal):
+                    return (lhsVal ? 1.0 : 0.0) != rhsVal
+                case .deferredInt(let rhsVal):
+                    return (lhsVal ? 1 : 0) != rhsVal
+                case .deferredString:
+                    return true
+                case .deferredBool(let rhsVal):
+                    return lhsVal != rhsVal
+                }
+            }
+        } catch {
+            fatalError("Comparison failed: \(error). Use `SafePythonObject.notEqual(_:)` for comparisons that might throw.")
         }
     }
     

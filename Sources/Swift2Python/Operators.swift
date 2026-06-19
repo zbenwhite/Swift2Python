@@ -260,24 +260,20 @@ extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
     // `Equatable` and `Comparable` are implemented using rich comparison.
     // This is consistent with how Python handles comparisons.
 
+    /// Returns true when two safe Python objects compare equal using Python `==` semantics.
+    ///
+    /// This `Equatable` overload is non-throwing. If Python raises or conversion fails, this traps
+    /// with `fatalError`. Use `SafePythonObject.equal(_:)` when comparison can fail and should be handled.
     public static func == (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
-        if lhs.isBoundToPythonInterpreter {
-            return lhs.doubleEqualsEquatableOperator(lhs, rhs)
-        } else if rhs.isBoundToPythonInterpreter {
-            return rhs.doubleEqualsEquatableOperator(lhs, rhs)
-        } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonDoubleEqualsEquatable(lhs:lhs, rhs:rhs)
-        }
+        return PythonInterpreter.SafePythonObject.equalEquatable(lhs: lhs, rhs: rhs)
     }
 
+    /// Returns true when two safe Python objects compare not equal using Python `!=` semantics.
+    ///
+    /// This `Equatable` overload is non-throwing. If Python raises or conversion fails, this traps
+    /// with `fatalError`. Use `SafePythonObject.notEqual(_:)` when comparison can fail and should be handled.
     public static func != (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> Bool {
-        if lhs.isBoundToPythonInterpreter {
-            return lhs.notEqualsEquatableOperator(lhs, rhs)
-        } else if rhs.isBoundToPythonInterpreter {
-            return rhs.notEqualsEquatableOperator(lhs, rhs)
-        } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonNotEqualsEquatable(lhs:lhs, rhs:rhs)
-        }
+        return PythonInterpreter.SafePythonObject.notEqualEquatable(lhs: lhs, rhs: rhs)
     }
 
     /// Returns true when the left safe Python object compares less than the right using Python `<` semantics.
@@ -319,24 +315,20 @@ extension PythonInterpreter.SafePythonObject : Equatable, Comparable {
 
 public extension PythonInterpreter.SafePythonObject {
 
+    /// Returns the Python bool result of comparing two safe Python objects using Python `==` semantics.
+    ///
+    /// This overload is non-throwing. If Python raises or conversion fails, this traps with
+    /// `fatalError`. Use `SafePythonObject.equal(_:)` when comparison can fail and should be handled.
     static func == (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        if lhs.isBoundToPythonInterpreter {
-            return lhs.doubleEqualsOperator(lhs, rhs)
-        } else if rhs.isBoundToPythonInterpreter {
-            return rhs.doubleEqualsOperator(lhs, rhs)
-        } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonDoubleEquals(lhs:lhs, rhs:rhs)
-        }
+        return PythonInterpreter.SafePythonObject.equalOp(lhs: lhs, rhs: rhs)
     }
 
+    /// Returns the Python bool result of comparing two safe Python objects using Python `!=` semantics.
+    ///
+    /// This overload is non-throwing. If Python raises or conversion fails, this traps with
+    /// `fatalError`. Use `SafePythonObject.notEqual(_:)` when comparison can fail and should be handled.
     static func != (lhs: PythonInterpreter.SafePythonObject, rhs: PythonInterpreter.SafePythonObject) -> PythonInterpreter.SafePythonObject {
-        if lhs.isBoundToPythonInterpreter {
-            return lhs.notEqualsOperator(lhs, rhs)
-        } else if rhs.isBoundToPythonInterpreter {
-            return rhs.notEqualsOperator(lhs, rhs)
-        } else {
-            return PythonInterpreter.SafePythonObject.unboundPythonNotEquals(lhs:lhs, rhs:rhs)
-        }
+        return PythonInterpreter.SafePythonObject.notEqualOp(lhs: lhs, rhs: rhs)
     }
 
     /// Returns the Python bool result of comparing two safe Python objects using Python `<` semantics.

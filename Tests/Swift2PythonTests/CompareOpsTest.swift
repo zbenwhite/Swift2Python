@@ -784,5 +784,178 @@ struct CompareOpsTests {
     }
     
     // MARK: O==_xxx Equality Tests
-    // MARK: O!=_xxx Not Equals Tests
+    
+    @Test("O==_001: Equality Operator Integer")
+    func equalityOperatorInteger() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundOne = try 1.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundOtherOne = try 1.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundTwo = try 2.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundOne: PythonInterpreter.SafePythonObject = 1
+            let unboundTwo: PythonInterpreter.SafePythonObject = 2
+            let unboundTrue: PythonInterpreter.SafePythonObject = true
+            
+            let boolCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Bool)] = [
+                ("bound one == bound one", boundOne, boundOtherOne, true),
+                ("bound one == bound two", boundOne, boundTwo, false),
+                ("bound one == unbound one", boundOne, unboundOne, true),
+                ("unbound one == bound one", unboundOne, boundOne, true),
+                ("unbound one == unbound two", unboundOne, unboundTwo, false),
+                ("unbound true == bound one", unboundTrue, boundOne, true)
+            ]
+            
+            for (description, lhs, rhs, expected) in boolCases {
+                let result: Bool = lhs == rhs
+                #expect(result == expected, Comment(rawValue: description))
+            }
+            
+            for (description, lhs, rhs, expected) in boolCases {
+                let result: PythonInterpreter.SafePythonObject = lhs == rhs
+                #expect(try Bool(result) == expected, Comment(rawValue: description))
+            }
+        }
+    }
+    
+    @Test("O==_002: Equality Operator String and mixed types")
+    func equalityOperatorStringAndMixedTypes() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundA = try "abc".toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundOtherA = try "abc".toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundB = try "abd".toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundA: PythonInterpreter.SafePythonObject = "abc"
+            let unboundInt: PythonInterpreter.SafePythonObject = 1
+            let unboundBool: PythonInterpreter.SafePythonObject = true
+            
+            let cases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Bool)] = [
+                ("bound string == bound same string", boundA, boundOtherA, true),
+                ("bound string == bound different string", boundA, boundB, false),
+                ("bound string == unbound same string", boundA, unboundA, true),
+                ("unbound string == bound same string", unboundA, boundA, true),
+                ("unbound string == unbound int", unboundA, unboundInt, false),
+                ("unbound bool == unbound int", unboundBool, unboundInt, true)
+            ]
+            
+            for (description, lhs, rhs, expected) in cases {
+                let result: Bool = lhs == rhs
+                #expect(result == expected, Comment(rawValue: description))
+            }
+        }
+    }
+    
+    @Test("O==_005: PythonObject async equality")
+    func equalityPythonObject() async throws {
+        let intObject = try await 1.toPythonObject(interpreter: interpreter)
+        #expect(try await intObject.equal(1))
+        #expect(try await intObject.equal(2) == false)
+        #expect(try await intObject.equal(true))
+        
+        let stringObject = try await "abc".toPythonObject(interpreter: interpreter)
+        #expect(try await stringObject.equal("abc"))
+        #expect(try await stringObject.equal(1) == false)
+    }
+    
+    @Test("O==_009: Equality deferred Int and Double exactness")
+    func equalityDeferredIntDoubleExactness() throws {
+        let maxInt = PythonInterpreter.SafePythonObject(integerLiteral: Int.max)
+        let maxIntRoundedToDouble = PythonInterpreter.SafePythonObject(floatLiteral: Double(Int.max))
+        let doublePastExactIntegerPrecision = PythonInterpreter.SafePythonObject(floatLiteral: 9_007_199_254_740_992.0)
+        let intPastExactIntegerPrecision = PythonInterpreter.SafePythonObject(integerLiteral: 9_007_199_254_740_993)
+        let nanValue = PythonInterpreter.SafePythonObject(floatLiteral: Double.nan)
+        let one = PythonInterpreter.SafePythonObject(integerLiteral: 1)
+        
+        #expect((maxInt == maxIntRoundedToDouble) == false)
+        #expect((maxIntRoundedToDouble == maxInt) == false)
+        #expect((doublePastExactIntegerPrecision == intPastExactIntegerPrecision) == false)
+        #expect((intPastExactIntegerPrecision == doublePastExactIntegerPrecision) == false)
+        #expect((nanValue == one) == false)
+        #expect((nanValue == nanValue) == false)
+    }
+    
+    // MARK: O!=_xxx Not Equal Tests
+    
+    @Test("O!=_001: Not Equal Operator Integer")
+    func notEqualOperatorInteger() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundOne = try 1.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundOtherOne = try 1.toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundTwo = try 2.toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundOne: PythonInterpreter.SafePythonObject = 1
+            let unboundTwo: PythonInterpreter.SafePythonObject = 2
+            let unboundTrue: PythonInterpreter.SafePythonObject = true
+            
+            let boolCases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Bool)] = [
+                ("bound one != bound one", boundOne, boundOtherOne, false),
+                ("bound one != bound two", boundOne, boundTwo, true),
+                ("bound one != unbound one", boundOne, unboundOne, false),
+                ("unbound one != bound one", unboundOne, boundOne, false),
+                ("unbound one != unbound two", unboundOne, unboundTwo, true),
+                ("unbound true != bound one", unboundTrue, boundOne, false)
+            ]
+            
+            for (description, lhs, rhs, expected) in boolCases {
+                let result: Bool = lhs != rhs
+                #expect(result == expected, Comment(rawValue: description))
+            }
+            
+            for (description, lhs, rhs, expected) in boolCases {
+                let result: PythonInterpreter.SafePythonObject = lhs != rhs
+                #expect(try Bool(result) == expected, Comment(rawValue: description))
+            }
+        }
+    }
+    
+    @Test("O!=_002: Not Equal Operator String and mixed types")
+    func notEqualOperatorStringAndMixedTypes() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let boundA = try "abc".toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundOtherA = try "abc".toSafePythonObject(interpreter: isolatedInterpreter)
+            let boundB = try "abd".toSafePythonObject(interpreter: isolatedInterpreter)
+            let unboundA: PythonInterpreter.SafePythonObject = "abc"
+            let unboundInt: PythonInterpreter.SafePythonObject = 1
+            let unboundBool: PythonInterpreter.SafePythonObject = true
+            
+            let cases: [(String, PythonInterpreter.SafePythonObject, PythonInterpreter.SafePythonObject, Bool)] = [
+                ("bound string != bound same string", boundA, boundOtherA, false),
+                ("bound string != bound different string", boundA, boundB, true),
+                ("bound string != unbound same string", boundA, unboundA, false),
+                ("unbound string != bound same string", unboundA, boundA, false),
+                ("unbound string != unbound int", unboundA, unboundInt, true),
+                ("unbound bool != unbound int", unboundBool, unboundInt, false)
+            ]
+            
+            for (description, lhs, rhs, expected) in cases {
+                let result: Bool = lhs != rhs
+                #expect(result == expected, Comment(rawValue: description))
+            }
+        }
+    }
+    
+    @Test("O!=_005: PythonObject async not equal")
+    func notEqualPythonObject() async throws {
+        let intObject = try await 1.toPythonObject(interpreter: interpreter)
+        #expect(try await intObject.notEqual(1) == false)
+        #expect(try await intObject.notEqual(2))
+        #expect(try await intObject.notEqual(true) == false)
+        
+        let stringObject = try await "abc".toPythonObject(interpreter: interpreter)
+        #expect(try await stringObject.notEqual("abc") == false)
+        #expect(try await stringObject.notEqual(1))
+    }
+    
+    @Test("O!=_009: Not Equal deferred Int and Double exactness")
+    func notEqualDeferredIntDoubleExactness() throws {
+        let maxInt = PythonInterpreter.SafePythonObject(integerLiteral: Int.max)
+        let maxIntRoundedToDouble = PythonInterpreter.SafePythonObject(floatLiteral: Double(Int.max))
+        let doublePastExactIntegerPrecision = PythonInterpreter.SafePythonObject(floatLiteral: 9_007_199_254_740_992.0)
+        let intPastExactIntegerPrecision = PythonInterpreter.SafePythonObject(integerLiteral: 9_007_199_254_740_993)
+        let nanValue = PythonInterpreter.SafePythonObject(floatLiteral: Double.nan)
+        let one = PythonInterpreter.SafePythonObject(integerLiteral: 1)
+        
+        #expect(maxInt != maxIntRoundedToDouble)
+        #expect(maxIntRoundedToDouble != maxInt)
+        #expect(doublePastExactIntegerPrecision != intPastExactIntegerPrecision)
+        #expect(intPastExactIntegerPrecision != doublePastExactIntegerPrecision)
+        #expect(nanValue != one)
+        #expect(nanValue != nanValue)
+    }
 }
