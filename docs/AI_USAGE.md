@@ -209,13 +209,80 @@ try await lhs.greaterThan(rhs)
 try await lhs.greaterThanOrEqual(rhs)
 ```
 
+### Logical Operations
+
+Use logical methods for Python truthiness and Python-style `and` / `or`. Do not generate Swift `&&` or `||` for `PythonObject` or ``PythonInterpreter.SafePythonObject`` values.
+
+Use `isTrue()` when the caller needs a Swift `Bool` condition:
+
+```swift
+if try await value.isTrue() {
+    print("truthy")
+}
+```
+
+Use `isNotTrue()` for Python logical NOT as a Swift `Bool`:
+
+```swift
+if try await value.isNotTrue() {
+    print("falsey")
+}
+```
+
+Safe truthiness works inside `withIsolatedContext` and supports deferred literals:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let value: PythonInterpreter.SafePythonObject = ""
+    let falsey = try value.isNotTrue()
+}
+```
+
+Use `logicalAnd` and `logicalOr` when Python operand-returning behavior matters. These methods return a Python object, not a Swift `Bool`:
+
+```swift
+let selected = try await preferred.logicalOr(fallback)
+let required = try await condition.logicalAnd(value)
+```
+
+Use the closure overloads when preserving Python short-circuiting matters. The closure should create the right operand only when Python would evaluate it:
+
+```swift
+let selected = try await preferred.logicalOr {
+    try await computeFallback()
+}
+
+let required = try await condition.logicalAnd {
+    try await computeValue()
+}
+```
+
+Safe short-circuiting is synchronous inside `withIsolatedContext`:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let preferred: PythonInterpreter.SafePythonObject = ""
+    let selected = try preferred.logicalOr {
+        try context.convertToSafePython("fallback")
+    }
+}
+```
+
+Remember Python semantics:
+
+- `lhs.logicalAnd(rhs)` returns `lhs` when `lhs` is falsey; otherwise it returns `rhs`.
+- `lhs.logicalOr(rhs)` returns `lhs` when `lhs` is truthy; otherwise it returns `rhs`.
+- These methods are not replacements for comparison methods. For comparisons, use `equal`, `lessThan`, and related APIs.
+
 ### Error Behavior
 
 Async ``PythonObject`` methods throw `PythonError.pythonException` when Python raises and may also throw conversion errors.
 
 Throwing ``PythonInterpreter.SafePythonObject`` methods throw `PythonError.safePythonException` for Python failures, `PythonError.typeError` for invalid fully deferred primitive combinations, `PythonError.divisionByZero` for fully deferred zero division or modulus, and `PythonError.overflowError` when a fully deferred integer result cannot fit in Swift2Python's deferred storage.
 
-Safe operators use the same underlying behavior, but they cannot throw. They trap on failure. Do not write generated code that catches around an operator; use the throwing method instead.
+Logical closure overloads can also throw errors from the right-hand closure. Deferred safe truthiness for bool, int, double, and string literals is evaluated locally and does not raise Python exceptions.
+
+Safe operators use the same underlying behavior, but they cannot throw. Do not write generated code that catches around an operator; use the throwing method instead.
 
 ### Do Not Add Duplicate Operator APIs
 
