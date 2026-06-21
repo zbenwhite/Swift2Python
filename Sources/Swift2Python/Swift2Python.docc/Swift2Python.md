@@ -22,3 +22,4 @@ Use the async APIs for normal Swift concurrency code. Use safe objects inside an
 - <doc:Lists>
 - <doc:Sets>
 - <doc:Bytes>
+- <doc:Iteration>

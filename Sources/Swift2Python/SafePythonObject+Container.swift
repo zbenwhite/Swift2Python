@@ -14,29 +14,79 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: Sequence support
     
+    /// The element type produced when iterating a safe Python iterable.
     public typealias Element = PythonInterpreter.SafePythonObject
     
+    /// A Swift iterator over a Python iterable inside `withIsolatedContext`.
+    ///
+    /// This iterator is backed by Python's iterator protocol. Use `nextThrowing()`
+    /// when the caller must distinguish normal exhaustion from Python errors.
+    /// Swift `for`-`in` uses `next()`, which cannot throw and traps on Python errors.
     public struct SafePythonIterator: IteratorProtocol {
         private var pyIterator: PythonInterpreter.SafePythonObject
         
         internal init(sequence: PythonInterpreter.SafePythonObject) throws {
-            self.pyIterator = try sequence.__iter__()
+            self.pyIterator = try sequence.interpreter.assumeIsolated {
+                try $0.makeIterator(for: sequence)
+            }
         }
         
+        /// Returns the next Python item, or `nil` when the iterator is exhausted.
+        ///
+        /// Unlike Swift's non-throwing `next()`, this method preserves Python errors.
+        /// Use this when iterating objects whose `__iter__` or `__next__` may raise for
+        /// reasons other than normal `StopIteration`.
+        ///
+        /// - Returns: The next item, or `nil` when Python reports normal iterator exhaustion.
+        /// - Throws: `PythonError.safePythonException` if Python raises while advancing the iterator.
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+        public mutating func nextThrowing() throws -> PythonInterpreter.SafePythonObject? {
+            let iterator = pyIterator
+            return try iterator.interpreter.assumeIsolated {
+                try $0.iteratorNext(iterator)
+            }
+        }
+        
+        /// Returns the next Python item for Swift `Sequence` iteration.
+        ///
+        /// This is the non-throwing `IteratorProtocol` entry point used by Swift
+        /// `for`-`in`. It returns `nil` for normal Python `StopIteration` and traps
+        /// if Python raises any other error. Use `nextThrowing()` when errors should
+        /// be handled by the caller.
+        ///
+        /// - Returns: The next item, or `nil` when Python reports normal iterator exhaustion.
         public mutating func next() -> PythonInterpreter.SafePythonObject? {
             do {
-                return try pyIterator.__next__()
+                return try nextThrowing()
             } catch {
-                // StopIteration or any other error → end of sequence (Swift Iterator contract)
-                return nil
+                fatalError("Python iterator raised while advancing: \(error)")
             }
         }
     }
     
+    /// Creates a throwing Python iterator for this object.
+    ///
+    /// Use this when you need recoverable error handling. `makeIterator()` is required
+    /// by Swift's `Sequence` protocol and traps if Python refuses to create an iterator.
+    ///
+    /// - Returns: A safe Python iterator.
+    /// - Throws: `PythonError.safePythonException` if this object is not iterable or Python raises.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func pythonIterator() throws -> SafePythonIterator {
+        try SafePythonIterator(sequence: self)
+    }
+    
+    /// Creates a Python iterator for Swift `Sequence` iteration.
+    ///
+    /// This is the non-throwing `Sequence` conformance entry point used by Swift
+    /// `for`-`in`. It traps if Python refuses to create an iterator. Use
+    /// `pythonIterator()` when iterator creation errors should be handled by the caller.
+    ///
+    /// - Returns: A safe Python iterator.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func makeIterator() -> SafePythonIterator {
         do {
-            return try SafePythonIterator(sequence: self)
+            return try pythonIterator()
         } catch {
             fatalError("Failed to create iterator for SafePythonObject: \(error)")
         }
@@ -44,7 +94,12 @@ extension PythonInterpreter.SafePythonObject {
     
     // MARK: items() Sequence support
     
+    /// A Swift sequence over the key/value pairs produced by Python `dict.items()`.
+    ///
+    /// Each element is returned as a labeled Swift tuple containing safe Python
+    /// objects for the key and value. Iteration must happen inside `withIsolatedContext`.
     public struct ItemsSequence: Sequence {
+        /// The key/value pair type produced while iterating Python `dict.items()`.
         public typealias Element = (key: PythonInterpreter.SafePythonObject, value: PythonInterpreter.SafePythonObject)
         
         private let dictView: PythonInterpreter.SafePythonObject
@@ -53,30 +108,63 @@ extension PythonInterpreter.SafePythonObject {
             self.dictView = dictView
         }
         
+        /// An iterator over Python `dict.items()` pairs.
+        ///
+        /// The underlying Python iterator yields 2-item Python tuples. This iterator
+        /// unwraps each tuple into a Swift `(key: value:)` pair of safe Python objects.
         public struct Iterator: IteratorProtocol {
             private var pyIterator: PythonInterpreter.SafePythonObject   // the iterator from items()
             
             internal init(dictView: PythonInterpreter.SafePythonObject) throws {
-                self.pyIterator = try dictView.__iter__()
+                self.pyIterator = try dictView.interpreter.assumeIsolated {
+                    let itemsMethod = try $0.syncGetObjectAttribute(dictView, "items")
+                    let itemsView = try $0.syncCall(callable: itemsMethod)
+                    return try $0.makeIterator(for: itemsView)
+                }
             }
             
+            /// Returns the next key/value pair from Python `dict.items()`.
+            ///
+            /// Python's normal `StopIteration` is returned as `nil`. Other Python
+            /// exceptions are preserved so the caller can handle them.
+            ///
+            /// - Returns: The next key/value pair, or `nil` when iteration is exhausted.
+            /// - Throws: `PythonError.safePythonException` if Python raises while advancing the iterator.
+            @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+            public mutating func nextThrowing() throws -> Element? {
+                let iterator = pyIterator
+                guard let item = try iterator.interpreter.assumeIsolated({ try $0.iteratorNext(iterator) }) else {
+                    return nil
+                }
+                let key = item[0]
+                let value = item[1]
+                return (key: key, value: value)
+            }
+            
+            /// Returns the next key/value pair for Swift `Sequence` iteration.
+            ///
+            /// This is the non-throwing `IteratorProtocol` entry point used by Swift
+            /// `for`-`in`. It returns `nil` for normal Python `StopIteration` and traps
+            /// if Python raises any other error. Use `nextThrowing()` when errors should
+            /// be handled by the caller.
+            ///
+            /// - Returns: The next key/value pair, or `nil` when iteration is exhausted.
             public mutating func next() -> Element? {
                 do {
-                    // Each item from dict.items() is a 2-element tuple in Python
-                    let item = try pyIterator.__next__()
-                    
-                    // Unpack the Python tuple using subscript (already implemented)
-                    let key   = item[0]
-                    let value = item[1]
-                    
-                    return (key: key, value: value)
+                    return try nextThrowing()
                 } catch {
-                    // StopIteration → end
-                    return nil
+                    fatalError("Python items() iterator raised while advancing: \(error)")
                 }
             }
         }
         
+        /// Creates an iterator over this dictionary's `items()` view.
+        ///
+        /// This is the non-throwing `Sequence` conformance entry point used by Swift
+        /// `for`-`in`. It traps if Python raises while calling `items()` or creating
+        /// the Python iterator.
+        ///
+        /// - Returns: An iterator over key/value pairs.
         public func makeIterator() -> Iterator {
             do {
                 return try Iterator(dictView: dictView)
@@ -86,7 +174,14 @@ extension PythonInterpreter.SafePythonObject {
         }
     }
     
-    // The items() function for a dictionary
+    /// Returns a Swift sequence over this Python dictionary's key/value pairs.
+    ///
+    /// This calls Python `dict.items()` when iteration starts and exposes each
+    /// returned pair as `(key: SafePythonObject, value: SafePythonObject)`. Use this
+    /// for `for`-`in` iteration inside `withIsolatedContext`; use `dictItems` when you
+    /// want an eager Swift array of pairs instead.
+    ///
+    /// - Returns: A sequence over this dictionary's `items()` view.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func items() -> ItemsSequence {
         ItemsSequence(dictView: self)

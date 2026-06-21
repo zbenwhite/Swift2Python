@@ -30,6 +30,7 @@ extension PythonInterpreter {
         let PyErr_Fetch: (@convention(c) (UnsafeMutablePointer<UnsafeMutableRawPointer?>?, UnsafeMutablePointer<UnsafeMutableRawPointer?>?, UnsafeMutablePointer<UnsafeMutableRawPointer?>?) -> Void)
         let PyErr_NormalizeException: (@convention(c) (UnsafeMutablePointer<UnsafeMutableRawPointer?>?, UnsafeMutablePointer<UnsafeMutableRawPointer?>?, UnsafeMutablePointer<UnsafeMutableRawPointer?>?) -> Void)
         let PyErr_Occurred: (@convention(c) () -> UnsafeMutableRawPointer?)
+        let PyIter_Next: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyFloat_AsDouble: (@convention(c) (UnsafeMutableRawPointer) -> Double)
         let PyFloat_FromDouble: (@convention(c) (Double) -> UnsafeMutableRawPointer?)
         let PyGILState_Ensure: (@convention(c) () -> PyGILState_STATE)
@@ -82,6 +83,7 @@ extension PythonInterpreter {
         let PyObject_GetAttrString: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?)
         let PyObject_GetBuffer: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer, Int32) -> Int32)
         let PyObject_GetItem: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
+        let PyObject_GetIter: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyObject_IsInstance: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> Int32)
         let PyObject_IsTrue: (@convention(c) (UnsafeMutableRawPointer) -> Int32)
         let PyObject_Not: (@convention(c) (UnsafeMutableRawPointer) -> Int32)
@@ -289,6 +291,11 @@ extension PythonInterpreter {
             return PyMapping_Values(object)
         }
         
+        internal func pythonIter_Next(_ iterator: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer? {
+            logger.trace("CPython API Call: PyIter_Next")
+            return PyIter_Next(iterator)
+        }
+        
         internal func pythonNumber_InPlacePower(_ lhs: UnsafeMutableRawPointer, _ rhs: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: Number_InPlacePower")
             if let pyNone = pythonNone() {
@@ -335,6 +342,11 @@ extension PythonInterpreter {
         internal func pythonObject_GetItem(_ obPtr: UnsafeMutableRawPointer, _ keyPtr: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: PyObject_GetItem")
             return PyObject_GetItem(obPtr, keyPtr)
+        }
+        
+        internal func pythonObject_GetIter(_ obPtr: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer? {
+            logger.trace("CPython API Call: PyObject_GetIter")
+            return PyObject_GetIter(obPtr)
         }
         
         internal func pythonObject_IsTrue(_ obPtr: UnsafeMutableRawPointer) -> Int32 {
@@ -516,6 +528,8 @@ extension PythonInterpreter {
                 "PyErr_NormalizeException", as: (@convention(c) (UnsafeMutablePointer<UnsafeMutableRawPointer?>?, UnsafeMutablePointer<UnsafeMutableRawPointer?>?, UnsafeMutablePointer<UnsafeMutableRawPointer?>?) -> Void).self).function,
             PyErr_Occurred: try await runtime.loadSendableSymbol(
                 "PyErr_Occurred", as: (@convention(c) () -> UnsafeMutableRawPointer?).self).function,
+            PyIter_Next: try await runtime.loadSendableSymbol(
+                "PyIter_Next", as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             PyFloat_AsDouble: try await runtime.loadSendableSymbol(
                 "PyFloat_AsDouble", as: (@convention(c) (UnsafeMutableRawPointer) -> Double).self).function,
             PyFloat_FromDouble: try await runtime.loadSendableSymbol(
@@ -620,6 +634,8 @@ extension PythonInterpreter {
                 "PyObject_GetBuffer", as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer, Int32) -> Int32).self).function,
             PyObject_GetItem: try await runtime.loadSendableSymbol(
                 "PyObject_GetItem", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
+            PyObject_GetIter: try await runtime.loadSendableSymbol(
+                "PyObject_GetIter", as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             PyObject_IsInstance: try await runtime.loadSendableSymbol(
                 "PyObject_IsInstance", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> Int32).self).function,
             PyObject_IsTrue: try await runtime.loadSendableSymbol(

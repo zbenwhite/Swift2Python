@@ -1264,3 +1264,59 @@ public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectabl
         return try await rhs()
     }
 }
+
+
+extension PythonObject: AsyncSequence {
+    /// The element type produced when asynchronously iterating a Python iterable.
+    public typealias Element = PythonObject
+    
+    /// An async iterator backed by Python's iterator protocol.
+    ///
+    /// The Python iterator is created lazily on the first call to `next()`. Use this
+    /// through Swift's `for try await` syntax to consume Python iterables without
+    /// materializing every item into a Swift collection first.
+    public struct AsyncIterator: AsyncIteratorProtocol {
+        private var pyIterator: PythonObject?
+        private let source: PythonObject
+        
+        internal init(source: PythonObject) {
+            self.source = source
+        }
+        
+        /// Returns the next item from this Python iterator.
+        ///
+        /// Python's normal `StopIteration` is returned as `nil`. Other Python exceptions
+        /// are preserved as thrown `PythonError.pythonException` values. The first call
+        /// creates the underlying Python iterator and can throw if the source object is
+        /// not iterable.
+        ///
+        /// - Returns: The next Python item, or `nil` when iteration is exhausted.
+        /// - Throws: `PythonError.pythonException` if Python raises while creating or advancing the iterator.
+        public mutating func next() async throws -> PythonObject? {
+            let iterator: PythonObject
+            if let existingIterator = pyIterator {
+                iterator = existingIterator
+            } else {
+                iterator = try await source.interpreter.makeIterator(for: source)
+                pyIterator = iterator
+            }
+            return try await source.interpreter.iteratorNext(iterator)
+        }
+    }
+    
+    /// Creates an async iterator over this Python iterable.
+    ///
+    /// This is the `AsyncSequence` conformance entry point used by Swift
+    /// `for try await`. It does not call Python immediately; the underlying Python
+    /// iterator is created on the first call to `AsyncIterator.next()`.
+    ///
+    /// Use this when consuming Python lists, tuples, sets, dictionaries, views,
+    /// generators, ranges, or custom iterables without eagerly materializing them
+    /// into Swift arrays.
+    ///
+    /// - Returns: An async iterator over this Python iterable.
+    public func makeAsyncIterator() -> AsyncIterator {
+        AsyncIterator(source: self)
+    }
+}
+

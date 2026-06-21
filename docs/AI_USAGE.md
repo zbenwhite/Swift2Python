@@ -293,6 +293,115 @@ Do not add alternate names for existing operations unless the user explicitly re
 - Do not add custom async operators for ``PythonObject``. Swift operators cannot be async or throwing in the way these APIs need.
 - Do not bypass the public methods by calling low-level CPython wrappers directly.
 
+## Iteration
+
+Iteration support is release-ready and should be treated as complete. Do not add synchronous `Sequence` conformance to ``PythonObject``; async Python objects must use `AsyncSequence` because creating and advancing Python iterators can require async interpreter work.
+
+### Choosing The Right Iteration API
+
+Use `for try await` for normal async ``PythonObject`` values:
+
+```swift
+let iterable = try await interpreter.convertToPython(array: [1, 2, 3])
+
+for try await item in iterable {
+    print(try await Int(item))
+}
+```
+
+This is the preferred generated-code pattern for Python lists, tuples, sets, dictionaries, dictionary views, ranges, generators, existing iterators, and custom iterable classes.
+
+Use ``PythonInterpreter.SafePythonObject`` iteration only inside `withIsolatedContext`:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let iterable = try context.convertToSafePython(array: [1, 2, 3])
+
+    for item in iterable {
+        print(try Int(item))
+    }
+}
+```
+
+Use safe `for`-`in` only when iteration failure is a programmer error. Swift `Sequence` cannot throw from `makeIterator()` or `next()`, so this path traps if Python refuses to create an iterator or raises while advancing it.
+
+Use the throwing safe iterator when errors should be handled:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let iterable = try context.convertToSafePython(array: [1, 2, 3])
+    var iterator = try iterable.pythonIterator()
+
+    while let item = try iterator.nextThrowing() {
+        print(try Int(item))
+    }
+}
+```
+
+### Dictionary Items
+
+For async ``PythonObject`` dictionary views, call Python's `items()` and iterate the Python tuples when lazy view iteration is desired:
+
+```swift
+let items = try await dict.items()
+for try await item in items {
+    let key = try await String(item.getItem(key: 0))
+    let value = try await Int(item.getItem(key: 1))
+    print(key, value)
+}
+```
+
+Use `dictItems()` when the caller wants an eager Swift array of `(key, value)` pairs:
+
+```swift
+let pairs = try await dict.dictItems()
+for pair in pairs {
+    print(try await String(pair.key), try await Int(pair.value))
+}
+```
+
+Inside `withIsolatedContext`, use `dict.items()` for a Swift sequence that yields labeled `(key, value)` safe-object pairs:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let dict = try context.convertToSafePython(dictionary: ["one": 1])
+
+    for pair in dict.items() {
+        print(try String(pair.key), try Int(pair.value))
+    }
+}
+```
+
+Use `dictItems` when an eager safe Swift array is better than iterating Python's `items()` view.
+
+### Iteration Error Behavior
+
+Async ``PythonObject`` iteration throws `PythonError.pythonException` when Python raises while creating or advancing the iterator. Normal Python `StopIteration` ends the loop and is not an error.
+
+Throwing safe iteration throws `PythonError.safePythonException` for Python-raised failures. Normal `StopIteration` returns `nil` from `nextThrowing()`.
+
+Non-throwing safe `for`-`in` iteration traps on Python errors. Do not generate safe `for`-`in` loops for user input, non-iterable candidates, or custom Python iterators expected to raise. Generate `pythonIterator()` plus `nextThrowing()` instead.
+
+### Iteration Versus Eager Arrays
+
+Prefer iteration for generators, ranges, dictionary views, large containers, and one-pass processing:
+
+```swift
+for try await item in pythonRange {
+    // process one item at a time
+}
+```
+
+Prefer eager helpers when the caller needs random access, repeated traversal, count before traversal, or a stable Swift snapshot:
+
+```swift
+let elements = try await list.asArray()
+let keys = try await dict.dictKeys()
+let pairs = try await dict.dictItems()
+```
+
+Do not add separate wrapper APIs for every Python iterable type. Python's iterator protocol covers the general case.
+
 ## Tuples
 
 Tuple support is release-ready and should be treated as complete. Do not invent new tuple helpers unless the user explicitly asks for a new API.
