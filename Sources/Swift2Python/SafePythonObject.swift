@@ -395,22 +395,122 @@ extension PythonInterpreter {
         
         // MARK: Truth and Logic
         
+        /// Returns this object's Python truth value.
+        ///
+        /// Deferred Swift literals use Python's built-in truthiness rules without first
+        /// materializing a Python object. Bound objects delegate to CPython's
+        /// `PyObject_IsTrue`, so custom Python `__bool__` and `__len__` behavior is preserved.
         @available(*, noasync, message: "Only safe inside withIsolatedContext()")
         public func isTrue() throws -> Bool {
-            let localInterpreter = interpreter
-            let obj = self
-            return try localInterpreter.assumeIsolated {
-                try $0.syncIsTrue(obj)
+            switch state {
+            case .deferredDouble(let value):
+                return value != 0.0
+            case .deferredInt(let value):
+                return value != 0
+            case .deferredString(let value):
+                return !value.isEmpty
+            case .deferredBool(let value):
+                return value
+            case .bound:
+                let localInterpreter = interpreter
+                let obj = self
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncIsTrue(obj)
+                }
             }
         }
         
+        /// Returns whether this object is falsey under Python truthiness rules.
+        ///
+        /// Deferred Swift literals use Python's built-in truthiness rules without first
+        /// materializing a Python object. Bound objects delegate to CPython's `PyObject_Not`,
+        /// so custom Python `__bool__` and `__len__` behavior is preserved.
         @available(*, noasync, message: "Only safe inside withIsolatedContext()")
         public func isNotTrue() throws -> Bool {
-            let localInterpreter = interpreter
-            let obj = self
-            return try localInterpreter.assumeIsolated {
-                try $0.syncIsNotTrue(obj)
+            switch state {
+            case .deferredDouble(let value):
+                return value == 0.0
+            case .deferredInt(let value):
+                return value == 0
+            case .deferredString(let value):
+                return value.isEmpty
+            case .deferredBool(let value):
+                return !value
+            case .bound:
+                let localInterpreter = interpreter
+                let obj = self
+                return try localInterpreter.assumeIsolated {
+                    try $0.syncIsNotTrue(obj)
+                }
             }
+        }
+        
+        /// Returns the Python `and` result for this object and an already-created right operand.
+        ///
+        /// Python `and` returns one of its operands, not a `Bool`: it returns `self` when
+        /// `self` is falsey, otherwise it returns `rhs`. Use the closure overload when the
+        /// right operand should not be created unless needed.
+        ///
+        /// - Parameter rhs: The right operand.
+        /// - Returns: `self` if `self` is falsey; otherwise `rhs`.
+        /// - Throws: `PythonError.safePythonException` if Python raises while evaluating truthiness.
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+        public func logicalAnd(_ rhs: SafePythonObject) throws -> SafePythonObject {
+            if try isTrue() {
+                return rhs
+            }
+            return self
+        }
+        
+        /// Returns the Python `and` result for this object and a lazily-created right operand.
+        ///
+        /// Python `and` short-circuits. The `rhs` closure is only evaluated when `self` is
+        /// truthy, and the result is one of the operands rather than a Swift `Bool`.
+        ///
+        /// - Parameter rhs: A closure that creates the right operand only when needed.
+        /// - Returns: `self` if `self` is falsey; otherwise the result of `rhs`.
+        /// - Throws: `PythonError.safePythonException` if Python raises while evaluating truthiness,
+        ///   or any error thrown by `rhs`.
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+        public func logicalAnd(_ rhs: () throws -> SafePythonObject) throws -> SafePythonObject {
+            if try isTrue() {
+                return try rhs()
+            }
+            return self
+        }
+        
+        /// Returns the Python `or` result for this object and an already-created right operand.
+        ///
+        /// Python `or` returns one of its operands, not a `Bool`: it returns `self` when
+        /// `self` is truthy, otherwise it returns `rhs`. Use the closure overload when the
+        /// right operand should not be created unless needed.
+        ///
+        /// - Parameter rhs: The right operand.
+        /// - Returns: `self` if `self` is truthy; otherwise `rhs`.
+        /// - Throws: `PythonError.safePythonException` if Python raises while evaluating truthiness.
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+        public func logicalOr(_ rhs: SafePythonObject) throws -> SafePythonObject {
+            if try isTrue() {
+                return self
+            }
+            return rhs
+        }
+        
+        /// Returns the Python `or` result for this object and a lazily-created right operand.
+        ///
+        /// Python `or` short-circuits. The `rhs` closure is only evaluated when `self` is
+        /// falsey, and the result is one of the operands rather than a Swift `Bool`.
+        ///
+        /// - Parameter rhs: A closure that creates the right operand only when needed.
+        /// - Returns: `self` if `self` is truthy; otherwise the result of `rhs`.
+        /// - Throws: `PythonError.safePythonException` if Python raises while evaluating truthiness,
+        ///   or any error thrown by `rhs`.
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+        public func logicalOr(_ rhs: () throws -> SafePythonObject) throws -> SafePythonObject {
+            if try isTrue() {
+                return self
+            }
+            return try rhs()
         }
         
     }  // end of Safe python object

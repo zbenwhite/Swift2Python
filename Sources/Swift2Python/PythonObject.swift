@@ -1178,11 +1178,89 @@ public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectabl
     
     // MARK: Trueness
     
+    /// Returns this object's Python truth value.
+    ///
+    /// This delegates to CPython's `PyObject_IsTrue`, so Python controls truthiness for
+    /// built-in values and custom `__bool__` or `__len__` implementations.
+    ///
+    /// - Returns: `true` when Python considers this object truthy; otherwise `false`.
+    /// - Throws: `PythonError.pythonException` if Python raises while evaluating truthiness.
     public func isTrue() async throws -> Bool {
         return try await interpreter.isTrue(self)
     }
     
+    /// Returns whether this object is falsey under Python truthiness rules.
+    ///
+    /// This delegates to CPython's `PyObject_Not`, so Python controls truthiness for
+    /// built-in values and custom `__bool__` or `__len__` implementations.
+    ///
+    /// - Returns: `true` when Python considers this object falsey; otherwise `false`.
+    /// - Throws: `PythonError.pythonException` if Python raises while evaluating truthiness.
     public func isNotTrue() async throws -> Bool {
         return try await interpreter.isNotTrue(self)
+    }
+    
+    /// Returns the Python `and` result for this object and an already-created right operand.
+    ///
+    /// Python `and` returns one of its operands, not a `Bool`: it returns `self` when
+    /// `self` is falsey, otherwise it returns `rhs`. Use the closure overload when the
+    /// right operand should not be created unless needed.
+    ///
+    /// - Parameter rhs: The right operand.
+    /// - Returns: `self` if `self` is falsey; otherwise `rhs`.
+    /// - Throws: `PythonError.pythonException` if Python raises while evaluating truthiness.
+    public func logicalAnd(_ rhs: PythonObject) async throws -> PythonObject {
+        if try await isTrue() {
+            return rhs
+        }
+        return self
+    }
+    
+    /// Returns the Python `and` result for this object and a lazily-created right operand.
+    ///
+    /// Python `and` short-circuits. The `rhs` closure is only evaluated when `self` is
+    /// truthy, and the result is one of the operands rather than a Swift `Bool`.
+    ///
+    /// - Parameter rhs: A closure that creates the right operand only when needed.
+    /// - Returns: `self` if `self` is falsey; otherwise the result of `rhs`.
+    /// - Throws: `PythonError.pythonException` if Python raises while evaluating truthiness,
+    ///   or any error thrown by `rhs`.
+    public func logicalAnd(_ rhs: () async throws -> PythonObject) async throws -> PythonObject {
+        if try await isTrue() {
+            return try await rhs()
+        }
+        return self
+    }
+    
+    /// Returns the Python `or` result for this object and an already-created right operand.
+    ///
+    /// Python `or` returns one of its operands, not a `Bool`: it returns `self` when
+    /// `self` is truthy, otherwise it returns `rhs`. Use the closure overload when the
+    /// right operand should not be created unless needed.
+    ///
+    /// - Parameter rhs: The right operand.
+    /// - Returns: `self` if `self` is truthy; otherwise `rhs`.
+    /// - Throws: `PythonError.pythonException` if Python raises while evaluating truthiness.
+    public func logicalOr(_ rhs: PythonObject) async throws -> PythonObject {
+        if try await isTrue() {
+            return self
+        }
+        return rhs
+    }
+    
+    /// Returns the Python `or` result for this object and a lazily-created right operand.
+    ///
+    /// Python `or` short-circuits. The `rhs` closure is only evaluated when `self` is
+    /// falsey, and the result is one of the operands rather than a Swift `Bool`.
+    ///
+    /// - Parameter rhs: A closure that creates the right operand only when needed.
+    /// - Returns: `self` if `self` is truthy; otherwise the result of `rhs`.
+    /// - Throws: `PythonError.pythonException` if Python raises while evaluating truthiness,
+    ///   or any error thrown by `rhs`.
+    public func logicalOr(_ rhs: () async throws -> PythonObject) async throws -> PythonObject {
+        if try await isTrue() {
+            return self
+        }
+        return try await rhs()
     }
 }
