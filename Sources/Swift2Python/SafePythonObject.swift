@@ -135,7 +135,17 @@ extension PythonInterpreter {
         
         // MARK: Explicit throwing access
         
-        // a.name
+        /// Gets a Python attribute by name inside an isolated interpreter context.
+        ///
+        /// Use this throwing API inside `PythonInterpreter.withIsolatedContext` when
+        /// missing attributes or Python exceptions should be handled by the caller. For
+        /// convenience-only code where failure is a programmer error, safe dynamic-member
+        /// syntax such as `object.name` is also available.
+        ///
+        /// - Parameter attr: The Python attribute name to read.
+        /// - Returns: The safe Python object stored in the named attribute.
+        /// - Throws: `PythonError.safePythonException` inside the isolated context when
+        ///   Python raises, including missing attributes.
         public func get(attr: String) throws -> SafePythonObject {
             let localInterpreter = interpreter
             return try localInterpreter.assumeIsolated {
@@ -143,7 +153,18 @@ extension PythonInterpreter {
             }
         }
         
-        // a.name = value
+        /// Sets a Python attribute by name inside an isolated interpreter context.
+        ///
+        /// Use this throwing API inside `PythonInterpreter.withIsolatedContext` when
+        /// assignment failure should be recoverable. The value is materialized into a
+        /// Python object before assignment, so Swift literals can be used directly.
+        ///
+        /// - Parameters:
+        ///   - attr: The Python attribute name to set.
+        ///   - value: The Swift or safe Python value to convert and assign.
+        /// - Throws: `PythonError.safePythonException` inside the isolated context when
+        ///   Python raises, including read-only attribute errors, or another `PythonError`
+        ///   if conversion fails.
         public func set(attr: String, value: any SafePythonConvertible) throws {
             let localInterpreter = interpreter
             try localInterpreter.assumeIsolated {
@@ -170,10 +191,18 @@ extension PythonInterpreter {
         
         // MARK: @dynamicMemberLookup
         
-        //
-        // a.name
+        /// Gets or sets a Python attribute using Swift dynamic-member syntax.
+        ///
+        /// This powers Python-like safe syntax inside `withIsolatedContext`, such as
+        /// `object.name` and `object.name = "Ada"`. This subscript is intentionally
+        /// convenience-oriented: it traps with `fatalError` if Python raises or conversion
+        /// fails. Use the explicit throwing `get(attr:)` and `set(attr:value:)` methods
+        /// when missing attributes, read-only attributes, or conversion failures are part
+        /// of normal control flow.
+        ///
+        /// - Parameter name: The Python attribute name supplied by Swift's dynamic-member lookup.
+        /// - Returns: The safe Python object stored in the named attribute.
         public subscript(dynamicMember name: String) -> SafePythonObject {
-            // a.name
             get {
                 let localInterpreter = interpreter
                 return localInterpreter.assumeIsolated {
@@ -184,7 +213,6 @@ extension PythonInterpreter {
                     }
                 }
             }
-            // a.name = value
             set {
                 let localInterpreter = interpreter
                 localInterpreter.assumeIsolated {

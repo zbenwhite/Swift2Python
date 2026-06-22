@@ -336,7 +336,9 @@ extension PythonInterpreter {
         
         internal func pythonObject_GetAttrString(_ pointer: UnsafeMutableRawPointer, _ name: String) -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: PyObject_GetAttrString")
-            return PyObject_GetAttrString(pointer, name.withCString({ $0 }))
+            return name.withCString { namePtr in
+                PyObject_GetAttrString(pointer, namePtr)
+            }
         }
         
         internal func pythonObject_GetItem(_ obPtr: UnsafeMutableRawPointer, _ keyPtr: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer? {
@@ -361,7 +363,9 @@ extension PythonInterpreter {
         
         internal func pythonObject_SetAttrString(_ obPtr: UnsafeMutableRawPointer, _ name: String, _ rvalPtr: UnsafeMutableRawPointer) -> Int32? {
             logger.trace("CPython API Call: PyObject_SetAttrString")
-            return PyObject_SetAttrString(obPtr, name.withCString({ $0 }), rvalPtr)
+            return name.withCString { namePtr in
+                PyObject_SetAttrString(obPtr, namePtr, rvalPtr)
+            }
         }
         
         internal func pythonObject_SetItem(_ obPtr: UnsafeMutableRawPointer, _ keyPtr: UnsafeMutableRawPointer, _ rvalPtr: UnsafeMutableRawPointer) -> Int32? {

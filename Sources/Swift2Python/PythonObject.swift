@@ -210,16 +210,35 @@ public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectabl
         try await interpreter.callPythonCallable(self, dynamicArguments: args)
     }
     
-    // a.name
-    // (can't do actual a.name because we need try await and they're not available for a.name)
+    /// Gets a Python attribute by name.
+    ///
+    /// Use this async throwing API for recoverable attribute access on `PythonObject`.
+    /// Swift cannot express Python-style `try await object.name` property access, so
+    /// `get(attr:)` is the canonical async form for reading non-callable attributes.
+    /// For method calls where the name is known at compile time, use dynamic-member
+    /// call syntax such as `try await object.method()`.
+    ///
+    /// - Parameter attr: The Python attribute name to read.
+    /// - Returns: The Python object stored in the named attribute.
+    /// - Throws: `PythonError.pythonException` if Python raises, including when the
+    ///   attribute is missing, or another `PythonError` if the object pointer is unavailable.
     public func get(attr: String) async throws -> PythonObject {
         return try await interpreter.get(object: self, attribute: attr)
     }
     
-    // a.name = value
-    // (can't do actual a.name = value because we need try await ...)
+    /// Sets a Python attribute by name.
+    ///
+    /// Use this async throwing API for recoverable attribute mutation on `PythonObject`.
+    /// The value is converted to a Python object before assignment.
+    ///
+    /// - Parameters:
+    ///   - attr: The Python attribute name to set.
+    ///   - value: The Swift or Python value to convert and assign.
+    /// - Throws: `PythonError.pythonException` if Python raises, including read-only
+    ///   attribute errors, or another `PythonError` if conversion fails.
     public func set(attr: String, value: PendingPythonConvertible) async throws {
-        try await interpreter.set(object: self, attribute: attr, value: value.toPythonObject(interpreter: self.interpreter))
+        let pyValue = try await value.toPythonObject(interpreter: self.interpreter)
+        try await interpreter.set(object: self, attribute: attr, value: pyValue)
     }
     
     // a.[key]

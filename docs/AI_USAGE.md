@@ -89,6 +89,97 @@ try await interpreter.withIsolatedContext { context in
 
 Dynamic keyword calls reject duplicate keyword labels and positional arguments after keyword arguments with `PythonError.valueError`. Async Python exceptions surface as `PythonError.pythonException`; safe synchronous Python exceptions surface as `PythonError.safePythonException`.
 
+## Attributes
+
+Attribute support is release-ready. Generate attribute code with explicit attribute APIs for value access and reserve dynamic-member call syntax for callable Python methods.
+
+### Async PythonObject Attributes
+
+Use `get(attr:)` and `set(attr:value:)` for non-callable attribute values in normal Swift concurrency code:
+
+```swift
+let object = try await globals.getItem(key: "person")
+try await object.set(attr: "name", value: "Ada")
+let name = try await object.get(attr: "name")
+print(try await String(name))
+```
+
+Do not generate `try await object.name` for async attribute value access. Swift2Python intentionally exposes async attribute values through `get(attr:)` because Swift property access cannot be `async throws` in the same Python-like dot form.
+
+Use dynamic-member syntax only when calling a callable attribute or method:
+
+```swift
+let result = try await object.method("value")
+let method = try await object.get(attr: "method")
+let sameResult = try await method.call("value")
+```
+
+### Checking And Deleting Attributes
+
+Use Python builtins for attribute checks and deletion. The builtin names are lowercase Python names:
+
+```swift
+let builtins = try await interpreter.getBuiltins()
+let exists = try await Bool(builtins.hasattr(object, "name"))
+
+if exists {
+    _ = try await builtins.delattr(object, "name")
+}
+```
+
+Do not invent Swift2Python APIs named `hasAttr`, `deleteAttr`, or `delAttr`. Use `builtins.hasattr(...)` and `builtins.delattr(...)`.
+
+### SafePythonObject Attributes
+
+Use safe attribute APIs only inside `withIsolatedContext`. Prefer explicit throwing access when the attribute may be missing, read-only, or otherwise fail:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let object = context.globals["person"]
+    try object.set(attr: "name", value: "Ada")
+    let name = try object.get(attr: "name")
+    print(try String(name))
+}
+```
+
+Safe dynamic-member attribute syntax is available for convenience when failure is a programmer error:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    var object = context.globals["person"]
+    object.name = "Ada"
+    print(try String(object.name))
+}
+```
+
+Safe dynamic-member get/set traps with `fatalError` if Python raises or conversion fails. Do not use it in generated examples that are demonstrating error handling.
+
+Use safe builtins for checks and deletion inside the isolated context:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let object = context.globals["person"]
+    let exists = try Bool(context.builtins.hasattr(object, "name"))
+
+    if exists {
+        _ = try context.builtins.delattr(object, "name")
+    }
+}
+```
+
+### Attribute Rules For Generated Code
+
+- Prefer `try await object.get(attr: "name")` and `try await object.set(attr: "name", value: value)` for async attribute values.
+- Prefer `try object.get(attr: "name")` and `try object.set(attr: "name", value: value)` for recoverable safe attribute access inside `withIsolatedContext`.
+- Use safe `object.name` and `object.name = value` only for short isolated-context examples where failure should trap.
+- Use `object.method(...)` for callable Python attributes when the method name is static.
+- Use `get(attr:)` plus `call(...)` when a Python method name is dynamic or when you need the callable object as a value.
+- Use `builtins.hasattr(...)` and `builtins.delattr(...)` for checking and deletion.
+- Use explicit `get(attr:)` and `set(attr:value:)` when Python attribute names collide with Swift members.
+- Do not call CPython attribute wrappers directly in generated user code.
+
+Async attribute failures surface as `PythonError.pythonException`. Explicit safe attribute failures surface as `PythonError.safePythonException` inside the isolated context; if the error escapes `withIsolatedContext`, the isolated context rethrows it as an async Python exception.
+
 ## Operators
 
 Operator support for arithmetic, bitwise, and comparison operations is release-ready. Treat the public operator APIs and their throwing alternatives as the canonical way to express Python operations in Swift2Python.

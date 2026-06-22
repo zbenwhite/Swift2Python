@@ -215,6 +215,19 @@ public actor PythonInterpreter {
     
     // MARK: Attribute access (async mode)
     
+    /// Gets a Python attribute from an object by name.
+    ///
+    /// This is the interpreter-level async attribute lookup used by
+    /// ``PythonObject/get(attr:)``. Prefer the object-level method in user code unless
+    /// the interpreter is already coordinating an operation across multiple Python
+    /// objects.
+    ///
+    /// - Parameters:
+    ///   - object: The Python object to read from.
+    ///   - attribute: The Python attribute name to read.
+    /// - Returns: The Python object stored in the named attribute.
+    /// - Throws: `PythonError.pythonException` if Python raises, including missing
+    ///   attributes, or another `PythonError` if the object cannot be accessed.
     public func get(object: PythonObject, attribute: String) async throws -> PythonObject {
         logger.trace("get: 'object.attribute' called for PythonObject (async)")
         let objPtr = getRegisteredPointer(forPythonObject: object)!
@@ -225,6 +238,18 @@ public actor PythonInterpreter {
         }
     }
     
+    /// Sets a Python attribute on an object by name.
+    ///
+    /// This is the interpreter-level async attribute assignment used by
+    /// ``PythonObject/set(attr:value:)``. Prefer the object-level method in user code
+    /// unless the value is already a materialized ``PythonObject``.
+    ///
+    /// - Parameters:
+    ///   - object: The Python object to mutate.
+    ///   - attribute: The Python attribute name to set.
+    ///   - value: The already-converted Python value to assign.
+    /// - Throws: `PythonError.pythonException` if Python raises, including read-only
+    ///   attribute errors, or another `PythonError` if either object cannot be accessed.
     public func set(object: PythonObject, attribute: String, value: PythonObject) async throws {
         logger.trace("set: 'object.attribute = value' called for PythonObject (async)")
         let objPtr = getRegisteredPointer(forPythonObject: object)!

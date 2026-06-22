@@ -12,6 +12,7 @@ Use the async APIs for normal Swift concurrency code. Use safe objects inside an
 
 ### Python Objects
 
+- <doc:Attributes>
 - <doc:Callables>
 
 ### Operators And Logic
