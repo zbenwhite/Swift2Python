@@ -12,21 +12,7 @@ import Logging
 @Suite("Iteration Tests", .serialized)
 struct IterationTests {
 
-    private static let setupLogging: Void = {
-        LoggingSystem.bootstrap { label in
-            var handler = StreamLogHandler.standardOutput(label: label)
-            handler.logLevel = .trace
-            return handler
-        }
-    }()
-    
-    private static let sharedInterpreterTask: Task<PythonInterpreter, Error> = Task {
-        _ = setupLogging
-        
-        let runtime = PythonRuntime.shared
-        try await runtime.initialize()
-        return try await PythonInterpreter()
-    }
+    private static let sharedInterpreterTask = TestSupport.sharedInterpreterTask
     
     let interpreter: PythonInterpreter
     

@@ -9,11 +9,7 @@ import Testing
 @Suite("Attribute Tests", .serialized)
 struct AttributesTests {
 
-    private static let sharedInterpreterTask: Task<PythonInterpreter, Error> = Task {
-        let runtime = PythonRuntime.shared
-        try await runtime.initialize()
-        return try await PythonInterpreter()
-    }
+    private static let sharedInterpreterTask = TestSupport.sharedInterpreterTask
 
     let interpreter: PythonInterpreter
 

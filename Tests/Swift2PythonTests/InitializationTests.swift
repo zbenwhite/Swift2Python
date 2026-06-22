@@ -9,20 +9,33 @@ import Testing
 import Logging
 @testable import Swift2Python
 
+enum TestSupport {
+    static let setupLogging: Void = {
+        LoggingSystem.bootstrap { label in
+            var handler = StreamLogHandler.standardOutput(label: label)
+            handler.logLevel = .trace
+            return handler
+        }
+    }()
 
-// This runs once when the test process starts
-private let setupLogging: Void = {
-    LoggingSystem.bootstrap { label in
-        var handler = StreamLogHandler.standardOutput(label: label)
-        handler.logLevel = .debug
-        return handler
+    static let sharedInterpreterTask: Task<PythonInterpreter, Error> = Task {
+        _ = setupLogging
+
+        let runtime = PythonRuntime.shared
+        try await runtime.initialize()
+
+        return try await PythonInterpreter()
     }
-}()
+}
 
 struct InitializationTests {
     
-    init() {
-        _ = setupLogging
+    private static let sharedInterpreterTask = TestSupport.sharedInterpreterTask
+    
+    let interpreter: PythonInterpreter
+    
+    init() async throws {
+        self.interpreter = try await Self.sharedInterpreterTask.value
     }
 
     @Test("Python runtime can be initialized")
@@ -33,19 +46,14 @@ struct InitializationTests {
         
         let runtime = PythonRuntime.shared
         
-        // Before initialization
-        let preInitialized = await runtime.isInitialized
-        #expect(preInitialized == false)
-        #expect(await runtime.pythonVersion == nil)
-        #expect(await runtime.pythonVersionString == nil)
+        // The shared test interpreter initializes the singleton runtime before tests run.
+        #expect(await runtime.isInitialized == true)
+        #expect(await runtime.pythonVersion != nil)
+        #expect(await runtime.pythonVersionString != nil)
         
-        // This is usually the very first call in most Python interop libraries
+        // Initialization is idempotent after the runtime is already available.
         try await runtime.initialize()
-        
-        
-        // After successful initialization
-        let postInitialized = await runtime.isInitialized
-        #expect(postInitialized == true)
+        #expect(await runtime.isInitialized == true)
         #expect(await runtime.pythonVersion != nil)
     }
 

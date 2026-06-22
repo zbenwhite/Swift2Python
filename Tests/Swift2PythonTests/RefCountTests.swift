@@ -14,24 +14,7 @@ import Logging
 @Suite("Reference Counting Tests")
 struct RefCountTests {
     
-    private static let setupLogging: Void = {
-        LoggingSystem.bootstrap { label in
-            var handler = StreamLogHandler.standardOutput(label: label)
-            handler.logLevel = .trace
-            return handler
-        }
-    }()
-    
-    private static let sharedInterpreterTask: Task<PythonInterpreter, Error> = Task {
-        _ = setupLogging
-        
-        // Initialize the runtime
-        let runtime = PythonRuntime.shared
-        try await runtime.initialize()
-        
-        // Create and return the single shared interpreter
-        return try await PythonInterpreter()
-    }
+    private static let sharedInterpreterTask = TestSupport.sharedInterpreterTask
     
     let interpreter: PythonInterpreter
     
@@ -81,7 +64,35 @@ struct RefCountTests {
         }
     }
     
+    @Test("RefCount: PythonException from unhashable set insertion remains recoverable")
+    func asyncUnhashableSetInsertionExceptionReferenceCounting() async throws {
+        let set = try await interpreter.convertToPython(set: Set([1, 2, 3]))
+        let unhashable = try await interpreter.convertToPython(array: [4, 5])
+        
+        let unhashableAddError = await #expect(throws: PythonError.self) {
+            try await set.setAdd(unhashable)
+        }
+        if case .pythonException = unhashableAddError {
+        } else {
+            Issue.record("Expected .pythonException for adding an unhashable list to a set, but got \(unhashableAddError)")
+        }
+    }
     
-    
+    @Test("RefCount: SafePythonObject exception escapes isolated context before cleanup")
+    func safePythonExceptionEscapesIsolatedContextBeforeCleanup() async throws {
+        let thrownError = await #expect(throws: PythonError.self) {
+            try await interpreter.withIsolatedContext { isolatedInterpreter in
+                let dividend = try 1.toSafePythonObject(interpreter: isolatedInterpreter)
+                let divisor = try 0.toSafePythonObject(interpreter: isolatedInterpreter)
+                _ = try dividend.divide(divisor: divisor)
+            }
+        }
+        
+        if case .pythonException = thrownError {
+            // expected
+        } else {
+            Issue.record("Expected .pythonException for SafePythonObject division by zero escaping isolated context, but got \(thrownError)")
+        }
+    }
     
 }

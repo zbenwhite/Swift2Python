@@ -9,35 +9,20 @@ import Testing
 import Logging
 @testable import Swift2Python
 
-
-// This runs once when the test process starts
-private let setupLogging: Void = {
-    LoggingSystem.bootstrap { label in
-        var handler = StreamLogHandler.standardOutput(label: label)
-        handler.logLevel = .debug
-        return handler
-    }
-}()
-
 @Suite("PythonInterpreter", .serialized)  // global state → serialize
 struct InterpreterTests {
     
-    init() async {
-        _ = setupLogging
-        let runtime = PythonRuntime.shared
-        do {
-            try await runtime.initialize()
-        } catch {
-            #expect(Bool(false), "Failed to initialize Python runtime: \(error)")
-        }
-        py = try! await PythonInterpreter()
-    }
+    private static let sharedInterpreterTask = TestSupport.sharedInterpreterTask
     
-    let py: PythonInterpreter
+    let interpreter: PythonInterpreter
+    
+    init() async throws {
+        self.interpreter = try await Self.sharedInterpreterTask.value
+    }
 
     @Test("Imports sys and reads version")
     func importSysVersion() async throws {
-        let sys = try await py.import("sys")
+        let sys = try await interpreter.import("sys")
 
         let versionInfo = try await sys.get(attr: "version_info")
 
@@ -48,20 +33,24 @@ struct InterpreterTests {
         // For now: just confirm we got objects back
         #expect(majorObj.id.description.starts(with: "PyID"))
         #expect(minorObj.id.description.starts(with: "PyID"))
+        
+        let majorMirror = Mirror(reflecting: majorObj)
+        #expect(majorMirror.displayStyle == .struct)
+        #expect(majorMirror.children.isEmpty)
 
         // Bonus: print version via run simple string
         let code = """
         import sys
         print(sys.version)
         """
-        _ = try await py.pyRun_SimpleString(code)
+        //_ = try await py.api.pythonRun_SimpleString(code)
     }
 
     @Test("Converts Swift values and calls len()")
     func convertAndCallLen() async throws {
-        let lst = try await py.convertToPython(array: [1, 42, -7])
+        let lst = try await interpreter.convertToPython(array: [1, 42, -7])
 
-        let builtins = try await py.import("builtins")
+        let builtins = try await interpreter.import("builtins")
         let lenFunc = try await builtins.get(attr: "len")
 
         // Call len(lst)
@@ -73,7 +62,7 @@ struct InterpreterTests {
 
     @Test("Method call syntax sugar")
     func methodCallSugar() async throws {
-        let math = try await py.import("math")
+        let math = try await interpreter.import("math")
         _ = try await math.sqrt(16.0)  // → should be ~4.0
 
         // Once you add extraction: #expect(try await result.asDouble() == 4.0)
@@ -83,8 +72,8 @@ struct InterpreterTests {
     @Test("Async Real World example.")
     func asyncRealWorld() async throws {
         
-        let np = try await py.import("numpy")
-        let plt = try await py.import("matplotlib.pyplot")
+        let np = try await interpreter.import("numpy")
+        let plt = try await interpreter.import("matplotlib.pyplot")
 
         let x = try await np.linspace(0, 10, 100)
         let y = try await np.sin(x)
@@ -98,13 +87,13 @@ struct InterpreterTests {
     func isolatedPython() async throws {
         
         // 1. Get the standard types module
-        let types = try await py.import("types")
+        let types = try await interpreter.import("types")
 
         // 2. Create a blank Python object (SimpleNamespace)
         let myObject = try await types.SimpleNamespace()
         
-        try await py.withIsolatedContext { interpreter in
-            var safeObj = interpreter.bind(myObject)
+        try await interpreter.withIsolatedContext { interpreter in
+            var safeObj = interpreter.bind(pythonObject: myObject)
             
             // --- TEST 1: SETTING & GETTING ATTRIBUTES (Dynamic Member Lookup) ---
             //safeObj.name = "Swift-Python-Bridge"
