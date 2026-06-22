@@ -19,6 +19,7 @@ extension PythonInterpreter {
     // a constructor that just takes an int or a float.
     //
     
+    @dynamicCallable
     @dynamicMemberLookup
     public struct SafePythonObject: SafePythonConvertible, Sequence,
                                     CustomStringConvertible, CustomPlaygroundDisplayConvertible,
@@ -254,25 +255,106 @@ extension PythonInterpreter {
         
         // MARK: Callable support
         
-        public func callAsFunction() throws -> SafePythonObject {
+        /// Calls this Python object as a callable with no arguments.
+        ///
+        /// Use this inside `PythonInterpreter.withIsolatedContext` for synchronous,
+        /// GIL-managed calls to Python functions, classes, bound methods, callable
+        /// instances, and other callable objects. For inline syntax, prefer `try object()`.
+        ///
+        /// - Returns: The safe Python object returned by the callable.
+        /// - Throws: `PythonError` if the object is not callable or Python raises during the call.
+        public func call() throws -> SafePythonObject {
             let localInterpreter = interpreter
             return try localInterpreter.assumeIsolated {
                 return try $0.syncCall(callable:self)
             }
         }
         
-        public func callAsFunction(_ args: any SafePythonConvertible...) throws -> SafePythonObject {
+        /// Calls this Python object as a callable with positional arguments.
+        ///
+        /// Use this explicit form inside `withIsolatedContext` when forwarding arguments
+        /// or when a named throwing API is clearer than dynamic call syntax. For normal
+        /// inline calls, prefer `try object(1, 2)`.
+        ///
+        /// - Parameter args: Positional arguments converted to Python objects before the call.
+        /// - Returns: The safe Python object returned by the callable.
+        /// - Throws: `PythonError` if conversion fails, the object is not callable, or Python raises.
+        public func call(_ args: any SafePythonConvertible...) throws -> SafePythonObject {
             let localInterpreter = interpreter
             return try localInterpreter.assumeIsolated {
                 return try $0.syncCall(callable:self, args:args)
             }
         }
         
-        public func callAsFunction(_ args: any SafePythonConvertible...,
-                                   kwargs: [String: SafePythonConvertible] = [:]) throws -> SafePythonObject {
+        /// Calls this Python object as a callable with positional and dictionary keyword arguments.
+        ///
+        /// Use this explicit form when keyword arguments are already stored in a Swift
+        /// dictionary. For inline keyword calls inside `withIsolatedContext`, prefer
+        /// `try object(arg, name: value)`.
+        ///
+        /// - Parameters:
+        ///   - args: Positional arguments converted to Python objects before the call.
+        ///   - kwargs: Keyword arguments converted into a Python `dict`.
+        /// - Returns: The safe Python object returned by the callable.
+        /// - Throws: `PythonError` if conversion, keyword conversion, or the Python call fails.
+        public func call(_ args: any SafePythonConvertible...,
+                         kwargs: [String: any SafePythonConvertible]) throws -> SafePythonObject {
             let localInterpreter = interpreter
             return try localInterpreter.assumeIsolated {
                 return try $0.syncCall(callable:self, args:args, kwargs:kwargs)
+            }
+        }
+        
+        /// Calls this Python object as a callable with positional and ordered keyword arguments.
+        ///
+        /// Use this overload when preserving keyword order matters or when duplicate
+        /// keyword detection should happen before Python receives the call. Empty keyword
+        /// names are not valid in this explicit kwargs form.
+        ///
+        /// - Parameters:
+        ///   - args: Positional arguments converted to Python objects before the call.
+        ///   - kwargs: Ordered keyword arguments converted into a Python `dict`.
+        /// - Returns: The safe Python object returned by the callable.
+        /// - Throws: `PythonError.valueError` for invalid keyword pairs, or `PythonError`
+        ///   if conversion or the Python call fails.
+        public func call(_ args: any SafePythonConvertible...,
+                         kwargs: KeyValuePairs<String, any SafePythonConvertible>) throws -> SafePythonObject {
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                return try $0.syncCall(callable:self, args:args, kwargs:kwargs)
+            }
+        }
+        
+        /// Implements `@dynamicCallable` positional calls for safe Python objects.
+        ///
+        /// This powers syntax such as `try function(1, 2)` inside `withIsolatedContext`.
+        /// Call this method directly only when manually forwarding dynamic-call arguments.
+        ///
+        /// - Parameter args: Positional arguments supplied by Swift's dynamic-call lowering.
+        /// - Returns: The safe Python object returned by the callable.
+        /// - Throws: `PythonError` if conversion or the Python call fails.
+        public func dynamicallyCall(withArguments args: [any SafePythonConvertible]) throws -> SafePythonObject {
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                return try $0.syncCall(callable:self, args:args)
+            }
+        }
+        
+        /// Implements `@dynamicCallable` positional and keyword calls for safe Python objects.
+        ///
+        /// This powers syntax such as `try function(1, name: value)` inside
+        /// `withIsolatedContext`. Swift represents positional arguments with an empty
+        /// keyword label, so this method validates that positional arguments do not
+        /// appear after keyword arguments and that keyword labels are not duplicated.
+        ///
+        /// - Parameter args: Dynamic-call arguments supplied by Swift.
+        /// - Returns: The safe Python object returned by the callable.
+        /// - Throws: `PythonError.valueError` for invalid argument ordering or duplicate
+        ///   keywords, or `PythonError` if conversion or the Python call fails.
+        public func dynamicallyCall(withKeywordArguments args: KeyValuePairs<String, any SafePythonConvertible>) throws -> SafePythonObject {
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                return try $0.syncCall(callable:self, dynamicArguments:args)
             }
         }
         

@@ -10,6 +10,10 @@ Use the async APIs for normal Swift concurrency code. Use safe objects inside an
 
 ## Topics
 
+### Python Objects
+
+- <doc:Callables>
+
 ### Operators And Logic
 
 - <doc:Operators>

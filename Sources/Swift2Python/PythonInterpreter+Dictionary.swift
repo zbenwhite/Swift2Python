@@ -72,6 +72,25 @@ extension PythonInterpreter {
         return newPythonObject(fromReturnedPointer: dictPtr)
     }
     
+    internal func convertKeywordArgumentsToPython(_ keywordArguments: KeyValuePairs<String, any PendingPythonConvertible>) async throws -> PythonObject {
+        var seenKeys = Set<String>()
+        let dictPtr = try await withGIL { try newPythonDict(orElse: { try throwPythonError() }) }
+        for (key, value) in keywordArguments {
+            guard !key.isEmpty else {
+                throw PythonError.valueError("Keyword argument labels cannot be empty")
+            }
+            guard seenKeys.insert(key).inserted else {
+                throw PythonError.valueError("Duplicate keyword argument '\(key)'")
+            }
+            let keyObj = try await key.toPythonObject(interpreter: self)
+            let valueObj = try await value.toPythonObject(interpreter: self)
+            let keyPtr = getRegisteredPointer(forPythonObject:keyObj)!
+            let valuePtr = getRegisteredPointer(forPythonObject:valueObj)!
+            _ = try await withGIL { try setValue(valuePtr, onDict: dictPtr, atKey: keyPtr, orElse: { try throwPythonError() }) }
+        }
+        return newPythonObject(fromReturnedPointer: dictPtr)
+    }
+    
     
     /// Create a SafePythonObject dictionary from a Swift dictionary.
     ///
@@ -130,6 +149,26 @@ extension PythonInterpreter {
     public func convertToSafePython(dictionary: [String: any SafePythonConvertible]) throws -> SafePythonObject {
         let dictPtr = try newPythonDict(orElse: { try throwSafePythonError() })
         for (key, value) in dictionary {
+            let keyObj = try key.toSafePythonObject(interpreter: self)
+            let valueObj = try value.toSafePythonObject(interpreter: self)
+            let keyPtr = getRegisteredPointer(forSafeObj:keyObj)
+            let valuePtr = getRegisteredPointer(forSafeObj:valueObj)
+            try setValue(valuePtr, onDict: dictPtr, atKey: keyPtr, orElse: { try throwSafePythonError() })
+        }
+        return newSafePythonObject(fromReturnedPointer: dictPtr)
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    internal func convertKeywordArgumentsToSafePython(_ keywordArguments: KeyValuePairs<String, any SafePythonConvertible>) throws -> SafePythonObject {
+        var seenKeys = Set<String>()
+        let dictPtr = try newPythonDict(orElse: { try throwSafePythonError() })
+        for (key, value) in keywordArguments {
+            guard !key.isEmpty else {
+                throw PythonError.valueError("Keyword argument labels cannot be empty")
+            }
+            guard seenKeys.insert(key).inserted else {
+                throw PythonError.valueError("Duplicate keyword argument '\(key)'")
+            }
             let keyObj = try key.toSafePythonObject(interpreter: self)
             let valueObj = try value.toSafePythonObject(interpreter: self)
             let keyPtr = getRegisteredPointer(forSafeObj:keyObj)

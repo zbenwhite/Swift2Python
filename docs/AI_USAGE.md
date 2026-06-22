@@ -10,6 +10,85 @@ This file is written for coding agents and AI assistants that generate Swift2Pyt
 - Prefer Swift conversion initializers such as `Int(pyObject)`, `String(pyObject)`, and `Double(pyObject)` over direct `convertTo...` calls in examples and user-facing code.
 - Do not import `builtins` manually for common builtins access. Use `interpreter.builtins`.
 
+## Callables
+
+Callable support is release-ready. Generate Swift2Python callable code using direct `@dynamicCallable` syntax for normal calls and explicit `call(...)` methods when arguments are already collected.
+
+### Async PythonObject Calls
+
+Use direct call syntax for Python functions, classes, methods, callable instances, and any other callable `PythonObject`:
+
+```swift
+let globals = try await interpreter.getGlobals()
+let function = try await globals.getItem(key: "make_message")
+let result = try await function("Ada", punctuation: "!", repeat: 2)
+```
+
+Use dynamic-member method syntax when the Python method name is statically known:
+
+```swift
+let result = try await object.method("left", "right", sep: ":")
+```
+
+Use explicit `call(...)` when forwarding arguments or when kwargs are already stored in a Swift collection:
+
+```swift
+let result = try await function.call(1, 2)
+let resultWithKwargs = try await function.call(
+    "Ada",
+    kwargs: [
+        "punctuation": "!",
+        "repeat": 2
+    ]
+)
+```
+
+Use `KeyValuePairs` kwargs when preserving keyword order matters or when duplicate keyword validation should happen before Python receives the call:
+
+```swift
+let kwargs: KeyValuePairs<String, any PendingPythonConvertible> = [
+    "punctuation": "?",
+    "repeat": 3
+]
+let result = try await function.call("Ada", kwargs: kwargs)
+```
+
+### SafePythonObject Calls
+
+Use safe callable syntax only inside `withIsolatedContext`:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let function = context.globals["make_message"]
+    let result = try function("Ada", punctuation: "!", repeat: 2)
+    print(try String(result))
+}
+```
+
+Use safe `call(...)` for explicit or collected arguments:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let function = context.globals["make_message"]
+    let result = try function.call("Ada", kwargs: ["punctuation": "!"])
+    print(try String(result))
+}
+```
+
+### Callable Rules For Generated Code
+
+- Prefer `try await callable(...)` for async `PythonObject` examples.
+- Prefer `try callable(...)` only inside `withIsolatedContext` for `SafePythonObject` examples.
+- Prefer `object.method(...)` when the Python method name is static.
+- Use `interpreter.callPythonMethod(...)` only when the method name is stored in a variable or arguments are already collected.
+- Use `call(..., kwargs: dictionary)` when kwargs are already in a Swift dictionary.
+- Use `call(..., kwargs: keyValuePairs)` when duplicate keyword detection or keyword order matters.
+- Do not call `dynamicallyCall(...)` directly in normal generated code. It is the compiler hook behind `@dynamicCallable` syntax.
+- Do not use `callAsFunction`; callable syntax is handled by `@dynamicCallable`, and explicit calls use `call(...)`.
+- Do not use `SafePythonObject` callable APIs outside `withIsolatedContext`.
+
+Dynamic keyword calls reject duplicate keyword labels and positional arguments after keyword arguments with `PythonError.valueError`. Async Python exceptions surface as `PythonError.pythonException`; safe synchronous Python exceptions surface as `PythonError.safePythonException`.
+
 ## Operators
 
 Operator support for arithmetic, bitwise, and comparison operations is release-ready. Treat the public operator APIs and their throwing alternatives as the canonical way to express Python operations in Swift2Python.

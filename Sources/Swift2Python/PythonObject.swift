@@ -7,6 +7,7 @@
 
 import Foundation
 
+@dynamicCallable
 @dynamicMemberLookup
 public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectable {
     
@@ -30,7 +31,8 @@ public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectabl
         }
     }
     
-    // Temporary object result of attribute access.  Methods can be called asynchronously on PythonObject this way.
+    // Temporary object result of attribute access. Methods can be called asynchronously on PythonObject this way.
+    @dynamicCallable
     public struct CallablePythonObject {
         private let obj: PythonObject
         private let method: String
@@ -40,12 +42,79 @@ public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectabl
             self.method = methodName
         }
         
-        public func callAsFunction(_ args: any PendingPythonConvertible...) async throws -> PythonObject {
-            return try await obj.interpreter.callPythonMethod(object:obj, methodName:method, collectedArgs: args)
+        /// Calls this Python method with positional arguments.
+        ///
+        /// This is the explicit form of dynamic-member method calling. For normal use,
+        /// prefer Swift call syntax through `@dynamicCallable`, for example
+        /// `try await object.method(1, 2)`. Use `call` when you need to pass an
+        /// argument collection explicitly or when the call site should make the Python
+        /// method invocation obvious.
+        ///
+        /// - Parameter args: Positional arguments converted to Python objects before the call.
+        /// - Returns: The Python object returned by the method.
+        /// - Throws: `PythonError` if attribute lookup, argument conversion, or the Python call fails.
+        public func call(_ args: any PendingPythonConvertible...) async throws -> PythonObject {
+            return try await obj.interpreter.callPythonMethod(object: obj, methodName: method, collectedArgs: args)
         }
         
-        public func callAsFunction(_ args: any PendingPythonConvertible..., kwargs: [String: PendingPythonConvertible] = [:]) async throws -> PythonObject {
-            return try await obj.interpreter.callPythonMethod(object:obj, methodName:method, collectedArgs: args, kwargs:kwargs)
+        /// Calls this Python method with positional and dictionary keyword arguments.
+        ///
+        /// Use this explicit form when keyword arguments are already stored in a Swift
+        /// dictionary. For inline keyword syntax, prefer `try await object.method(arg, name: value)`.
+        /// Dictionary keys must be valid Python keyword names for the target callable.
+        ///
+        /// - Parameters:
+        ///   - args: Positional arguments converted to Python objects before the call.
+        ///   - kwargs: Keyword arguments converted into a Python `dict`.
+        /// - Returns: The Python object returned by the method.
+        /// - Throws: `PythonError` if attribute lookup, argument conversion, keyword conversion,
+        ///   or the Python call fails.
+        public func call(_ args: any PendingPythonConvertible..., kwargs: [String: any PendingPythonConvertible]) async throws -> PythonObject {
+            return try await obj.interpreter.callPythonMethod(object: obj, methodName: method, collectedArgs: args, kwargs: kwargs)
+        }
+        
+        /// Calls this Python method with positional and ordered keyword arguments.
+        ///
+        /// Use this overload when preserving keyword order matters or when duplicate
+        /// keyword detection should happen before Python receives the call. Empty keyword
+        /// names are not valid in this explicit kwargs form.
+        ///
+        /// - Parameters:
+        ///   - args: Positional arguments converted to Python objects before the call.
+        ///   - kwargs: Ordered keyword arguments converted into a Python `dict`.
+        /// - Returns: The Python object returned by the method.
+        /// - Throws: `PythonError.valueError` for invalid keyword pairs, or `PythonError`
+        ///   if attribute lookup, conversion, or the Python call fails.
+        public func call(_ args: any PendingPythonConvertible..., kwargs: KeyValuePairs<String, any PendingPythonConvertible>) async throws -> PythonObject {
+            return try await obj.interpreter.callPythonMethod(object: obj, methodName: method, collectedArgs: args, kwargs: kwargs)
+        }
+        
+        /// Implements `@dynamicCallable` positional method calls.
+        ///
+        /// This powers syntax such as `try await object.method(1, 2)`. Call this method
+        /// directly only when manually forwarding dynamic-call arguments.
+        ///
+        /// - Parameter args: Positional arguments supplied by Swift's dynamic-call lowering.
+        /// - Returns: The Python object returned by the method.
+        /// - Throws: `PythonError` if attribute lookup, argument conversion, or the Python call fails.
+        public func dynamicallyCall(withArguments args: [any PendingPythonConvertible]) async throws -> PythonObject {
+            return try await obj.interpreter.callPythonMethod(object: obj, methodName: method, collectedArgs: args)
+        }
+        
+        /// Implements `@dynamicCallable` positional and keyword method calls.
+        ///
+        /// This powers syntax such as `try await object.method(1, name: value)`. Swift
+        /// represents positional arguments with an empty keyword label, so this method
+        /// validates that positional arguments do not appear after keyword arguments and
+        /// that keyword labels are not duplicated.
+        ///
+        /// - Parameter args: Dynamic-call arguments supplied by Swift.
+        /// - Returns: The Python object returned by the method.
+        /// - Throws: `PythonError.valueError` for invalid argument ordering or duplicate
+        ///   keywords, or `PythonError` if lookup, conversion, or the Python call fails.
+        public func dynamicallyCall(withKeywordArguments args: KeyValuePairs<String, any PendingPythonConvertible>) async throws -> PythonObject {
+            let methodObject = try await obj.get(attr: method)
+            return try await obj.interpreter.callPythonCallable(methodObject, dynamicArguments: args)
         }
     }
     
@@ -66,6 +135,79 @@ public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectabl
     // Implement PendingPythonConvertible protocol
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
         return self
+    }
+    
+    /// Calls this Python object as a callable with positional arguments.
+    ///
+    /// Use this for Python functions, classes, bound methods, callable instances,
+    /// and any other Python object that implements Python's call protocol. For inline
+    /// calls, prefer `try await object(1, 2)`. Use `call` when forwarding argument
+    /// collections or when an explicit throwing API is clearer at the call site.
+    ///
+    /// - Parameter args: Positional arguments converted to Python objects before the call.
+    /// - Returns: The Python object returned by the callable.
+    /// - Throws: `PythonError` if argument conversion fails, the object is not callable,
+    ///   or Python raises during the call.
+    public func call(_ args: any PendingPythonConvertible...) async throws -> PythonObject {
+        try await interpreter.callPythonCallable(self, args: args, kwargs: [:])
+    }
+    
+    /// Calls this Python object as a callable with positional and dictionary keyword arguments.
+    ///
+    /// Use this explicit form when keyword arguments are already stored in a Swift
+    /// dictionary. For inline keyword calls, prefer `try await object(arg, name: value)`.
+    /// Dictionary keys must be valid Python keyword names for the target callable.
+    ///
+    /// - Parameters:
+    ///   - args: Positional arguments converted to Python objects before the call.
+    ///   - kwargs: Keyword arguments converted into a Python `dict`.
+    /// - Returns: The Python object returned by the callable.
+    /// - Throws: `PythonError` if argument conversion, keyword conversion, or the Python call fails.
+    public func call(_ args: any PendingPythonConvertible..., kwargs: [String: any PendingPythonConvertible]) async throws -> PythonObject {
+        try await interpreter.callPythonCallable(self, args: args, kwargs: kwargs)
+    }
+    
+    /// Calls this Python object as a callable with positional and ordered keyword arguments.
+    ///
+    /// Use this overload when preserving keyword order matters or when duplicate
+    /// keyword detection should happen before Python receives the call. Empty keyword
+    /// names are not valid in this explicit kwargs form.
+    ///
+    /// - Parameters:
+    ///   - args: Positional arguments converted to Python objects before the call.
+    ///   - kwargs: Ordered keyword arguments converted into a Python `dict`.
+    /// - Returns: The Python object returned by the callable.
+    /// - Throws: `PythonError.valueError` for invalid keyword pairs, or `PythonError`
+    ///   if conversion or the Python call fails.
+    public func call(_ args: any PendingPythonConvertible..., kwargs: KeyValuePairs<String, any PendingPythonConvertible>) async throws -> PythonObject {
+        try await interpreter.callPythonCallable(self, args: args, kwargs: kwargs)
+    }
+    
+    /// Implements `@dynamicCallable` positional calls.
+    ///
+    /// This powers syntax such as `try await function(1, 2)`. Call this method
+    /// directly only when manually forwarding dynamic-call arguments.
+    ///
+    /// - Parameter args: Positional arguments supplied by Swift's dynamic-call lowering.
+    /// - Returns: The Python object returned by the callable.
+    /// - Throws: `PythonError` if conversion or the Python call fails.
+    public func dynamicallyCall(withArguments args: [any PendingPythonConvertible]) async throws -> PythonObject {
+        try await interpreter.callPythonCallable(self, args: args, kwargs: [:])
+    }
+    
+    /// Implements `@dynamicCallable` positional and keyword calls.
+    ///
+    /// This powers syntax such as `try await function(1, name: value)`. Swift
+    /// represents positional arguments with an empty keyword label, so this method
+    /// validates that positional arguments do not appear after keyword arguments and
+    /// that keyword labels are not duplicated.
+    ///
+    /// - Parameter args: Dynamic-call arguments supplied by Swift.
+    /// - Returns: The Python object returned by the callable.
+    /// - Throws: `PythonError.valueError` for invalid argument ordering or duplicate
+    ///   keywords, or `PythonError` if conversion or the Python call fails.
+    public func dynamicallyCall(withKeywordArguments args: KeyValuePairs<String, any PendingPythonConvertible>) async throws -> PythonObject {
+        try await interpreter.callPythonCallable(self, dynamicArguments: args)
     }
     
     // a.name
