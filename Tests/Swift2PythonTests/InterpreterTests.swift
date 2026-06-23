@@ -96,15 +96,17 @@ struct InterpreterTests {
             var safeObj = interpreter.bind(pythonObject: myObject)
             
             // --- TEST 1: SETTING & GETTING ATTRIBUTES (Dynamic Member Lookup) ---
-            //safeObj.name = "Swift-Python-Bridge"
+            safeObj.name = "Swift-Python-Bridge"
             safeObj.version = 2.0
             safeObj.numVal = 3.0
             safeObj.numVal = safeObj.numVal + 1.0
             safeObj.numVal = safeObj.numVal + safeObj.numVal
             safeObj.is_active = true
 
-            print("Name from Python: \(safeObj.name)")       // Swift gets the attribute
-            print("Version from Python: \(safeObj.version)") // Swift gets the attribute
+            let name = try String(safeObj.name)
+            let version = try Double(safeObj.version)
+            #expect(name == "Swift-Python-Bridge")
+            #expect(version == 2.0)
 
             // --- TEST 2: SUBSCRIPT ACCESS (Dictionary Mapping) ---
             // In Python, you can view an object's attributes as a dictionary using __dict__
@@ -114,8 +116,10 @@ struct InterpreterTests {
             dictView["location"] = "Cupertino"
 
             // Verify the attribute was set via the subscript
-            print("Location (via attribute): \(safeObj.location)")
-            print("Location (via subscript): \(dictView["location"])")
+            let locationFromAttribute = try String(safeObj.location)
+            let locationFromSubscript = try String(dictView["location"])
+            #expect(locationFromAttribute == "Cupertino")
+            #expect(locationFromSubscript == "Cupertino")
 
             // --- TEST 3: ITERATING OVER SUBSCRIPTS ---
             print("\nIterating over all set attributes:")
@@ -125,4 +129,3 @@ struct InterpreterTests {
         }
     }
 }
-

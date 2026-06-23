@@ -173,7 +173,7 @@ try await interpreter.withIsolatedContext { context in
 }
 ```
 
-If a Python method name is missing or Python raises, async calls throw ``PythonError/pythonException(_:)`` and safe calls throw ``PythonError/safePythonException(_:)``. For safe code that may access a missing attribute, prefer the explicit throwing ``PythonInterpreter/SafePythonObject/get(attr:)`` API over dynamic-member syntax so the error is recoverable.
+If a Python method name is missing or Python raises, async calls throw ``PythonError/pythonException(_:info:)`` and safe calls throw ``PythonError/safePythonException(_:info:)``. For safe code that may access a missing attribute, prefer the explicit throwing ``PythonInterpreter/SafePythonObject/get(attr:)`` API over dynamic-member syntax so the error is recoverable.
 
 ## Frozenset Behavior
 
@@ -196,7 +196,7 @@ Set helpers throw ``PythonError/setConversionFailed(expected:actual:)`` when the
 
 `setRemove` follows Python `set.remove` semantics and throws a Python exception when the item is missing. `setDiscard` follows Python `set.discard` semantics and does not throw for missing items.
 
-Python-level failures, such as popping from an empty set, are surfaced as Python exceptions. Async APIs throw ``PythonError/pythonException(_:)``. Safe APIs throw ``PythonError/safePythonException(_:)``.
+Python-level failures, such as popping from an empty set, are surfaced as Python exceptions. Async APIs throw ``PythonError/pythonException(_:info:)``. Safe APIs throw ``PythonError/safePythonException(_:info:)``.
 
 ## Choosing An API
 

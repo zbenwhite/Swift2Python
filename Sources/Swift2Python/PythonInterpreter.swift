@@ -361,11 +361,11 @@ public actor PythonInterpreter {
                 cleanupSafePythonObjects()
                 clearGlobals()
                 return result
-            } catch let PythonError.safePythonException(safeObj) {
+            } catch let PythonError.safePythonException(safeObj, info) {
                 let pythonObj = escapeFromIsolation(forSafeObj: safeObj)
                 cleanupSafePythonObjects()
                 clearGlobals()
-                throw PythonError.pythonException(pythonObj)
+                throw PythonError.pythonException(pythonObj, info: info)
             } catch {
                 cleanupSafePythonObjects()
                 clearGlobals()

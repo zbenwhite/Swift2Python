@@ -7,6 +7,46 @@
 
 import Foundation
 
+/// A stable Swift snapshot of a Python exception.
+///
+/// Swift2Python captures this information while the Python exception is still
+/// available under the GIL. That makes error descriptions useful after an async
+/// throw or after a safe exception exits `withIsolatedContext`.
+public struct PythonExceptionInfo: Sendable, CustomStringConvertible {
+    /// The Python exception type name, such as `TypeError` or `ModuleNotFoundError`.
+    public let typeName: String
+
+    /// The Python exception message, usually equivalent to `str(exception)`.
+    public let message: String
+
+    /// The formatted Python traceback and exception chain, if Python provided one.
+    public let traceback: String?
+
+    /// The full formatted exception text.
+    public let formatted: String
+
+    public init(typeName: String, message: String, traceback: String? = nil) {
+        self.typeName = typeName
+        self.message = message
+        self.traceback = traceback?.isEmpty == true ? nil : traceback
+
+        let headline: String
+        if message.isEmpty {
+            headline = "Python exception: \(typeName)"
+        } else {
+            headline = "Python exception: \(typeName): \(message)"
+        }
+
+        if let traceback = self.traceback, !traceback.isEmpty {
+            self.formatted = "\(headline)\n\(traceback)"
+        } else {
+            self.formatted = headline
+        }
+    }
+
+    public var description: String { formatted }
+}
+
 /// Errors thrown by the Swift2Python package when interacting with the Python runtime.
 public enum PythonError: Error, CustomStringConvertible, LocalizedError {
     
@@ -26,8 +66,8 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
     ///   - `< 0`   = serious error (rare)
     case finalizationFailed(status: CInt)
     case unknownPythonException
-    indirect case pythonException(PythonObject)
-    indirect case safePythonException(PythonInterpreter.SafePythonObject)
+    indirect case pythonException(PythonObject, info: PythonExceptionInfo)
+    indirect case safePythonException(PythonInterpreter.SafePythonObject, info: PythonExceptionInfo)
     
     
     /// Thrown when a Swift value cannot be safely converted to/from a Python object
@@ -44,6 +84,17 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
     case valueError(String)
     case divideByZero
     
+    /// Metadata captured from a Python exception, if this error wraps one.
+    public var pythonExceptionInfo: PythonExceptionInfo? {
+        switch self {
+        case .pythonException(_, let info), .safePythonException(_, let info):
+            return info
+        case .conversionType(_, _, _, let underlying):
+            return underlying?.pythonExceptionInfo
+        default:
+            return nil
+        }
+    }
     
     // MARK: - CustomStringConvertible
         
@@ -67,18 +118,20 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
             if status < 0 {
                 return "Py_FinalizeEx failed with error status \(status) (serious shutdown error)"
             } else {
-                return "Py_FinalizeEx returned warning status \(status) (unclean shutdown – check for unhandled exceptions or resource leaks)"
+                return "Py_FinalizeEx returned warning status \(status) (unclean shutdown - check for unhandled exceptions or resource leaks)"
             }
         case .unknownPythonException:
             return "Python exception with no details."
-        case .pythonException:
-            return "Python exception (async)."  // FIXME: do better
-        case .safePythonException:
-            return "Python exception (synchronous)."  // FIXME: do better
+        case .pythonException(_, let info), .safePythonException(_, let info):
+            return info.description
         case .conversionOverflow(let value, let source, let target):
             return "Overflow error: value \(value) of type \(source) cannot be converted to \(target) (out of range)"
-        case .conversionType(let value, let sourceType, let targetType, _ ):
-            return "Conversion type error: value \(value) of type \(sourceType) cannot be converted to \(targetType)"
+        case .conversionType(let value, let sourceType, let targetType, let underlying):
+            var text = "Conversion type error: value \(value) of type \(sourceType) cannot be converted to \(targetType)"
+            if let underlying {
+                text += "\nUnderlying error: \(underlying.description)"
+            }
+            return text
         case .bytesConversionFailed(let expected, let actual):
             if let actual {
                 return "Bytes conversion failed: expected \(expected), got \(actual)"
@@ -134,12 +187,13 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
             } else {
                 return "Python interpreter did not shut down cleanly."
             }
+        case .pythonException(_, let info), .safePythonException(_, let info):
+            return info.message.isEmpty ? info.typeName : "\(info.typeName): \(info.message)"
         default:
             return nil
         }
     }
         
-    // Optional: help provide recovery suggestion
     public var recoverySuggestion: String? {
         switch self {
         case .finalizationFailed:
@@ -149,4 +203,3 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
         }
     }
 }
-
