@@ -15,6 +15,10 @@ Use the async APIs for normal Swift concurrency code. Use safe objects inside an
 - <doc:Attributes>
 - <doc:Callables>
 
+### Error Handling
+
+- <doc:Errors>
+
 ### Operators And Logic
 
 - <doc:Operators>

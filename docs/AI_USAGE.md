@@ -10,6 +10,80 @@ This file is written for coding agents and AI assistants that generate Swift2Pyt
 - Prefer Swift conversion initializers such as `Int(pyObject)`, `String(pyObject)`, and `Double(pyObject)` over direct `convertTo...` calls in examples and user-facing code.
 - Do not import `builtins` manually for common builtins access. Use `interpreter.builtins`.
 
+## Error Handling
+
+Error handling is release-critical. Generated code should preserve Python exception details for users and should respect the async/safe split between `PythonObject` and `PythonInterpreter.SafePythonObject`.
+
+### User-Facing Error Patterns
+
+Catch `PythonError` when generated code needs Swift2Python-specific handling:
+
+```swift
+do {
+    _ = try await object.get(attr: "missing")
+} catch let error as PythonError {
+    if let info = error.pythonExceptionInfo {
+        print(info.formatted)
+    } else {
+        print(error.localizedDescription)
+    }
+}
+```
+
+Use `pythonExceptionInfo` for Python-raised exceptions. It contains the Python type name, message, optional Python-formatted traceback, and full formatted text. `localizedDescription` already uses that formatted text for Python exceptions, so simple examples can print the caught error directly.
+
+### Async PythonObject Errors
+
+Normal async APIs throw `PythonError.pythonException` when Python raises:
+
+```swift
+let globals = try await interpreter.getGlobals()
+let function = try await globals.getItem(key: "load_config")
+_ = try await function("missing.toml")
+```
+
+If Python raises from that call, the thrown error should carry `PythonExceptionInfo` with the Python traceback and exception chain.
+
+### SafePythonObject Errors
+
+Inside `withIsolatedContext`, safe APIs throw `PythonError.safePythonException` for Python-raised failures:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    do {
+        let object = context.globals["config"]
+        _ = try object.get(attr: "missing")
+    } catch let PythonError.safePythonException(_, info) {
+        print(info.formatted)
+    }
+}
+```
+
+It is fine to catch `safePythonException` inside the isolated-context closure. If a safe exception escapes the closure, `withIsolatedContext` must convert it to `PythonError.pythonException` automatically and preserve the same `PythonExceptionInfo`. Do not generate code that expects `SafePythonObject` exception payloads to remain usable outside the closure.
+
+### Tracebacks And Chained Exceptions
+
+Swift2Python should format Python tracebacks through Python's own `traceback.format_exception` behavior. Do not replace it with ad hoc string formatting. Python's formatter preserves stack frames, explicit causes from `raise ... from ...`, implicit exception context, and exception notes:
+
+```text
+KeyError: 'root failure'
+
+The above exception was the direct cause of the following exception:
+
+RuntimeError: wrapped failure
+```
+
+Generated tests and examples that validate Python exception display should check for the meaningful pieces of the formatted text rather than exact full strings. Python versions can differ in paths, line numbers, note support, and punctuation.
+
+### Error Rules For Generated Code
+
+- Prefer throwing APIs in examples that demonstrate recoverable failures.
+- Use safe dynamic-member properties and safe operators only when failure is a programmer error; those APIs can trap because Swift does not let those syntactic forms throw.
+- Preserve `PythonExceptionInfo` when wrapping conversion failures with an underlying Python error.
+- Do not discard `__cause__`, `__context__`, traceback frames, or exception notes.
+- Do not inspect or stringify Python exception objects after leaving the GIL or `withIsolatedContext`; capture a Swift snapshot first.
+- Add focused tests when changing error paths. Cover async exceptions, safe exceptions caught inside the closure, safe exceptions escaping the closure, explicit causes, implicit context, and notes when available.
+
 ## Callables
 
 Callable support is release-ready. Generate Swift2Python callable code using direct `@dynamicCallable` syntax for normal calls and explicit `call(...)` methods when arguments are already collected.
