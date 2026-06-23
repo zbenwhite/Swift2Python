@@ -95,4 +95,68 @@ struct RefCountTests {
         }
     }
     
+    @Test("RefCount: safe variadic subscript get releases synthesized tuple key")
+    func safeVariadicSubscriptGetReleasesSynthesizedTupleKey() async throws {
+        let tupleKeyHandle: PythonInterpreter.ReferenceCountTestHandle = try await interpreter.withIsolatedContext { isolatedInterpreter in
+            try isolatedInterpreter.runSimpleString(pythonCode: """
+            class Swift2PythonTupleKeyEcho:
+                def __getitem__(self, key):
+                    return key
+            """)
+            
+            let echoType = isolatedInterpreter.globals["Swift2PythonTupleKeyEcho"]
+            let echo = try echoType.call()
+            let tupleKey = echo[1, 2]
+            
+            #expect(try tupleKey.isTuple)
+            #expect(try tupleKey.tupleCount == 2)
+            
+            let tupleKeyPtr = isolatedInterpreter.getRegisteredPointer(forSafeObj: tupleKey)
+            isolatedInterpreter.api.Py_IncRef(tupleKeyPtr)
+            
+            return try isolatedInterpreter.getReferenceCountHandle(forSafeObj: tupleKey)
+        }
+        
+        let refCountAfterCleanup = try await interpreter.getRefCount(forHandle: tupleKeyHandle)
+        #expect(refCountAfterCleanup == 1)
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            isolatedInterpreter.api.Py_DecRef(tupleKeyHandle.handle)
+        }
+    }
+    
+    @Test("RefCount: safe variadic subscript set releases synthesized tuple key")
+    func safeVariadicSubscriptSetReleasesSynthesizedTupleKey() async throws {
+        let tupleKeyHandle: PythonInterpreter.ReferenceCountTestHandle = try await interpreter.withIsolatedContext { isolatedInterpreter in
+            try isolatedInterpreter.runSimpleString(pythonCode: """
+            class Swift2PythonTupleKeyRecorder:
+                def __setitem__(self, key, value):
+                    self.last_key = key
+                    self.last_value = value
+            """)
+            
+            let recorderType = isolatedInterpreter.globals["Swift2PythonTupleKeyRecorder"]
+            var recorder = try recorderType.call()
+            recorder[1, 2] = "value"
+            
+            let tupleKey = try recorder.get(attr: "last_key")
+            #expect(try tupleKey.isTuple)
+            #expect(try tupleKey.tupleCount == 2)
+            
+            let tupleKeyPtr = isolatedInterpreter.getRegisteredPointer(forSafeObj: tupleKey)
+            isolatedInterpreter.api.Py_IncRef(tupleKeyPtr)
+            
+            let handle = try isolatedInterpreter.getReferenceCountHandle(forSafeObj: tupleKey)
+            _ = try isolatedInterpreter.builtins.delattr(recorder, "last_key")
+            return handle
+        }
+        
+        let refCountAfterCleanup = try await interpreter.getRefCount(forHandle: tupleKeyHandle)
+        #expect(refCountAfterCleanup == 1)
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            isolatedInterpreter.api.Py_DecRef(tupleKeyHandle.handle)
+        }
+    }
+    
 }

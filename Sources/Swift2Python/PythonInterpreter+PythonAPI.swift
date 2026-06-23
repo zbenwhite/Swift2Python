@@ -481,21 +481,47 @@ extension PythonInterpreter {
             if let refCountFunction = Py_REFCNT {
                 return refCountFunction(obj)
             } else {
-                throw PythonError.symbolNotFound("Py_REFCNT")
-//                let sys = PyImport_ImportModule("sys")
-//                guard let callable = PyObject_GetAttrString(sys, "getrefcount") else {
-//                    throw PythonError.symbolNotFound("sys.getrefcount()")
-//                }
-//                if let call_OneArgFunc = PyObject_CallOneArg {
-//                    let intObj = call_OneArgFunc(callable, obj)
-//                    return Int(intObj)
-//                } else {
-//                    var tuplePtr = PyTuple_New(1)
-//                    let _ = PyTuple_SetItem(tuplePtr, 0, obj)
-//                    let intObj = pythonObject_Call(callable, tuplePtr, nil)
-//                    return Int(intObj)
-//                }
+                return try pythonReferenceCountUsingSysGetRefCount(obj)
             }
+        }
+
+        private func pythonReferenceCountUsingSysGetRefCount(_ obj: UnsafeMutableRawPointer) throws -> Int32 {
+            guard let sys = "sys".withCString({ PyImport_ImportModule($0) }) else {
+                throw PythonError.symbolNotFound("sys")
+            }
+            defer { Py_DecRef(sys) }
+
+            guard let getRefCount = PyObject_GetAttrString(sys, "getrefcount") else {
+                throw PythonError.symbolNotFound("sys.getrefcount")
+            }
+            defer { Py_DecRef(getRefCount) }
+
+            guard let args = PyTuple_New(1) else {
+                throw PythonError.allocationFailed("Could not allocate sys.getrefcount argument tuple")
+            }
+            defer { Py_DecRef(args) }
+
+            // PyTuple_SetItem steals a reference on success. The caller's pointer
+            // is borrowed, so increment first and let the tuple own that increment.
+            Py_IncRef(obj)
+            if PyTuple_SetItem(args, 0, obj) != 0 {
+                Py_DecRef(obj)
+                throw PythonError.allocationFailed("Could not set sys.getrefcount argument")
+            }
+
+            guard let result = PyObject_Call(getRefCount, args, nil) else {
+                throw PythonError.symbolNotFound("sys.getrefcount result")
+            }
+            defer { Py_DecRef(result) }
+
+            let count = PyLong_AsLongLong(result)
+            if PyErr_Occurred() != nil {
+                throw PythonError.stringConversionFailed("Could not convert sys.getrefcount result")
+            }
+
+            // sys.getrefcount includes the temporary argument reference. In this
+            // fallback path, that reference is the one held by the args tuple.
+            return Int32(count - 1)
         }
     }
     
