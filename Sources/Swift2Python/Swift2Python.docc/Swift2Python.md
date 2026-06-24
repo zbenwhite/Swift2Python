@@ -14,6 +14,7 @@ Use the async APIs for normal Swift concurrency code. Use safe objects inside an
 
 - <doc:Attributes>
 - <doc:Callables>
+- <doc:Items>
 
 ### Error Handling
 

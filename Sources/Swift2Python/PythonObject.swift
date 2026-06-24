@@ -241,14 +241,51 @@ public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectabl
         try await interpreter.set(object: self, attribute: attr, value: pyValue)
     }
     
-    // a.[key]
-    // (can't do actual a[key] because we need try await ...)
+    /// Gets an item through Python's item protocol.
+    ///
+    /// This is the async throwing form of Python `object[key]`. Use it for
+    /// dictionaries, lists, tuples, custom Python objects that implement
+    /// `__getitem__`, and any other object that supports `PyObject_GetItem`.
+    /// Swift subscript syntax cannot express the required `try await`, so
+    /// ``getItem(key:)`` is the canonical async item-access API.
+    ///
+    /// Swift ranges and ``PythonSlice`` values can be used as keys when Python
+    /// slicing is desired:
+    ///
+    /// ```swift
+    /// let value = try await object.getItem(key: "name")
+    /// let middle = try await list.getItem(key: 1..<4)
+    /// ```
+    ///
+    /// - Parameter key: The Swift or Python key to convert and pass to Python.
+    /// - Returns: The Python object returned by `object[key]`.
+    /// - Throws: `PythonError.pythonException` if Python raises, including
+    ///   `KeyError`, `IndexError`, or exceptions from custom `__getitem__`
+    ///   implementations, or another `PythonError` if key conversion fails.
     public func getItem(key: PendingPythonConvertible) async throws -> PythonObject {
         try await interpreter.getItem(object: self, key: key.toPythonObject(interpreter: self.interpreter))
     }
     
-    // a.[key] = value
-    // (can't do actual a[key] = value because we need try await ...)
+    /// Sets an item through Python's item protocol.
+    ///
+    /// This is the async throwing form of Python `object[key] = value`. Use it for
+    /// mappings, mutable sequences, custom Python objects that implement
+    /// `__setitem__`, and slice assignment. Swift assignment subscripts cannot
+    /// express `try await`, so ``setItem(key:newValue:)`` is the canonical async
+    /// item-mutation API.
+    ///
+    /// ```swift
+    /// try await dict.setItem(key: "name", newValue: "Ada")
+    /// try await list.setItem(key: 1..<3, newValue: replacement)
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - key: The Swift or Python key to convert and pass to Python.
+    ///   - newValue: The Swift or Python value to convert and assign.
+    /// - Throws: `PythonError.pythonException` if Python raises, including
+    ///   `KeyError`, `IndexError`, read-only item failures, or exceptions from
+    ///   custom `__setitem__` implementations, or another `PythonError` if
+    ///   conversion fails.
     public func setItem(key: PendingPythonConvertible, newValue: PendingPythonConvertible) async throws {
         try await interpreter.setItem(object: self, key: key.toPythonObject(interpreter: self.interpreter), newValue: newValue.toPythonObject(interpreter: self.interpreter))
     }
@@ -1480,4 +1517,3 @@ extension PythonObject: AsyncSequence {
         AsyncIterator(source: self)
     }
 }
-

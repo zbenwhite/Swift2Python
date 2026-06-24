@@ -173,7 +173,19 @@ extension PythonInterpreter {
             }
         }
         
-        // a[key]
+        /// Gets an item through Python's item protocol inside an isolated context.
+        ///
+        /// This is the recoverable throwing form of Python `object[key]` for
+        /// ``SafePythonObject``. Use it inside `PythonInterpreter.withIsolatedContext`
+        /// when missing keys, out-of-range indexes, or exceptions from custom
+        /// `__getitem__` implementations should be handled by the caller. For
+        /// concise code where failure is a programmer error, safe subscript syntax
+        /// such as `object[key]` is also available.
+        ///
+        /// - Parameter key: The Swift or safe Python key to convert and pass to Python.
+        /// - Returns: The safe Python object returned by `object[key]`.
+        /// - Throws: `PythonError.safePythonException` inside the isolated context
+        ///   when Python raises, or another `PythonError` if key conversion fails.
         public func getItem(key: any SafePythonConvertible) throws -> SafePythonObject {
             let localInterpreter = interpreter
             return try localInterpreter.assumeIsolated {
@@ -181,7 +193,19 @@ extension PythonInterpreter {
             }
         }
         
-        // a[key] = value
+        /// Sets an item through Python's item protocol inside an isolated context.
+        ///
+        /// This is the recoverable throwing form of Python `object[key] = value`
+        /// for ``SafePythonObject``. Use it for mappings, mutable sequences, custom
+        /// Python objects that implement `__setitem__`, and recoverable slice
+        /// assignment. The key and value are materialized into Python objects before
+        /// assignment, so Swift literals can be used directly.
+        ///
+        /// - Parameters:
+        ///   - key: The Swift or safe Python key to convert and pass to Python.
+        ///   - newValue: The Swift or safe Python value to convert and assign.
+        /// - Throws: `PythonError.safePythonException` inside the isolated context
+        ///   when Python raises, or another `PythonError` if conversion fails.
         public func setItem(key: any SafePythonConvertible, newValue: any SafePythonConvertible) throws {
             let localInterpreter = interpreter
             try localInterpreter.assumeIsolated {
@@ -227,10 +251,22 @@ extension PythonInterpreter {
             }
         }
         
-        //
-        // a[key]
+        /// Gets or sets an item using Python-like subscript syntax.
+        ///
+        /// This powers convenient syntax inside `withIsolatedContext`, such as
+        /// `object[key]`, `object[key] = value`, and `object[x, y]` for Python
+        /// tuple-key indexing. When more than one key is supplied, Swift2Python
+        /// builds a Python tuple and passes that tuple as the single Python key,
+        /// matching Python's `object[x, y]` behavior.
+        ///
+        /// This subscript is convenience-oriented and cannot throw. It traps with
+        /// `fatalError` if Python raises or conversion fails. Use the explicit
+        /// throwing ``getItem(key:)`` and ``setItem(key:newValue:)`` methods when
+        /// item failures are part of normal control flow.
+        ///
+        /// - Parameter key: One or more keys supplied by Swift subscript syntax.
+        /// - Returns: The safe Python object returned by Python item lookup.
         public subscript(key: SafePythonConvertible...) -> SafePythonObject {
-            // a[key]
             get {
                 let localInterpreter = interpreter
                 return localInterpreter.assumeIsolated {
@@ -241,7 +277,6 @@ extension PythonInterpreter {
                     }
                 }
             }
-            // a[key] = value
             set {
                 let localInterpreter = interpreter
                 return localInterpreter.assumeIsolated {

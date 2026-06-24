@@ -254,6 +254,70 @@ try await interpreter.withIsolatedContext { context in
 
 Async attribute failures surface as `PythonError.pythonException`. Explicit safe attribute failures surface as `PythonError.safePythonException` inside the isolated context; if the error escapes `withIsolatedContext`, the isolated context rethrows it as an async Python exception.
 
+## Item Access
+
+Generic item access is release-ready. Generate item code with explicit throwing APIs for async `PythonObject` values and for recoverable safe operations. Use safe subscript syntax only inside `withIsolatedContext` when failures should trap as programmer errors.
+
+### Async PythonObject Items
+
+Use `getItem(key:)` and `setItem(key:newValue:)` for Python `object[key]` and `object[key] = value` in normal Swift concurrency code:
+
+```swift
+let value = try await object.getItem(key: "name")
+try await object.setItem(key: "count", newValue: 4)
+```
+
+Do not generate async subscript syntax for `PythonObject`. Swift cannot express the required `try await object[key]` access pattern in this API design.
+
+Use generic item access for dictionaries, lists, tuples, Python slice objects, Swift ranges that convert to Python slices, and custom Python objects implementing `__getitem__` or `__setitem__`:
+
+```swift
+let first = try await list.getItem(key: 0)
+let middle = try await list.getItem(key: 1..<4)
+try await list.setItem(key: 1..<3, newValue: replacement)
+```
+
+### SafePythonObject Items
+
+Inside `withIsolatedContext`, prefer explicit throwing APIs when item failure is recoverable:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let value = try object.getItem(key: "name")
+    try object.setItem(key: "count", newValue: 4)
+}
+```
+
+Use safe subscript syntax for concise Python-like code only when missing keys, invalid indexes, or conversion failures should trap:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let value = object["name"]
+    object["count"] = 4
+}
+```
+
+Safe subscript syntax also supports tuple-key indexing. When more than one key is supplied, Swift2Python builds a Python tuple and passes it as the single key, matching Python `object[x, y]` semantics:
+
+```swift
+let value = object[1, 2]
+object[1, 2] = "value"
+```
+
+Use tuple-key subscript for Python APIs that expect tuple keys, such as multidimensional indexing. If tuple-key failure should be recoverable or the keys are already collected, build a Python tuple explicitly and pass it to `getItem(key:)` or `setItem(key:newValue:)`.
+
+### Item Access Rules For Generated Code
+
+- Prefer `try await object.getItem(key:)` and `try await object.setItem(key:newValue:)` for async item access.
+- Prefer `try object.getItem(key:)` and `try object.setItem(key:newValue:)` for recoverable safe item access inside `withIsolatedContext`.
+- Use safe `object[key]` and `object[key] = value` only inside `withIsolatedContext` and only when trapping on Python errors is acceptable.
+- Use safe `object[x, y]` only when the Python API expects a tuple key.
+- Use list-specific helpers when the code is deliberately list-shaped and wants list validation.
+- Use dictionary-specific helpers for dictionary membership, deletion, and eager key/value/item arrays.
+- Do not call CPython item wrappers directly in generated user code.
+
+Async item failures surface as `PythonError.pythonException`. Explicit safe item failures surface as `PythonError.safePythonException` inside the isolated context; if the error escapes `withIsolatedContext`, the isolated context rethrows it as an async Python exception.
+
 ## Operators
 
 Operator support for arithmetic, bitwise, and comparison operations is release-ready. Treat the public operator APIs and their throwing alternatives as the canonical way to express Python operations in Swift2Python.

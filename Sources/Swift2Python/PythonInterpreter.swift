@@ -262,6 +262,19 @@ public actor PythonInterpreter {
     
     // MARK: Subscripting (async mode)
     
+    /// Gets an item from a Python object with an already-converted Python key.
+    ///
+    /// This is the interpreter-level async item lookup used by
+    /// ``PythonObject/getItem(key:)``. Prefer the object-level method in user code
+    /// unless the interpreter is already coordinating an operation across multiple
+    /// Python objects.
+    ///
+    /// - Parameters:
+    ///   - object: The Python object to read from.
+    ///   - key: The already-converted Python key to pass to `object[key]`.
+    /// - Returns: The Python object returned by Python item lookup.
+    /// - Throws: `PythonError.pythonException` if Python raises, including
+    ///   `KeyError`, `IndexError`, or custom `__getitem__` failures.
     public func getItem(object: PythonObject, key: PythonObject) async throws -> PythonObject {
         logger.trace("getItem: 'object[key]' called for PythonObject (async)")
         let keyPtr = getRegisteredPointer(forPythonObject: key)!
@@ -273,6 +286,20 @@ public actor PythonInterpreter {
         }
     }
     
+    /// Sets an item on a Python object with already-converted Python key and value objects.
+    ///
+    /// This is the interpreter-level async item assignment used by
+    /// ``PythonObject/setItem(key:newValue:)``. Prefer the object-level method in
+    /// user code unless both the key and value are already materialized
+    /// ``PythonObject`` values.
+    ///
+    /// - Parameters:
+    ///   - object: The Python object to mutate.
+    ///   - key: The already-converted Python key to pass to `object[key]`.
+    ///   - newValue: The already-converted Python value to assign.
+    /// - Throws: `PythonError.pythonException` if Python raises, including
+    ///   `KeyError`, `IndexError`, read-only item failures, or custom
+    ///   `__setitem__` failures.
     public func setItem(object: PythonObject, key: PythonObject, newValue: PythonObject) async throws {
         logger.trace("setItem: 'object[key] = newValue' called for PythonObject (async)")
         let keyPtr = getRegisteredPointer(forPythonObject: key)!
@@ -446,8 +473,7 @@ public actor PythonInterpreter {
         logger.trace("get: 'object.attribute' called for SafePythonObject (synchronous)")
         let objPtr = getRegisteredPointer(forSafeObj:obj)
         let attrPtr = try getAttr(name, onObject: objPtr, orElse: { try throwSafePythonError() })
-        let attrId = registerSafePythonObject(attrPtr)
-        return SafePythonObject(interpreter: self, id: attrId)
+        return newSafePythonObject(fromReturnedPointer: attrPtr)
     }
     
     internal func syncSetObjectAttribute(_ obj: SafePythonObject, _ name: String, _ value: SafePythonObject) throws {
@@ -460,6 +486,7 @@ public actor PythonInterpreter {
     internal func syncGetObjectItem(obj: SafePythonObject, key: [any SafePythonConvertible]) throws -> SafePythonObject {
         logger.trace("getItem: 'object[key]' called for SafePythonObject (synchronous)")
         let pyKeyPtr: UnsafeMutableRawPointer
+        let ownsKeyPtr: Bool
         
         switch key.count {
         case 0:
@@ -467,19 +494,26 @@ public actor PythonInterpreter {
         case 1:
             let pyKey = try key[0].toSafePythonObject(interpreter: self)
             pyKeyPtr = getRegisteredPointer(forSafeObj: pyKey)
+            ownsKeyPtr = false
         default:
             pyKeyPtr = try syncCreateTuplePtr(from: key)
+            ownsKeyPtr = true
+        }
+        defer {
+            if ownsKeyPtr {
+                api.Py_DecRef(pyKeyPtr)
+            }
         }
         
         let objPtr = getRegisteredPointer(forSafeObj:obj)
         let resultPtr = try getItemWith(key: pyKeyPtr, fromObject: objPtr, onError: { try throwSafePythonError() })
-        let resultId = registerSafePythonObject(resultPtr)
-        return SafePythonObject(interpreter: self, id: resultId)
+        return newSafePythonObject(fromReturnedPointer: resultPtr)
     }
     
     internal func syncSetObjectItem(obj: SafePythonObject, key: [any SafePythonConvertible], newValue:SafePythonConvertible) throws {
         logger.trace("setItem: 'object[key] = newValue' called for SafePythonObject (synchronous)")
         let pyKeyPtr: UnsafeMutableRawPointer
+        let ownsKeyPtr: Bool
         
         switch key.count {
         case 0:
@@ -487,8 +521,15 @@ public actor PythonInterpreter {
         case 1:
             let pyKey = try key[0].toSafePythonObject(interpreter: self)
             pyKeyPtr = getRegisteredPointer(forSafeObj: pyKey)
+            ownsKeyPtr = false
         default:
             pyKeyPtr = try syncCreateTuplePtr(from: key)
+            ownsKeyPtr = true
+        }
+        defer {
+            if ownsKeyPtr {
+                api.Py_DecRef(pyKeyPtr)
+            }
         }
         
         let objPtr = getRegisteredPointer(forSafeObj:obj)
