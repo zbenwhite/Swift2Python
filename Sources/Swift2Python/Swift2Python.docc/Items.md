@@ -77,7 +77,23 @@ Use ``PythonSlice`` when you need a stepped or reversed slice:
 
 ```swift
 let reversed = try await list.getItem(key: PythonSlice(nil, nil, step: -1))
+let everyOther = try await list.getItem(key: PythonSlice(nil, nil, step: 2))
 ```
+
+Inside `withIsolatedContext`, safe subscript syntax supports the same slice descriptor:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    var list = try context.convertToSafePython(array: [1, 2, 3, 4, 5])
+
+    let middle = list[.slice(1, 4)]
+    let reversed = list[.slice(nil, nil, step: -1)]
+
+    list[.slice(1, 3)] = try context.convertToSafePython(array: [20, 30])
+}
+```
+
+`nil` slice bounds map to Python `None`, so `.slice(nil, nil, step: -1)` is the Swift2Python spelling of Python `[::-1]`. Safe slice subscript syntax cannot throw and traps if Python rejects the slice, such as a zero step or invalid stepped slice assignment. Use explicit ``PythonInterpreter/SafePythonObject/getItem(key:)`` and ``PythonInterpreter/SafePythonObject/setItem(key:newValue:)`` with ``PythonSlice`` when slice errors should be handled.
 
 ## Safe Item Access
 
@@ -139,3 +155,4 @@ Safe subscript syntax traps on failures because Swift subscripts in this design 
 - Use ``PythonInterpreter/SafePythonObject/getItem(key:)`` and ``PythonInterpreter/SafePythonObject/setItem(key:newValue:)`` for recoverable safe item access.
 - Use safe subscript syntax for concise isolated-context code where item failure is a programmer error.
 - Use multi-key safe subscript syntax when the Python API expects a tuple key.
+- Use ``PythonSlice`` or `.slice(...)` for stepped and reversed slices; use explicit item APIs when slice failures are recoverable.

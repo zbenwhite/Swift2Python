@@ -159,4 +159,57 @@ struct RefCountTests {
         }
     }
     
+    @Test("RefCount: safe callable releases temporary argument tuple")
+    func safeCallableReleasesTemporaryArgumentTuple() async throws {
+        let argumentHandle: PythonInterpreter.ReferenceCountTestHandle = try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let argument = try isolatedInterpreter.convertToSafePython(array: [1, 2, 3])
+            
+            let argumentPtr = isolatedInterpreter.getRegisteredPointer(forSafeObj: argument)
+            isolatedInterpreter.api.Py_IncRef(argumentPtr)
+            
+            let length = try isolatedInterpreter.builtins.len(argument)
+            #expect(try Int(length) == 3)
+            
+            return try isolatedInterpreter.getReferenceCountHandle(forSafeObj: argument)
+        }
+        
+        let refCountAfterCleanup = try await interpreter.getRefCount(forHandle: argumentHandle)
+        #expect(refCountAfterCleanup == 1)
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            isolatedInterpreter.api.Py_DecRef(argumentHandle.handle)
+        }
+    }
+    
+    @Test("RefCount: safe slice subscript releases returned slice key")
+    func safeSliceSubscriptReleasesReturnedSliceKey() async throws {
+        let sliceKeyHandle: PythonInterpreter.ReferenceCountTestHandle = try await interpreter.withIsolatedContext { isolatedInterpreter in
+            try isolatedInterpreter.runSimpleString(pythonCode: """
+            class Swift2PythonSliceKeyEcho:
+                def __getitem__(self, key):
+                    return key
+            """)
+            
+            let echoType = isolatedInterpreter.globals["Swift2PythonSliceKeyEcho"]
+            let echo = try echoType.call()
+            let sliceKey = echo[.slice(1, 4, step: 2)]
+            
+            #expect(try Int(sliceKey.get(attr: "start")) == 1)
+            #expect(try Int(sliceKey.get(attr: "stop")) == 4)
+            #expect(try Int(sliceKey.get(attr: "step")) == 2)
+            
+            let sliceKeyPtr = isolatedInterpreter.getRegisteredPointer(forSafeObj: sliceKey)
+            isolatedInterpreter.api.Py_IncRef(sliceKeyPtr)
+            
+            return try isolatedInterpreter.getReferenceCountHandle(forSafeObj: sliceKey)
+        }
+        
+        let refCountAfterCleanup = try await interpreter.getRefCount(forHandle: sliceKeyHandle)
+        #expect(refCountAfterCleanup == 1)
+        
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            isolatedInterpreter.api.Py_DecRef(sliceKeyHandle.handle)
+        }
+    }
+    
 }

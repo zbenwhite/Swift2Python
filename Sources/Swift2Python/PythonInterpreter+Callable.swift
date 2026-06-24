@@ -286,6 +286,11 @@ extension PythonInterpreter {
         } else {
             argTuplePtr = try syncCreateTuplePtr(from: args)
         }
+        defer {
+            if let argTuplePtr {
+                api.Py_DecRef(argTuplePtr)
+            }
+        }
         let callablePtr = getRegisteredPointer(forSafeObj: callable)
         let resultPtr = try callCallable(callablePtr, args: argTuplePtr, onError: { try throwSafePythonError() } )
         return newSafePythonObject(fromReturnedPointer: resultPtr)
@@ -300,6 +305,11 @@ extension PythonInterpreter {
             argTuplePtr = nil
         } else {
             argTuplePtr = try syncCreateTuplePtr(from: args)
+        }
+        defer {
+            if let argTuplePtr {
+                api.Py_DecRef(argTuplePtr)
+            }
         }
         
         // kwargs in a dict
@@ -325,6 +335,11 @@ extension PythonInterpreter {
             argTuplePtr = nil
         } else {
             argTuplePtr = try syncCreateTuplePtr(from: args)
+        }
+        defer {
+            if let argTuplePtr {
+                api.Py_DecRef(argTuplePtr)
+            }
         }
         
         // kwargs in a dict
@@ -374,6 +389,11 @@ extension PythonInterpreter {
             argTuplePtr = nil
         } else {
             argTuplePtr = try syncCreateTuplePtr(from: args)
+        }
+        defer {
+            if let argTuplePtr {
+                api.Py_DecRef(argTuplePtr)
+            }
         }
         
         let kwDictPtr: UnsafeMutableRawPointer?

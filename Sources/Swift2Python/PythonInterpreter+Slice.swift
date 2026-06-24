@@ -9,8 +9,9 @@ import Foundation
 
 /// A Swift representation of a Python `slice` object.
 ///
-/// Use this with `SafePythonObject` subscript syntax when working inside
-/// `withIsolatedContext`.
+/// Use this with item access APIs when you need a stepped or reversed slice,
+/// or when you want to spell Python's omitted bounds explicitly. `nil` maps to
+/// Python `None`, so `PythonSlice(nil, nil, step: -1)` represents `[::-1]`.
 ///
 /// ```swift
 /// let values = try interpreter.withIsolatedContext { interpreter in
@@ -26,7 +27,8 @@ public struct PythonSlice: Sendable {
     /// Creates a Python slice descriptor.
     ///
     /// `nil` represents Python's omitted slice bound, equivalent to `None` in
-    /// `slice(start, stop, step)`.
+    /// `slice(start, stop, step)`. Python validates slice semantics when the
+    /// slice is used; for example, a step of `0` raises a Python `ValueError`.
     ///
     /// ```swift
     /// let middle = PythonSlice(1, 3)

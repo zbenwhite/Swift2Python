@@ -274,6 +274,7 @@ Use generic item access for dictionaries, lists, tuples, Python slice objects, S
 ```swift
 let first = try await list.getItem(key: 0)
 let middle = try await list.getItem(key: 1..<4)
+let reversed = try await list.getItem(key: PythonSlice(nil, nil, step: -1))
 try await list.setItem(key: 1..<3, newValue: replacement)
 ```
 
@@ -306,12 +307,24 @@ object[1, 2] = "value"
 
 Use tuple-key subscript for Python APIs that expect tuple keys, such as multidimensional indexing. If tuple-key failure should be recoverable or the keys are already collected, build a Python tuple explicitly and pass it to `getItem(key:)` or `setItem(key:newValue:)`.
 
+Safe subscript syntax also supports Python slices through `.slice(...)`:
+
+```swift
+let middle = object[.slice(1, 4)]
+let reversed = object[.slice(nil, nil, step: -1)]
+object[.slice(1, 3)] = replacement
+```
+
+Use `.slice(...)` for safe stepped or reversed slices. `nil` slice bounds mean Python `None`, so `.slice(nil, nil, step: -1)` is Python `[::-1]`. Safe slice subscript traps on Python errors because it is non-throwing. Generate `try object.getItem(key: PythonSlice(...))` or `try object.setItem(key:newValue:)` when invalid slices, zero steps, or slice-assignment errors should be recoverable.
+
 ### Item Access Rules For Generated Code
 
 - Prefer `try await object.getItem(key:)` and `try await object.setItem(key:newValue:)` for async item access.
 - Prefer `try object.getItem(key:)` and `try object.setItem(key:newValue:)` for recoverable safe item access inside `withIsolatedContext`.
 - Use safe `object[key]` and `object[key] = value` only inside `withIsolatedContext` and only when trapping on Python errors is acceptable.
 - Use safe `object[x, y]` only when the Python API expects a tuple key.
+- Use `PythonSlice` for async stepped or reversed slices.
+- Use safe `.slice(...)` subscript only when slice failures should trap; otherwise use explicit safe item APIs with `PythonSlice`.
 - Use list-specific helpers when the code is deliberately list-shaped and wants list validation.
 - Use dictionary-specific helpers for dictionary membership, deletion, and eager key/value/item arrays.
 - Do not call CPython item wrappers directly in generated user code.

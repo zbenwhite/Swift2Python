@@ -289,8 +289,21 @@ extension PythonInterpreter {
             }
         }
         
-        //
-        // a[start:stop:step]
+        /// Gets or sets an item using a Python slice descriptor.
+        ///
+        /// This powers `object[.slice(start, stop, step:)]` inside
+        /// `withIsolatedContext`. It is the safe-object convenience form for
+        /// Python `object[start:stop:step]`. `nil` slice bounds map to Python
+        /// `None`, so `.slice(nil, nil, step: -1)` represents `[::-1]`.
+        ///
+        /// This subscript is convenience-oriented and cannot throw. It traps with
+        /// `fatalError` if Python raises or conversion fails, including invalid
+        /// slice assignments. Use the explicit throwing ``getItem(key:)`` and
+        /// ``setItem(key:newValue:)`` methods with ``PythonSlice`` when slice
+        /// failures should be recoverable.
+        ///
+        /// - Parameter slice: The Python slice descriptor.
+        /// - Returns: The safe Python object returned by Python slice lookup.
         public subscript(slice: PythonSlice) -> SafePythonObject {
             get {
                 let localInterpreter = interpreter
