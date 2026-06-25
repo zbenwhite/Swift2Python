@@ -2,7 +2,7 @@
 
 Swift2Python is meant to be a modern Swift replacement for PythonKit.
 
-It works with Swift Concurrency so you can interact with Python using `await`. It uses only the stable ABI, so the intention is that it should be forward compatible with future Python and backward compatible to Python 3.9 or earlier. It also manages the GIL internally so you do not have to worry about the GIL in normal use.
+It works with Swift Concurrency so you can interact with Python using `await`. It uses only the stable ABI, so the intention is that it should be forward compatible with future Python and backward compatible to Python 3.9 or earlier. It also manages the GIL internally so you do not have to worry about the GIL in normal use.  And just like PythonKit, Swift2Python manages Python object reference counts to prevent memory leaks and double free errors.
 
 The current release is developed and tested on macOS with current GIL-enabled Python. The intention is that Swift2Python should be capable of running on Linux and iOS, with free-threaded Python, and with older supported Python versions, but those combinations are not tested yet. For untested platforms or Python installs, use environment variable `SWIFT2PYTHON_LIBRARY` to point Swift2Python at the libpython shared library explicitly.
 

@@ -39,9 +39,16 @@ let text = try await String(name)
 let enabled = try await Bool(flag)
 ```
 
-If conversion fails because the Python value has the wrong type, Swift2Python throws ``PythonError/conversionType(value:sourceType:targetType:underlying:)``. If a Python integer does not fit in the requested Swift integer type, Swift2Python throws ``PythonError/conversionOverflow(value:sourceType:targetType:)``.
+Swift2Python delegates scalar Python-to-Swift conversions to CPython's normal conversion APIs:
 
-`String(pyObject)` follows Python's `str(obj)` behavior. For example, converting Python `None` to `String` produces `"None"`; it does not fail as a non-string value.
+- `Bool(pyObject)` uses Python truth testing, equivalent to `bool(obj)`.
+- `Double(pyObject)`, `Float(pyObject)`, and `Float16(pyObject)` use Python's float conversion behavior.
+- Swift integer initializers use Python's integer conversion behavior, then check that the result fits in the requested Swift integer type.
+- `String(pyObject)` uses Python's `str(obj)` behavior, then decodes the resulting Python Unicode string as UTF-8.
+
+That means Python protocol methods such as truthiness, numeric conversion, and string conversion are honored by CPython where the underlying CPython API supports them. For example, converting Python `None` to `String` produces `"None"`; it does not fail as a non-string value.
+
+If conversion fails because Python rejects the value for the requested conversion, Swift2Python throws ``PythonError/conversionType(value:sourceType:targetType:underlying:)``. If a Python integer does not fit in the requested Swift integer type, Swift2Python throws ``PythonError/conversionOverflow(value:sourceType:targetType:)``.
 
 ## Optional Values
 

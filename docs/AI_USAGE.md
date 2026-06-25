@@ -103,7 +103,14 @@ try await interpreter.withIsolatedContext { context in
 }
 ```
 
-`String(pyObject)` and `String(safePythonObject)` follow Python `str(obj)` behavior. Python `None` converts to the Swift string `"None"`; do not generate code that expects that conversion to throw or produce `nil`.
+Python-to-Swift scalar conversions are CPython-backed, not exact-type-only checks:
+
+- `Bool(...)` uses Python truth testing through `PyObject_IsTrue`.
+- Floating-point initializers use `PyFloat_AsDouble`.
+- Integer initializers use `PyLong_AsLongLong` or `PyLong_AsUnsignedLongLong`, followed by Swift range checks for the requested integer width/sign.
+- `String(...)` uses `PyObject_Str`, then `PyUnicode_AsUTF8AndSize`.
+
+Because CPython performs these conversions, generate examples that describe Python conversion behavior instead of saying values must already be concrete `bool`, `float`, `int`, or `str` instances. Python `None` converts to the Swift string `"None"`; do not generate code that expects that conversion to throw or produce `nil`.
 
 Do not generate `value.from(pythonObject:)`, `value.from(safePythonObject:)`, `Int.from(...)`, or other `from(...)` conversion spellings. The public Python-to-Swift API is initializer-based.
 
