@@ -57,6 +57,80 @@ For local Python modules, tell users to set `SWIFT2PYTHON_PYTHONPATH` before sta
 
 Use `withIsolatedContext` only after showing the normal async API. Inside isolated-context examples, use `try context.import("module")` and explicit throwing APIs for recoverable failures.
 
+## Conversions
+
+Generate conversion code using Swift2Python's public conversion protocols and Swift initializer APIs. Do not invent or resurrect `from(...)` conversion helpers.
+
+### Swift To Python
+
+In normal async code, use `PendingPythonConvertible` values directly when calling Python, or call `toPythonObject(interpreter:)` when a named `PythonObject` is needed:
+
+```swift
+let pyCount = try await 3.toPythonObject(interpreter: interpreter)
+let pyName = try await "Ada".toPythonObject(interpreter: interpreter)
+
+let math = try await interpreter.import("math")
+let result = try await math.pow(2, 8)
+```
+
+Inside `withIsolatedContext`, use `SafePythonConvertible` and `toSafePythonObject(interpreter:)` only with the isolated context:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let pyCount = try 3.toSafePythonObject(interpreter: context)
+    print(try Int(pyCount))
+}
+```
+
+Do not use `SafePythonObject` conversion APIs outside `withIsolatedContext`.
+
+### Python To Swift
+
+Prefer Swift initializers for Python-to-Swift conversion:
+
+```swift
+let count = try await Int(pyObject)
+let name = try await String(pyObject)
+let enabled = try await Bool(pyObject)
+```
+
+Inside an isolated context, use the synchronous safe initializers:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let value = context.globals["count"]
+    let count = try Int(value)
+}
+```
+
+Do not generate `value.from(pythonObject:)`, `value.from(safePythonObject:)`, `Int.from(...)`, or other `from(...)` conversion spellings. The public Python-to-Swift API is initializer-based.
+
+### Optional And Heterogeneous Values
+
+Swift `Optional` values conform to the conversion protocols when their wrapped values do:
+
+- `nil` converts to Python `None`.
+- `.some(value)` converts the wrapped value.
+
+Use explicitly typed optionals when `nil` appears in a heterogeneous collection:
+
+```swift
+let values: [String: any PendingPythonConvertible] = [
+    "name": "Ada",
+    "nickname": Optional<String>.none,
+    "count": 3
+]
+let dict = try await values.toPythonObject(interpreter: interpreter)
+```
+
+Use `[any PendingPythonConvertible]`, `[String: any PendingPythonConvertible]`, or `KeyValuePairs<String, any PendingPythonConvertible>` for heterogeneous async containers. Use the `SafePythonConvertible` equivalents only inside an isolated context.
+
+Do not imply that Python `None` automatically converts back to arbitrary Swift `nil` values. The caller must choose the target Swift type and handle `None` according to application policy.
+
+### Conversion Errors
+
+Generated examples should let conversion failures throw unless they are demonstrating error handling. Wrong-type conversions throw `PythonError.conversionType`; integer range failures throw `PythonError.conversionOverflow`. Preserve underlying Python errors when catching and rethrowing conversion failures.
+
 ## Error Handling
 
 Error handling is release-critical. Generated code should preserve Python exception details for users and should respect the async/safe split between `PythonObject` and `PythonInterpreter.SafePythonObject`.

@@ -3559,6 +3559,140 @@ struct ConversionsTests {
             #expect(h_bool == false)
         }
     }
+    
+    // MARK: EC_xxx Conversion Edge Cases
+    
+    @Test("EC_001: Python None does not convert to scalar values (async)")
+    func asyncNoneToScalarConversionsThrow() async throws {
+        let none: Int? = nil
+        let pyNone = try await none.toPythonObject(interpreter: interpreter)
+        
+        let intError = await #expect(throws: PythonError.self) {
+            _ = try await Int(pyNone)
+        }
+        if case let .conversionType(_, sourceType, targetType, _) = intError {
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Int")
+        } else {
+            Issue.record("Expected .conversionType for None to Int, but got \(intError)")
+        }
+        
+        let doubleError = await #expect(throws: PythonError.self) {
+            _ = try await Double(pyNone)
+        }
+        if case let .conversionType(_, sourceType, targetType, _) = doubleError {
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Double")
+        } else {
+            Issue.record("Expected .conversionType for None to Double, but got \(doubleError)")
+        }
+        
+        // String conversion follows Python str(obj), so None becomes "None".
+        let noneString = try await String(pyNone)
+        #expect(noneString == "None")
+    }
+    
+    @Test("EC_002: Python None does not convert to scalar values (synchronous)")
+    func safeNoneToScalarConversionsThrow() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let none: Int? = nil
+            let pyNone = try none.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let intError = #expect(throws: PythonError.self) {
+                _ = try Int(pyNone)
+            }
+            if case let .conversionType(_, sourceType, targetType, _) = intError {
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int")
+            } else {
+                Issue.record("Expected .conversionType for None to Int, but got \(intError)")
+            }
+            
+            let doubleError = #expect(throws: PythonError.self) {
+                _ = try Double(pyNone)
+            }
+            if case let .conversionType(_, sourceType, targetType, _) = doubleError {
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Double")
+            } else {
+                Issue.record("Expected .conversionType for None to Double, but got \(doubleError)")
+            }
+            
+            // String conversion follows Python str(obj), so None becomes "None".
+            let noneString = try String(pyNone)
+            #expect(noneString == "None")
+        }
+    }
+    
+    @Test("EC_003: Python float does not convert to integer types (async)")
+    func asyncFractionalFloatToIntegerConversionsThrow() async throws {
+        let pyFloat = try await 3.5.toPythonObject(interpreter: interpreter)
+        
+        let intError = await #expect(throws: PythonError.self) {
+            _ = try await Int(pyFloat)
+        }
+        if case let .conversionType(_, sourceType, targetType, _) = intError {
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "Int")
+        } else {
+            Issue.record("Expected .conversionType for float to Int, but got \(intError)")
+        }
+        
+        let uintError = await #expect(throws: PythonError.self) {
+            _ = try await UInt(pyFloat)
+        }
+        if case let .conversionType(_, sourceType, targetType, _) = uintError {
+            #expect(sourceType.contains("PythonObject"))
+            #expect(targetType == "UInt")
+        } else {
+            Issue.record("Expected .conversionType for float to UInt, but got \(uintError)")
+        }
+    }
+    
+    @Test("EC_004: Python float does not convert to integer types (synchronous)")
+    func safeFractionalFloatToIntegerConversionsThrow() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let pyFloat = try 3.5.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            let intError = #expect(throws: PythonError.self) {
+                _ = try Int(pyFloat)
+            }
+            if case let .conversionType(_, sourceType, targetType, _) = intError {
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "Int")
+            } else {
+                Issue.record("Expected .conversionType for float to Int, but got \(intError)")
+            }
+            
+            let uintError = #expect(throws: PythonError.self) {
+                _ = try UInt(pyFloat)
+            }
+            if case let .conversionType(_, sourceType, targetType, _) = uintError {
+                #expect(sourceType.contains("SafePythonObject"))
+                #expect(targetType == "UInt")
+            } else {
+                Issue.record("Expected .conversionType for float to UInt, but got \(uintError)")
+            }
+        }
+    }
+    
+    @Test("EC_005: Strings preserve embedded NUL bytes (async)")
+    func asyncStringWithEmbeddedNullRoundTrips() async throws {
+        let value = "left\u{0}right"
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        let roundTrip = try await String(pyObj)
+        #expect(roundTrip == value)
+    }
+    
+    @Test("EC_006: Strings preserve embedded NUL bytes (synchronous)")
+    func safeStringWithEmbeddedNullRoundTrips() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value = "left\u{0}right"
+            let safePyObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            let roundTrip = try String(safePyObj)
+            #expect(roundTrip == value)
+        }
+    }
 
 }
 

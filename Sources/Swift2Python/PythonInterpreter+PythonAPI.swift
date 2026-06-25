@@ -459,7 +459,11 @@ extension PythonInterpreter {
             guard let utf8 else {
                 return nil
             }
-            return String(cString: utf8)
+            let bytes = UnsafeBufferPointer(
+                start: UnsafeRawPointer(utf8).assumingMemoryBound(to: UInt8.self),
+                count: Int(size)
+            )
+            return String(decoding: bytes, as: UTF8.self)
         }
         
         internal func pythonNoneNewReference() -> UnsafeMutableRawPointer? {
