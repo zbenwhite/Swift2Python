@@ -35,7 +35,7 @@ Replace the repository URL and version with the release you are using.
 
 Swift2Python loads CPython dynamically. On common macOS Python installs, automatic discovery is usually enough.
 
-If Swift2Python cannot find libpython, set environmet variable `SWIFT2PYTHON_LIBRARY` before running your Swift program:
+If Swift2Python cannot find libpython, set environment variable `SWIFT2PYTHON_LIBRARY` before running your Swift program:
 
 ```sh
 export SWIFT2PYTHON_LIBRARY=/opt/homebrew/opt/python@3.13/lib/libpython3.13.dylib

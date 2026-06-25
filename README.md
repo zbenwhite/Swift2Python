@@ -4,7 +4,7 @@ Swift2Python is meant to be a modern Swift replacement for PythonKit.
 
 It works with Swift Concurrency so you can interact with Python using `await`. It uses only the stable ABI, so the intention is that it should be forward compatible with future Python and backward compatible to Python 3.9 or earlier. It also manages the GIL internally so you do not have to worry about the GIL in normal use.
 
-The current release is developed and tested on macOS with current GIL-enabled Python. The intention is that Swift2Python should be capable of running on Linux and iOS, with free-threaded Python, and with older supported Python versions, but those combinations are not tested yet. For untested platforms or Python installs, use environmet variable `SWIFT2PYTHON_LIBRARY` to point Swift2Python at the libpython shared library explicitly.
+The current release is developed and tested on macOS with current GIL-enabled Python. The intention is that Swift2Python should be capable of running on Linux and iOS, with free-threaded Python, and with older supported Python versions, but those combinations are not tested yet. For untested platforms or Python installs, use environment variable `SWIFT2PYTHON_LIBRARY` to point Swift2Python at the libpython shared library explicitly.
 
 ## Getting Started
 
@@ -18,7 +18,7 @@ let math = try await python.import("math")
 let value = try await math.sqrt(9)
 ```
 
-If Swift2Python cannot find Python, set environmet variable `SWIFT2PYTHON_LIBRARY` to the full path of `libpython`. If you need local Python modules, set environmet variable `SWIFT2PYTHON_PYTHONPATH` before startup.
+If Swift2Python cannot find Python, set environment variable `SWIFT2PYTHON_LIBRARY` to the full path of `libpython`. If you need local Python modules, set environment variable `SWIFT2PYTHON_PYTHONPATH` before startup.
 
 See the DocC page `Getting Started` (`Sources/Swift2Python/Swift2Python.docc/GettingStarted.md`) for the full setup guide.
 
@@ -32,6 +32,6 @@ This is my first Swift project and my first public software release. Codex wrote
 
 ## Documentation
 
-- Runtime configuration is documented in the DocC page `Runtime Configuration`. Set environmet variable `SWIFT2PYTHON_LIBRARY` to choose a specific libpython shared library, and set environmet variable `SWIFT2PYTHON_PYTHONPATH` to provide Python module search paths before initialization.
+- Runtime configuration is documented in the DocC page `Runtime Configuration`. Set environment variable `SWIFT2PYTHON_LIBRARY` to choose a specific libpython shared library, and set environment variable `SWIFT2PYTHON_PYTHONPATH` to provide Python module search paths before initialization.
 - Operators, throwing alternatives, and async alternatives are documented in the DocC page `Operators`.
 - AI/code-generation guidance is documented in `docs/AI_USAGE.md`.
