@@ -41,6 +41,8 @@ let enabled = try await Bool(flag)
 
 If conversion fails because the Python value has the wrong type, Swift2Python throws ``PythonError/conversionType(value:sourceType:targetType:underlying:)``. If a Python integer does not fit in the requested Swift integer type, Swift2Python throws ``PythonError/conversionOverflow(value:sourceType:targetType:)``.
 
+`String(pyObject)` follows Python's `str(obj)` behavior. For example, converting Python `None` to `String` produces `"None"`; it does not fail as a non-string value.
+
 ## Optional Values
 
 Swift optionals convert naturally to Python:

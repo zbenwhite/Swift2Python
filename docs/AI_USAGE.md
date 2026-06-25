@@ -103,6 +103,8 @@ try await interpreter.withIsolatedContext { context in
 }
 ```
 
+`String(pyObject)` and `String(safePythonObject)` follow Python `str(obj)` behavior. Python `None` converts to the Swift string `"None"`; do not generate code that expects that conversion to throw or produce `nil`.
+
 Do not generate `value.from(pythonObject:)`, `value.from(safePythonObject:)`, `Int.from(...)`, or other `from(...)` conversion spellings. The public Python-to-Swift API is initializer-based.
 
 ### Optional And Heterogeneous Values
