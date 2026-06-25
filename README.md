@@ -36,3 +36,7 @@ This is my first Swift project and my first public software release. Codex wrote
 - Operators, throwing alternatives, and async alternatives are documented in the DocC page `Operators`.
 - AI/code-generation guidance is documented in `docs/AI_USAGE.md`.
 - Deferred work and validation targets are tracked in `ROADMAP.md`.
+## License
+
+Swift2Python is available under the MIT License. See `LICENSE.txt` for details.
+
