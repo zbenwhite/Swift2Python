@@ -7,6 +7,7 @@
 
 import Testing
 import Logging
+import Foundation
 @testable import Swift2Python
 
 enum TestSupport {
@@ -22,9 +23,7 @@ enum TestSupport {
         _ = setupLogging
 
         let runtime = PythonRuntime.shared
-        try await runtime.initialize()
-
-        return try await PythonInterpreter()
+        return try await runtime.interpreter()
     }
 }
 
@@ -55,6 +54,91 @@ struct InitializationTests {
         try await runtime.initialize()
         #expect(await runtime.isInitialized == true)
         #expect(await runtime.pythonVersion != nil)
+    }
+    
+    @Test("PythonRuntime hands out a cached default interpreter")
+    func runtimeDefaultInterpreterIsCached() async throws {
+        let runtime = PythonRuntime.shared
+        let first = try await runtime.interpreter()
+        let second = try await runtime.interpreter()
+        
+        #expect(first === second)
+        #expect(first === interpreter)
+    }
+    
+    @Test("Runtime library resolution prefers explicit path, then environment, then defaults")
+    func pythonLibraryResolutionPrecedence() {
+        let environment = [
+            PythonRuntime.libraryEnvironmentVariable: "/env/libpython.dylib"
+        ]
+        
+        #expect(PythonRuntime.pythonLibraryCandidatePaths(
+            explicitLibraryPath: "/explicit/libpython.dylib",
+            environment: environment
+        ) == ["/explicit/libpython.dylib"])
+        
+        #expect(PythonRuntime.pythonLibraryCandidatePaths(
+            explicitLibraryPath: nil,
+            environment: environment
+        ) == ["/env/libpython.dylib"])
+        
+        let defaults = PythonRuntime.pythonLibraryCandidatePaths(
+            explicitLibraryPath: "   ",
+            environment: [PythonRuntime.libraryEnvironmentVariable: "\n"]
+        )
+        #expect(defaults.count > 1)
+    }
+    
+    @Test("Runtime reads Swift2Python PYTHONPATH override")
+    func swift2PythonPythonPathOverrideResolution() {
+        #expect(PythonRuntime.swift2PythonPythonPath(environment: [
+            PythonRuntime.pythonPathEnvironmentVariable: "/project/python:/project/vendor"
+        ]) == "/project/python:/project/vendor")
+        
+        #expect(PythonRuntime.swift2PythonPythonPath(environment: [
+            PythonRuntime.pythonPathEnvironmentVariable: "  "
+        ]) == nil)
+        
+        #expect(PythonRuntime.swift2PythonPythonPath(environment: [:]) == nil)
+    }
+    
+    @Test("Runtime expands wildcard library path candidates before loading")
+    func pythonLibraryResolutionExpandsWildcardCandidates() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Swift2PythonRuntimeGlob-\(UUID().uuidString)")
+        let versionDirectory = root.appendingPathComponent("3.13.7")
+        let libraryURL = versionDirectory.appendingPathComponent("libpython3.13.dylib")
+        
+        try FileManager.default.createDirectory(
+            at: versionDirectory,
+            withIntermediateDirectories: true
+        )
+        FileManager.default.createFile(atPath: libraryURL.path, contents: Data())
+        defer {
+            try? FileManager.default.removeItem(at: root)
+        }
+        
+        let pattern = root
+            .appendingPathComponent("3.13.*")
+            .appendingPathComponent("libpython3.13.dylib")
+            .path
+        
+        #expect(PythonRuntime.expandedPythonLibraryCandidatePaths(
+            explicitLibraryPath: nil,
+            environment: [PythonRuntime.libraryEnvironmentVariable: pattern]
+        ) == [libraryURL.path])
+    }
+    
+    @Test("Runtime default library candidates include Linux libpython locations")
+    func pythonLibraryDefaultsIncludeLinuxLocations() {
+        let candidates = PythonRuntime.pythonLibraryCandidatePaths(
+            explicitLibraryPath: nil,
+            environment: [:]
+        )
+        
+        #expect(candidates.contains("/usr/local/lib/libpython3.13.so"))
+        #expect(candidates.contains("/usr/lib/*/libpython3.13.so.1.0"))
+        #expect(candidates.contains("/usr/lib64/libpython3.13.so"))
     }
 
 }

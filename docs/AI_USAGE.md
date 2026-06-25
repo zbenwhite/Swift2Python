@@ -8,7 +8,54 @@ This file is written for coding agents and AI assistants that generate Swift2Pyt
 - Use async ``PythonObject`` APIs in normal Swift concurrency code.
 - Use ``PythonInterpreter.SafePythonObject`` only inside `withIsolatedContext`.
 - Prefer Swift conversion initializers such as `Int(pyObject)`, `String(pyObject)`, and `Double(pyObject)` over direct `convertTo...` calls in examples and user-facing code.
-- Do not import `builtins` manually for common builtins access. Use `interpreter.builtins`.
+- Do not import `builtins` manually for common builtins access. In async code, use `try await interpreter.getBuiltins()`. Inside `withIsolatedContext`, use `context.builtins`.
+
+## Runtime Configuration
+
+Runtime configuration must happen before the first successful `PythonRuntime.shared.initialize()` call. Generated setup instructions should use Swift2Python's environment variables instead of asking users to edit source code:
+
+```sh
+export SWIFT2PYTHON_LIBRARY=/opt/homebrew/opt/python@3.13/lib/libpython3.13.dylib
+export SWIFT2PYTHON_PYTHONPATH=/path/to/project/python:/path/to/project/vendor
+```
+
+`SWIFT2PYTHON_LIBRARY` points to the libpython shared library, not the `python` executable. Library selection precedence is explicit `initialize(libraryPath:)`, then `SWIFT2PYTHON_LIBRARY`, then Swift2Python's built-in search paths.
+
+`SWIFT2PYTHON_PYTHONPATH` is copied to `PYTHONPATH` immediately before `Py_Initialize()`. Do not generate code that expects changing these variables after initialization to reload Python or change the active libpython.
+
+Generate `PythonRuntime.shared.interpreter()` as the normal first line of Swift2Python code:
+
+```swift
+let python = try await PythonRuntime.shared.interpreter()
+```
+
+That call initializes the runtime if needed and returns the cached default `PythonInterpreter`. Use `PythonRuntime.shared.interpreter(libraryPath:)` only when the example intentionally pins a specific libpython path.
+
+## Getting Started Examples
+
+Generated beginner examples should be complete async Swift programs that start with `PythonRuntime.shared.interpreter()` and then use async `PythonObject` APIs:
+
+```swift
+import Swift2Python
+
+@main
+struct MyTool {
+    static func main() async throws {
+        let python = try await PythonRuntime.shared.interpreter()
+
+        let math = try await python.import("math")
+        let value = try await math.sqrt(9)
+
+        print(try await Double(value))
+    }
+}
+```
+
+Do not generate examples that call `PythonInterpreter()` directly, call `PythonRuntime.shared.initialize()` as a separate required step, or use `callAsFunction`. If a starter example needs a specific Python install, use `PythonRuntime.shared.interpreter(libraryPath:)` or instruct the user to set `SWIFT2PYTHON_LIBRARY`.
+
+For local Python modules, tell users to set `SWIFT2PYTHON_PYTHONPATH` before startup. For third-party packages, tell users to install packages into the Python environment selected by Swift2Python; do not imply Swift Package Manager installs Python packages.
+
+Use `withIsolatedContext` only after showing the normal async API. Inside isolated-context examples, use `try context.import("module")` and explicit throwing APIs for recoverable failures.
 
 ## Error Handling
 

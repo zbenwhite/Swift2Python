@@ -9,18 +9,35 @@
 // once before it can be used.
 
 import Logging
+#if os(Linux)
+import Glibc
+#else
 import Darwin
+#endif
 import Foundation
 
 public typealias PyThreadState = OpaquePointer
 
 public actor PythonRuntime {
+    /// Environment variable used to point Swift2Python at a specific libpython shared library.
+    ///
+    /// This should be the path to the Python shared library, such as
+    /// `/opt/homebrew/opt/python@3.13/lib/libpython3.13.dylib`, not the
+    /// `python` executable.
+    public static let libraryEnvironmentVariable = "SWIFT2PYTHON_LIBRARY"
+    
+    /// Environment variable used to set Python's module search path before initialization.
+    ///
+    /// When present, Swift2Python copies this value to `PYTHONPATH` immediately
+    /// before `Py_Initialize()`.
+    public static let pythonPathEnvironmentVariable = "SWIFT2PYTHON_PYTHONPATH"
     
     // ── Singleton access
     public static let shared = PythonRuntime()
     private init() {}  // prevent external instantiation
     
     private let logger: Logger = Logger(label: "swift2python.PythonRuntime")
+    private var defaultInterpreter: PythonInterpreter?
     
 
     // MARK: Loading Symbols
@@ -78,9 +95,7 @@ public actor PythonRuntime {
     private var _sendablePythonLibraryHandle: SendablePythonLibHandle? = nil
     
     private static func loadPythonLibrary(path: String?, logger: Logger) throws -> PythonLibraryHandle {
-        // Implement dlopen logic here (fallback to common locations, env vars, etc.)
-        // Example stub:
-        let candidatePaths = path.map { [$0] } ?? defaultPythonLibraryPaths()
+        let candidatePaths = expandedPythonLibraryCandidatePaths(explicitLibraryPath: path)
         for p in candidatePaths {
             logger.trace("Checking path \(p) ...")
             if let h = dlopen(p, RTLD_LAZY | RTLD_GLOBAL) {
@@ -94,6 +109,66 @@ public actor PythonRuntime {
     }
     
     // MARK: Finding Python library
+    
+    internal static func pythonLibraryCandidatePaths(
+        explicitLibraryPath: String?,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> [String] {
+        if let explicitLibraryPath = nonEmptyEnvironmentValue(explicitLibraryPath) {
+            return [explicitLibraryPath]
+        }
+        
+        if let environmentLibraryPath = nonEmptyEnvironmentValue(environment[libraryEnvironmentVariable]) {
+            return [environmentLibraryPath]
+        }
+        
+        return defaultPythonLibraryPaths()
+    }
+    
+    internal static func expandedPythonLibraryCandidatePaths(
+        explicitLibraryPath: String?,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> [String] {
+        pythonLibraryCandidatePaths(
+            explicitLibraryPath: explicitLibraryPath,
+            environment: environment
+        ).flatMap(expandPathPattern)
+    }
+    
+    internal static func swift2PythonPythonPath(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> String? {
+        nonEmptyEnvironmentValue(environment[pythonPathEnvironmentVariable])
+    }
+    
+    private static func nonEmptyEnvironmentValue(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : value
+    }
+    
+    private static func expandPathPattern(_ path: String) -> [String] {
+        guard path.contains("*") || path.contains("?") || path.contains("[") else {
+            return [path]
+        }
+        
+        var globResult = glob_t()
+        let status = path.withCString { pattern in
+            glob(pattern, GLOB_TILDE, nil, &globResult)
+        }
+        defer { globfree(&globResult) }
+        
+        guard status == 0, let matches = globResult.gl_pathv else {
+            return []
+        }
+        
+        return (0..<Int(globResult.gl_matchc)).compactMap { index in
+            guard let match = matches[index] else {
+                return nil
+            }
+            return String(cString: match)
+        }.sorted()
+    }
     
     private static func currentUVArchitecture() -> String {
         var uts = utsname()
@@ -126,7 +201,7 @@ public actor PythonRuntime {
             "/usr/local"
         ]
 
-        let versions = ["3.13", "3.14", "3.12", "3.11"]  // newest first
+        let versions = ["3.14", "3.13", "3.12", "3.11", "3.10", "3.9"]  // newest first
 
         for prefix in brewPrefixes {
             for ver in versions {
@@ -148,10 +223,25 @@ public actor PythonRuntime {
         
         for ver in versions {
             paths.append("\(uvPrefix)/cpython-\(ver)-\(os)-\(arch)-none/lib/libpython\(ver).dylib")
+            paths.append("\(uvPrefix)/cpython-\(ver)-\(os)-\(arch)-none/lib/libpython\(ver).so")
         }
 
         // System Python (macOS) – usually not full-featured, but sometimes useful
-        paths.append("/Library/Frameworks/Python.framework/Versions/3.13/lib/libpython3.13.dylib")
+        for ver in versions {
+            paths.append("/Library/Frameworks/Python.framework/Versions/\(ver)/lib/libpython\(ver).dylib")
+            paths.append("/System/Library/Frameworks/Python.framework/Versions/\(ver)/Python")
+        }
+        
+        // Common Linux distribution and source-install locations.
+        for ver in versions {
+            paths.append("/usr/lib/libpython\(ver).so")
+            paths.append("/usr/lib/*/libpython\(ver).so")
+            paths.append("/usr/lib/*/libpython\(ver).so.1.0")
+            paths.append("/usr/lib64/libpython\(ver).so")
+            paths.append("/usr/lib64/libpython\(ver).so.1.0")
+            paths.append("/usr/local/lib/libpython\(ver).so")
+            paths.append("/usr/local/lib/libpython\(ver).so.1.0")
+        }
 
         // Last resort: assume python3-config --ldflags gives us clues
         return paths
@@ -247,6 +337,33 @@ public actor PythonRuntime {
     
     private var initTask: Task<Void, Swift.Error>? = nil
     
+    /// Returns the runtime-owned default Python interpreter.
+    ///
+    /// This is the recommended entry point for normal Swift2Python use:
+    ///
+    /// ```swift
+    /// let python = try await PythonRuntime.shared.interpreter()
+    /// ```
+    ///
+    /// The runtime is initialized if needed, and repeated calls return the same
+    /// `PythonInterpreter` actor. This keeps the 1.0 model simple: one Swift-side
+    /// interpreter wrapper over the initialized CPython runtime.
+    ///
+    /// - Parameter libraryPath: Optional path to a specific libpython shared library.
+    ///   This is used only if the runtime has not already been initialized.
+    /// - Returns: The shared default Python interpreter.
+    /// - Throws: `PythonError` if runtime initialization or interpreter creation fails.
+    public func interpreter(libraryPath: String? = nil) async throws -> PythonInterpreter {
+        if let defaultInterpreter {
+            return defaultInterpreter
+        }
+        
+        try await initialize(libraryPath: libraryPath)
+        let interpreter = try await PythonInterpreter()
+        self.defaultInterpreter = interpreter
+        return interpreter
+    }
+    
     // Special stuff only initialization and deinitialization.
     // A bunch of stuff needs to be sendable because it needs to be run on specific threads
     
@@ -263,12 +380,27 @@ public actor PythonRuntime {
     
     private var _sendablePythonThreadState: SendableThreadState? = nil
     
+    /// Initializes the shared Python runtime.
+    ///
+    /// Runtime initialization can only succeed once per process. Library selection
+    /// uses this precedence order:
+    ///
+    /// 1. The explicit `libraryPath` argument.
+    /// 2. `SWIFT2PYTHON_LIBRARY`.
+    /// 3. Swift2Python's built-in search paths.
+    ///
+    /// If `SWIFT2PYTHON_PYTHONPATH` is set, Swift2Python copies it to
+    /// `PYTHONPATH` before calling `Py_Initialize()`.
+    ///
+    /// - Parameter libraryPath: Optional path to a specific libpython shared library.
+    /// - Throws: `PythonError.libraryNotFound` if no libpython candidate can be loaded,
+    ///   or `PythonError.symbolNotFound` if required CPython symbols are unavailable.
     public func initialize(libraryPath: String? = nil) async throws {
         logger.debug("Explicit call to PythonRuntime.initialize()")
         
         // 1. Fast path: already successfully initialized
         if isReady {
-            logger.error("Python initiaztion is only supposed to be performed once.")
+            logger.error("Python initialization is only supposed to be performed once.")
             return
         }
         
@@ -313,7 +445,7 @@ public actor PythonRuntime {
         
         //
         // Calls Py_Initialize() instead of Py_InitializeFromConfig() because Py_InitializeFromConfig()
-        // code is python version dependent and Skill2Python is meant to work across different python versions.
+        // code is Python version dependent and Swift2Python is meant to work across different Python versions.
         //
         // Output a lot of info to help debugging if Py_Initialize calls exit()
         let env = ProcessInfo.processInfo.environment
@@ -332,10 +464,12 @@ public actor PythonRuntime {
         logger.debug("PYTHONCOERCECLOCALE=\(env["PYTHONCOERCECLOCALE"] ?? "<not set>")")
         logger.debug("PYTHONSAFEPATH=\(env["PYTHONSAFEPATH"] ?? "<not set>")")
         logger.debug("PYTHONGIL=\(env["PYTHONGIL"] ?? "<not set>")")
+        logger.debug("\(Self.libraryEnvironmentVariable)=\(env[Self.libraryEnvironmentVariable] ?? "<not set>")")
+        logger.debug("\(Self.pythonPathEnvironmentVariable)=\(env[Self.pythonPathEnvironmentVariable] ?? "<not set>")")
         logger.debug("PATH=\(env["PATH"] ?? "<not set>")")
         logger.debug("CWD: \(FileManager.default.currentDirectoryPath)")
         logger.debug("Swift process executable: \(CommandLine.arguments.first ?? "unknown")")
-        // Add python path here
+        applySwift2PythonPythonPathOverride()
         
         
         // Initialization + SaveThread must be on main thread
@@ -355,6 +489,15 @@ public actor PythonRuntime {
 
         try detectPythonVersion()
         isReady = true
+    }
+    
+    private func applySwift2PythonPythonPathOverride() {
+        guard let pythonPath = Self.swift2PythonPythonPath() else {
+            return
+        }
+        
+        logger.debug("Applying \(Self.pythonPathEnvironmentVariable) to PYTHONPATH before Py_Initialize()")
+        setenv("PYTHONPATH", pythonPath, 1)
     }
     
     /// Whether the Python runtime has been successfully initialized.
@@ -419,6 +562,7 @@ public actor PythonRuntime {
             dlclose(handle)
             pythonLibraryHandle = nil
         }
+        defaultInterpreter = nil
         cachedSymbols.removeAll()
     }
     

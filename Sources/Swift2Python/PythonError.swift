@@ -105,7 +105,7 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
         case .alreadyInitialized:
             return "Python runtime already initialized"
         case .libraryNotFound:
-            return "Could not load libpython shared library"
+            return "Could not load libpython shared library. Set SWIFT2PYTHON_LIBRARY to the full path of the libpython shared library."
         case .symbolNotFound(let name):
             return "Symbol not found in libpython: \(name)"
         case .allocationFailed(let context):

@@ -52,7 +52,7 @@ public actor PythonInterpreter {
         
         // Defaults for some global helpers.  Setting them to false works because
         // of the ExpressibleByBooleanLiteral.  This is just temporary until the first
-        // withIsolatedContest call.
+        // withIsolatedContext call.
         self.main = false
         self.builtins = false
         self.sys = false
