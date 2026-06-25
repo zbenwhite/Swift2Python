@@ -32,10 +32,21 @@ This is my first Swift project and my first public software release. Codex wrote
 
 ## Documentation
 
-- Runtime configuration is documented in the DocC page `Runtime Configuration`. Set environment variable `SWIFT2PYTHON_LIBRARY` to choose a specific libpython shared library, and set environment variable `SWIFT2PYTHON_PYTHONPATH` to provide Python module search paths before initialization.
-- Operators, throwing alternatives, and async alternatives are documented in the DocC page `Operators`.
-- AI/code-generation guidance is documented in `docs/AI_USAGE.md`.
-- Deferred work and validation targets are tracked in `ROADMAP.md`.
+Swift2Python's user documentation is written as DocC pages in `Sources/Swift2Python/Swift2Python.docc`.
+
+- `Getting Started` covers package setup, runtime initialization, Python library selection, and a first Python call.
+- `Runtime Configuration` covers `SWIFT2PYTHON_LIBRARY`, `SWIFT2PYTHON_PYTHONPATH`, automatic library discovery, and supported platform expectations.
+- `Conversions` covers Swift-to-Python and Python-to-Swift scalar, optional, container, and safe-context conversion patterns.
+- `Callables`, `Attributes`, and `Items` cover calling Python objects and accessing Python attributes and items.
+- `Lists`, `Tuples`, `Dictionaries`, `Sets`, and `Bytes` cover Python container APIs.
+- `Iteration` covers iterating over Python objects from Swift.
+- `Operators` and `Logical Operations` cover arithmetic, comparison, bitwise, and logical APIs, including throwing alternatives where Swift operator syntax cannot throw.
+- `Errors` covers Python exception capture, traceback formatting, and Swift error behavior.
+
+AI/code-generation guidance is in `docs/AI_USAGE.md`. AIs will not reliably find that file automatically, so prompts and project instructions should mention it when generated Swift2Python code needs to follow the intended API patterns.
+
+Deferred work and validation targets are tracked in `ROADMAP.md`.
+
 ## License
 
 Swift2Python is available under the MIT License. See `LICENSE.txt` for details.
