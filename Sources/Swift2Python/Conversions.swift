@@ -16,10 +16,6 @@ extension Bool: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
         try await interpreter.convertToPython(bool: self)
     }
-    
-    public func from(pythonObject: PythonObject) async throws -> Self? {
-        return try await Bool(pythonObject)
-    }
 }
 
 extension Bool {
@@ -31,10 +27,6 @@ extension Bool {
 extension Double: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
         try await interpreter.convertToPython(double: self)
-    }
-    
-    public func from(pythonObject: PythonObject) async throws -> Self? {
-        return try await Double(pythonObject)
     }
 }
 
@@ -48,10 +40,6 @@ extension Float: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
         try await interpreter.convertToPython(double: Double(self))
     }
-    
-    public func from(pythonObject: PythonObject) async throws -> Self? {
-        return try await Float(Double(pythonObject))
-    }
 }
 
 extension Float {
@@ -63,10 +51,6 @@ extension Float {
 extension Float16: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
         try await interpreter.convertToPython(double: Double(self))
-    }
-    
-    public func from(pythonObject: PythonObject) async throws -> Self? {
-        return try await Float16(Double(pythonObject))
     }
 }
 
@@ -80,10 +64,6 @@ extension Int: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
         try await interpreter.convertToPython(int: Int64(self))
     }
-    
-    public func from(pythonObject: PythonObject) async throws -> Self? {
-        return try await Int(pythonObject)
-    }
 }
 
 extension Int {
@@ -95,10 +75,6 @@ extension Int {
 extension Int8: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
         try await interpreter.convertToPython(int: Int64(self))
-    }
-    
-    public func from(pythonObject: PythonObject) async throws -> Self? {
-        return try await Int8(pythonObject)
     }
 }
 
@@ -112,10 +88,6 @@ extension Int16: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
         try await interpreter.convertToPython(int: Int64(self))
     }
-    
-    public func from(pythonObject: PythonObject) async throws -> Self? {
-        return try await Int16(pythonObject)
-    }
 }
 
 extension Int16 {
@@ -127,10 +99,6 @@ extension Int16 {
 extension Int32: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
         try await interpreter.convertToPython(int: Int64(self))
-    }
-    
-    public func from(pythonObject: PythonObject) async throws -> Self? {
-        return try await Int32(pythonObject)
     }
 }
 
@@ -144,10 +112,6 @@ extension Int64: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
         try await interpreter.convertToPython(int: self)
     }
-    
-    public func from(pythonObject: PythonObject) async throws -> Self? {
-        return try await Int64(pythonObject)
-    }
 }
 
 extension Int64 {
@@ -159,10 +123,6 @@ extension Int64 {
 extension UInt: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
         try await interpreter.convertToPython(uint: UInt64(self))
-    }
-    
-    public func from(pythonObject: PythonObject) async throws -> Self? {
-        return try await UInt(pythonObject)
     }
 }
 
@@ -176,10 +136,6 @@ extension UInt8: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
         try await interpreter.convertToPython(uint: UInt64(self))
     }
-    
-    public func from(pythonObject: PythonObject) async throws -> Self? {
-        return try await UInt8(pythonObject)
-    }
 }
 
 extension UInt8 {
@@ -191,10 +147,6 @@ extension UInt8 {
 extension UInt16: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
         try await interpreter.convertToPython(uint: UInt64(self))
-    }
-    
-    public func from(pythonObject: PythonObject) async throws -> Self? {
-        return try await UInt16(pythonObject)
     }
 }
 
@@ -208,10 +160,6 @@ extension UInt32: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
         try await interpreter.convertToPython(uint: UInt64(self))
     }
-    
-    public func from(pythonObject: PythonObject) async throws -> Self? {
-        return try await UInt32(pythonObject)
-    }
 }
 
 extension UInt32 {
@@ -223,10 +171,6 @@ extension UInt32 {
 extension UInt64: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
         try await interpreter.convertToPython(uint: self)
-    }
-    
-    public func from(pythonObject: PythonObject) async throws -> Self? {
-        return try await UInt64(pythonObject)
     }
 }
 
@@ -278,10 +222,6 @@ extension Bool: SafePythonConvertible {
             try $0.convertToSafePython(bool:self)
         }
     }
-    
-    public func from(safePythonObject: PythonInterpreter.SafePythonObject) throws -> Self? {
-        return try Bool(safePythonObject)
-    }
 }
 
 extension Bool {
@@ -296,10 +236,6 @@ extension Double: SafePythonConvertible {
         try interpreter.assumeIsolated {
             try $0.convertToSafePython(double:self)
         }
-    }
-    
-    public func from(safePythonObject: PythonInterpreter.SafePythonObject) throws -> Self? {
-        return try Double(safePythonObject)
     }
 }
 
@@ -316,10 +252,6 @@ extension Float: SafePythonConvertible {
             try $0.convertToSafePython(double: Double(self))
         }
     }
-    
-    public func from(safePythonObject: PythonInterpreter.SafePythonObject) throws -> Self? {
-        return try Float(Double(safePythonObject))
-    }
 }
 
 extension Float {
@@ -334,10 +266,6 @@ extension Float16: SafePythonConvertible {
         try interpreter.assumeIsolated {
             try $0.convertToSafePython(double: Double(self))
         }
-    }
-    
-    public func from(safePythonObject: PythonInterpreter.SafePythonObject) throws -> Self? {
-        return try Float16(Double(safePythonObject))
     }
 }
 
