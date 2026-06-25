@@ -106,6 +106,32 @@ extension PythonInterpreter {
         return ptr
     }
     
+    private func toPythonNoneNewReference(onError throwError: () throws -> Never) throws -> UnsafeMutableRawPointer {
+        guard let none = api.pythonNoneNewReference() else {
+            try throwError()
+        }
+        return none
+    }
+    
+    // MARK: None Conversions
+    
+    /// Returns Python `None` as a `PythonObject`.
+    ///
+    /// This is primarily used by Swift `Optional` conversion. The returned object
+    /// is reference-managed like any other `PythonObject`.
+    public func convertToPythonNone() async throws -> PythonObject {
+        try await withGIL {
+            let ptr = try toPythonNoneNewReference(onError: { throw PythonError.nullPointer("Could not resolve Py_None") })
+            return newPythonObject(fromReturnedPointer: ptr)
+        }
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    internal func convertToSafePythonNone() throws -> SafePythonObject {
+        let ptr = try toPythonNoneNewReference(onError: { throw PythonError.nullPointer("Could not resolve Py_None") })
+        return newSafePythonObject(fromReturnedPointer: ptr)
+    }
+    
     // MARK: Bool Conversions
     
     public func convertToPython(bool: Bool) async throws -> PythonObject {

@@ -97,13 +97,7 @@ extension PythonInterpreter {
         if let value {
             return try await convertToPython(int: Int64(value))
         }
-
-        return try await withGIL {
-            guard let nonePtr = api._Py_NoneStruct else {
-                throw PythonError.nullPointer("Could not resolve Py_None")
-            }
-            return borrowedPythonObject(fromReturnedPointer: nonePtr)
-        }
+        return try await convertToPythonNone()
     }
 
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
@@ -111,10 +105,6 @@ extension PythonInterpreter {
         if let value {
             return try convertToSafePython(int: Int64(value))
         }
-
-        guard let nonePtr = api._Py_NoneStruct else {
-            throw PythonError.nullPointer("Could not resolve Py_None")
-        }
-        return borrowedSafePythonObject(fromReturnedPointer: nonePtr)
+        return try convertToSafePythonNone()
     }
 }

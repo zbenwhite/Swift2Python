@@ -19,7 +19,6 @@
 // DONE: UInt64
 // DONE: Float  (but improvement possible)
 // DONE: Float16   (but improvement possible)
-// TODO: Optional?
 // TODO: Complex number
 // TODO: Dates and Times
 
@@ -258,6 +257,21 @@ extension UInt64 {
 extension String: PendingPythonConvertible {
     public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
         try await interpreter.convertToPython(string: self)
+    }
+}
+
+extension Optional: PendingPythonConvertible where Wrapped: PendingPythonConvertible {
+    /// Converts this Swift optional to Python.
+    ///
+    /// `nil` becomes Python `None`; `.some(value)` is converted using the wrapped
+    /// value's `PendingPythonConvertible` conformance.
+    public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        switch self {
+        case .some(let value):
+            try await value.toPythonObject(interpreter: interpreter)
+        case .none:
+            try await interpreter.convertToPythonNone()
+        }
     }
 }
 
@@ -505,6 +519,23 @@ extension String: SafePythonConvertible {
     public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
         try interpreter.assumeIsolated {
             try $0.convertToSafePython(string:self)
+        }
+    }
+}
+
+extension Optional: SafePythonConvertible where Wrapped: SafePythonConvertible {
+    /// Converts this Swift optional to Python inside an isolated context.
+    ///
+    /// `nil` becomes Python `None`; `.some(value)` is converted using the wrapped
+    /// value's `SafePythonConvertible` conformance.
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try interpreter.assumeIsolated {
+            switch self {
+            case .some(let value):
+                try value.toSafePythonObject(interpreter: $0)
+            case .none:
+                try $0.convertToSafePythonNone()
+            }
         }
     }
 }

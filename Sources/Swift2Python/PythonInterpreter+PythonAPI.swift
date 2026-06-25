@@ -298,25 +298,30 @@ extension PythonInterpreter {
         
         internal func pythonNumber_InPlacePower(_ lhs: UnsafeMutableRawPointer, _ rhs: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: Number_InPlacePower")
-            if let pyNone = pythonNone() {
-                logger.trace("CPython API Call: Number_InPlacePower")
+            if let pyNone = pythonNoneBorrowed() {
                 return PyNumber_Power(lhs, rhs, pyNone)
-            } else {
-                // FIXME: put two args in a tuple and call builtins.pow with it
-                logger.error("Py_None is not found so we can't use PyNumber_InPlacePower")
-                return nil
             }
+            if let pyNone = pythonNoneNewReference() {
+                defer { Py_DecRef(pyNone) }
+                return PyNumber_Power(lhs, rhs, pyNone)
+            }
+            // A missing None means the CPython runtime binding is unusable
+            logger.error("Py_None is not found so we can't use PyNumber_InPlacePower")
+            return nil
         }
         
         internal func pythonNumber_Power(_ lhs: UnsafeMutableRawPointer, _ rhs: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer? {
-            if let pyNone = pythonNone() {
-                logger.trace("CPython API Call: Number_Power")
+            logger.trace("CPython API Call: Number_Power")
+            if let pyNone = pythonNoneBorrowed() {
                 return PyNumber_Power(lhs, rhs, pyNone)
-            } else {
-                // FIXME: put two args in a tuple and call builtins.pow with it
-                logger.error("Py_None is not found so we can't use PyNumber_Power")
-                return nil
             }
+            if let pyNone = pythonNoneNewReference() {
+                defer { Py_DecRef(pyNone) }
+                return PyNumber_Power(lhs, rhs, pyNone)
+            }
+            // A missing None means the CPython runtime binding is unusable
+            logger.error("Py_None is not found so we can't use PyNumber_Power")
+            return nil
         }
         
         internal func pythonObject_Call(_ callable: UnsafeMutableRawPointer, _ args: UnsafeMutableRawPointer, _ kwargs: UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer? {
@@ -457,24 +462,28 @@ extension PythonInterpreter {
             return String(cString: utf8)
         }
         
-        internal func pythonNone() -> UnsafeMutableRawPointer? {
-            logger.trace("Obtaining Py_None")
+        internal func pythonNoneNewReference() -> UnsafeMutableRawPointer? {
+            logger.trace("Obtaining Py_None as a new reference")
 
-            // Preferred path: Py_GetConstant (Stable ABI, Python 3.13+)
-            if let getConstant = Py_GetConstant {
-                if let none = getConstant(0) {          // 0 == Py_CONSTANT_NONE
-                    return none                         // returns a strong reference (None is immortal)
-                }
+            // Preferred path: Py_GetConstant (Stable ABI, Python 3.13+).
+            // Py_GetConstant returns a new strong reference.
+            if let getConstant = Py_GetConstant, let none = getConstant(0) {  // 0 == Py_CONSTANT_NONE
+                return none
             }
 
-            // Fallback: classic private symbol (works on vast majority of 3.8–3.12 builds,
-            // including most free-threaded installations)
+            // Fallback: classic private symbol. _Py_NoneStruct is borrowed, so
+            // increment it before returning to preserve the new-reference contract.
             if let nonePtr = _Py_NoneStruct {
+                Py_IncRef(nonePtr)
                 return nonePtr
             }
 
-            // Last resort – very rare to reach here
             return nil
+        }
+        
+        internal func pythonNoneBorrowed() -> UnsafeMutableRawPointer? {
+            logger.trace("Obtaining Py_None as a borrowed reference")
+            return _Py_NoneStruct
         }
         
         internal func pythonReferenceCount(_ obj: UnsafeMutableRawPointer) throws -> Int32 {

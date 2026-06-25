@@ -3336,6 +3336,104 @@ struct ConversionsTests {
         }
     }
     
+    // MARK: OP_xxx Optional
+    
+    @Test("OP_001: nil Optional → Python None (async)")
+    func asyncOptionalNilConversion() async throws {
+        let pythonCode = """
+        def is_none_OP_001(value):
+            return value is None
+        """
+        try await interpreter.runSimpleString(pythonCode: pythonCode)
+        let globals = try await interpreter.getGlobals()
+        let isNone = try await globals.getItem(key: "is_none_OP_001")
+        
+        let value: Int? = nil
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        #expect(try await Bool(isNone(pyObj)))
+    }
+    
+    @Test("OP_002: some Optional → wrapped Python value (async)")
+    func asyncOptionalSomeConversion() async throws {
+        let value: Int? = 42
+        let pyObj = try await value.toPythonObject(interpreter: interpreter)
+        
+        #expect(try await Int(pyObj) == 42)
+    }
+    
+    @Test("OP_003: Optional values convert inside dictionaries (async)")
+    func asyncOptionalDictionaryConversion() async throws {
+        let pythonCode = """
+        def is_none_OP_003(value):
+            return value is None
+        """
+        try await interpreter.runSimpleString(pythonCode: pythonCode)
+        let globals = try await interpreter.getGlobals()
+        let isNone = try await globals.getItem(key: "is_none_OP_003")
+        
+        let missing: Int? = nil
+        let present: String? = "Ada"
+        let values: [String: any PendingPythonConvertible] = [
+            "missing": missing,
+            "present": present
+        ]
+        let dict = try await interpreter.convertToPython(dictionary: values)
+        
+        #expect(try await Bool(isNone(dict.getItem(key: "missing"))))
+        #expect(try await String(dict.getItem(key: "present")) == "Ada")
+    }
+    
+    @Test("OP_004: nil Optional → Python None (synchronous)")
+    func safeOptionalNilConversion() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let pythonCode = """
+            def is_none_OP_004(value):
+                return value is None
+            """
+            try isolatedInterpreter.runSimpleString(pythonCode: pythonCode)
+            let isNone = isolatedInterpreter.globals["is_none_OP_004"]
+            
+            let value: Int? = nil
+            let safeObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            #expect(try Bool(isNone(safeObj)))
+        }
+    }
+    
+    @Test("OP_005: some Optional → wrapped Python value (synchronous)")
+    func safeOptionalSomeConversion() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let value: Int? = 42
+            let safeObj = try value.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            #expect(try Int(safeObj) == 42)
+        }
+    }
+    
+    @Test("OP_006: Optional values convert inside dictionaries (synchronous)")
+    func safeOptionalDictionaryConversion() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let pythonCode = """
+            def is_none_OP_006(value):
+                return value is None
+            """
+            try isolatedInterpreter.runSimpleString(pythonCode: pythonCode)
+            let isNone = isolatedInterpreter.globals["is_none_OP_006"]
+            
+            let missing: Int? = nil
+            let present: String? = "Ada"
+            let values: [String: any SafePythonConvertible] = [
+                "missing": missing,
+                "present": present
+            ]
+            let dict = try isolatedInterpreter.convertToSafePython(dictionary: values)
+            
+            #expect(try Bool(isNone(dict["missing"])))
+            #expect(try String(dict["present"]) == "Ada")
+        }
+    }
+    
     // MARK: B_xxx Bool
     
     @Test("B_001: Bool → PythonObject (async)")
