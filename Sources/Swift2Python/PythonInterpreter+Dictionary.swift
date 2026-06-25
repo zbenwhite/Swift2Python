@@ -72,6 +72,66 @@ extension PythonInterpreter {
         return newPythonObject(fromReturnedPointer: dictPtr)
     }
     
+    /// Create a PythonObject dictionary from Swift key-value pairs.
+    ///
+    /// Use this overload when insertion order matters or when duplicate Swift keys
+    /// are intentional. Python dictionary semantics apply: setting the same key
+    /// again replaces the value for that key.
+    ///
+    /// ```swift
+    /// let values: KeyValuePairs<String, Int> = [
+    ///     "one": 1,
+    ///     "one": 2
+    /// ]
+    /// let dict = try await interpreter.convertToPython(keyValuePairs: values)
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - keyValuePairs: Swift key-value pairs whose keys and values conform to `PendingPythonConvertible`.
+    /// - Returns: A `PythonObject` representing a Python dictionary.
+    /// - Throws: `PythonError` if dictionary creation, key conversion, value conversion, or item insertion fails.
+    public func convertToPython<K, V>(keyValuePairs: KeyValuePairs<K, V>) async throws -> PythonObject
+            where K: PendingPythonConvertible, V: PendingPythonConvertible {
+        let dictPtr = try await withGIL { try newPythonDict(orElse: { try throwPythonError() }) }
+        for (key, value) in keyValuePairs {
+            let keyObj = try await key.toPythonObject(interpreter: self)
+            let valueObj = try await value.toPythonObject(interpreter: self)
+            let keyPtr = getRegisteredPointer(forPythonObject:keyObj)!
+            let valuePtr = getRegisteredPointer(forPythonObject:valueObj)!
+            _ = try await withGIL { try setValue(valuePtr, onDict: dictPtr, atKey: keyPtr, orElse: { try throwPythonError() }) }
+        }
+        return newPythonObject(fromReturnedPointer: dictPtr)
+    }
+    
+    /// Create a PythonObject dictionary from heterogeneous string-keyed Swift key-value pairs.
+    ///
+    /// Use this overload when values have different Swift types and insertion order
+    /// or duplicate-key overwrite semantics matter.
+    ///
+    /// ```swift
+    /// let values: KeyValuePairs<String, any PendingPythonConvertible> = [
+    ///     "name": "Ada",
+    ///     "count": 3
+    /// ]
+    /// let dict = try await interpreter.convertToPython(keyValuePairs: values)
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - keyValuePairs: String-keyed Swift key-value pairs whose values conform to `PendingPythonConvertible`.
+    /// - Returns: A `PythonObject` representing a Python dictionary.
+    /// - Throws: `PythonError` if dictionary creation, key conversion, value conversion, or item insertion fails.
+    public func convertToPython(keyValuePairs: KeyValuePairs<String, any PendingPythonConvertible>) async throws -> PythonObject {
+        let dictPtr = try await withGIL { try newPythonDict(orElse: { try throwPythonError() }) }
+        for (key, value) in keyValuePairs {
+            let keyObj = try await key.toPythonObject(interpreter: self)
+            let valueObj = try await value.toPythonObject(interpreter: self)
+            let keyPtr = getRegisteredPointer(forPythonObject:keyObj)!
+            let valuePtr = getRegisteredPointer(forPythonObject:valueObj)!
+            _ = try await withGIL { try setValue(valuePtr, onDict: dictPtr, atKey: keyPtr, orElse: { try throwPythonError() }) }
+        }
+        return newPythonObject(fromReturnedPointer: dictPtr)
+    }
+    
     internal func convertKeywordArgumentsToPython(_ keywordArguments: KeyValuePairs<String, any PendingPythonConvertible>) async throws -> PythonObject {
         var seenKeys = Set<String>()
         let dictPtr = try await withGIL { try newPythonDict(orElse: { try throwPythonError() }) }
@@ -149,6 +209,74 @@ extension PythonInterpreter {
     public func convertToSafePython(dictionary: [String: any SafePythonConvertible]) throws -> SafePythonObject {
         let dictPtr = try newPythonDict(orElse: { try throwSafePythonError() })
         for (key, value) in dictionary {
+            let keyObj = try key.toSafePythonObject(interpreter: self)
+            let valueObj = try value.toSafePythonObject(interpreter: self)
+            let keyPtr = getRegisteredPointer(forSafeObj:keyObj)
+            let valuePtr = getRegisteredPointer(forSafeObj:valueObj)
+            try setValue(valuePtr, onDict: dictPtr, atKey: keyPtr, orElse: { try throwSafePythonError() })
+        }
+        return newSafePythonObject(fromReturnedPointer: dictPtr)
+    }
+    
+    /// Create a SafePythonObject dictionary from Swift key-value pairs.
+    ///
+    /// Only for use inside the synchronous, GIL-managed, reference-managed local
+    /// `withIsolatedContext` environment. Python dictionary semantics apply:
+    /// setting the same key again replaces the value for that key.
+    ///
+    /// ```swift
+    /// try await interpreter.withIsolatedContext { context in
+    ///     let values: KeyValuePairs<String, Int> = [
+    ///         "one": 1,
+    ///         "one": 2
+    ///     ]
+    ///     let dict = try context.convertToSafePython(keyValuePairs: values)
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - keyValuePairs: Swift key-value pairs whose keys and values conform to `SafePythonConvertible`.
+    /// - Returns: A `SafePythonObject` representing a Python dictionary.
+    /// - Throws: `PythonError` if dictionary creation, key conversion, value conversion, or item insertion fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func convertToSafePython<K, V>(keyValuePairs: KeyValuePairs<K, V>) throws -> SafePythonObject
+    where K: SafePythonConvertible, V: SafePythonConvertible {
+        let dictPtr = try newPythonDict(orElse: { try throwSafePythonError() })
+        for (key, value) in keyValuePairs {
+            let keyObj = try key.toSafePythonObject(interpreter: self)
+            let valueObj = try value.toSafePythonObject(interpreter: self)
+            let keyPtr = getRegisteredPointer(forSafeObj:keyObj)
+            let valuePtr = getRegisteredPointer(forSafeObj:valueObj)
+            try setValue(valuePtr, onDict: dictPtr, atKey: keyPtr, orElse: { try throwSafePythonError() })
+        }
+        return newSafePythonObject(fromReturnedPointer: dictPtr)
+    }
+    
+    /// Create a SafePythonObject dictionary from heterogeneous string-keyed Swift key-value pairs.
+    ///
+    /// Only for use inside the synchronous, GIL-managed, reference-managed local
+    /// `withIsolatedContext` environment. Use this overload when values have
+    /// different Swift types and insertion order or duplicate-key overwrite
+    /// semantics matter.
+    ///
+    /// ```swift
+    /// try await interpreter.withIsolatedContext { context in
+    ///     let values: KeyValuePairs<String, any SafePythonConvertible> = [
+    ///         "name": "Ada",
+    ///         "count": 3
+    ///     ]
+    ///     let dict = try context.convertToSafePython(keyValuePairs: values)
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - keyValuePairs: String-keyed Swift key-value pairs whose values conform to `SafePythonConvertible`.
+    /// - Returns: A `SafePythonObject` representing a Python dictionary.
+    /// - Throws: `PythonError` if dictionary creation, key conversion, value conversion, or item insertion fails.
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    public func convertToSafePython(keyValuePairs: KeyValuePairs<String, any SafePythonConvertible>) throws -> SafePythonObject {
+        let dictPtr = try newPythonDict(orElse: { try throwSafePythonError() })
+        for (key, value) in keyValuePairs {
             let keyObj = try key.toSafePythonObject(interpreter: self)
             let valueObj = try value.toSafePythonObject(interpreter: self)
             let keyPtr = getRegisteredPointer(forSafeObj:keyObj)

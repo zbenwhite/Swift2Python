@@ -983,7 +983,16 @@ let heterogeneous: [String: any PendingPythonConvertible] = [
     "active": true
 ]
 let heterogeneousDict = try await interpreter.convertToPython(dictionary: heterogeneous)
+
+let ordered: KeyValuePairs<String, any PendingPythonConvertible> = [
+    "name": "Ada",
+    "count": 3,
+    "name": "Grace"
+]
+let orderedDict = try await interpreter.convertToPython(keyValuePairs: ordered)
 ```
+
+Use `convertToPython(keyValuePairs:)` when insertion order matters or duplicate Swift keys should follow normal Python dictionary overwrite semantics. Do not use the keyword-argument conversion helpers for general dictionaries; keyword arguments intentionally reject duplicate labels.
 
 Safe dictionary APIs inside `withIsolatedContext`:
 

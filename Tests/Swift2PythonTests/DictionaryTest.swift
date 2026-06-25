@@ -67,6 +67,48 @@ struct DictionaryTests {
         #expect(try await Bool(dict.getItem(key: "active")) == true)
     }
     
+    @Test("DIC_006: PythonObject KeyValuePairs dictionary conversion")
+    func asyncKeyValuePairsDictionaryConversion() async throws {
+        let pairs: KeyValuePairs<String, Int> = [
+            "one": 1,
+            "two": 2,
+            "one": 11
+        ]
+        let dict = try await interpreter.convertToPython(keyValuePairs: pairs)
+        
+        #expect(try await dict.isDict())
+        #expect(try await dict.dictCount() == 2)
+        #expect(try await Int(dict.getItem(key: "one")) == 11)
+        #expect(try await Int(dict.getItem(key: "two")) == 2)
+    }
+    
+    @Test("DIC_007: PythonObject heterogeneous KeyValuePairs dictionary conversion")
+    func asyncHeterogeneousKeyValuePairsDictionaryConversion() async throws {
+        let pairs: KeyValuePairs<String, any PendingPythonConvertible> = [
+            "name": "Ada",
+            "count": 3,
+            "active": true
+        ]
+        let dict = try await interpreter.convertToPython(keyValuePairs: pairs)
+        
+        #expect(try await String(dict.getItem(key: "name")) == "Ada")
+        #expect(try await Int(dict.getItem(key: "count")) == 3)
+        #expect(try await Bool(dict.getItem(key: "active")) == true)
+    }
+    
+    @Test("DIC_008: KeyValuePairs PendingPythonConvertible conformance")
+    func asyncKeyValuePairsPendingPythonConvertibleConformance() async throws {
+        let pairs: KeyValuePairs<String, Int> = [
+            "one": 1,
+            "two": 2
+        ]
+        let dict = try await pairs.toPythonObject(interpreter: interpreter)
+        
+        #expect(try await dict.isDict())
+        #expect(try await Int(dict.getItem(key: "one")) == 1)
+        #expect(try await Int(dict.getItem(key: "two")) == 2)
+    }
+    
     @Test("DIC_003: PythonObject containsKey and deleteItem")
     func asyncContainsKeyAndDeleteItem() async throws {
         let dict = try await interpreter.convertToPython(dictionary: [
@@ -245,6 +287,54 @@ struct DictionaryTests {
             try dict.deleteItem(key: "active")
             #expect(try dict.containsKey("active") == false)
             #expect(try dict.dictCount == 2)
+        }
+    }
+    
+    @Test("DIC_016: SafePythonObject KeyValuePairs dictionary conversion")
+    func safeKeyValuePairsDictionaryConversion() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let pairs: KeyValuePairs<String, Int> = [
+                "one": 1,
+                "two": 2,
+                "one": 11
+            ]
+            let dict = try isolatedInterpreter.convertToSafePython(keyValuePairs: pairs)
+            
+            #expect(try dict.isDict)
+            #expect(try dict.dictCount == 2)
+            #expect(try Int(dict["one"]) == 11)
+            #expect(try Int(dict["two"]) == 2)
+        }
+    }
+    
+    @Test("DIC_017: SafePythonObject heterogeneous KeyValuePairs dictionary conversion")
+    func safeHeterogeneousKeyValuePairsDictionaryConversion() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let pairs: KeyValuePairs<String, any SafePythonConvertible> = [
+                "name": "Ada",
+                "count": 3,
+                "active": true
+            ]
+            let dict = try isolatedInterpreter.convertToSafePython(keyValuePairs: pairs)
+            
+            #expect(try String(dict["name"]) == "Ada")
+            #expect(try Int(dict["count"]) == 3)
+            #expect(try Bool(dict["active"]) == true)
+        }
+    }
+    
+    @Test("DIC_018: KeyValuePairs SafePythonConvertible conformance")
+    func safeKeyValuePairsSafePythonConvertibleConformance() async throws {
+        try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let pairs: KeyValuePairs<String, Int> = [
+                "one": 1,
+                "two": 2
+            ]
+            let dict = try pairs.toSafePythonObject(interpreter: isolatedInterpreter)
+            
+            #expect(try dict.isDict)
+            #expect(try Int(dict["one"]) == 1)
+            #expect(try Int(dict["two"]) == 2)
         }
     }
     

@@ -40,6 +40,24 @@ let values: [String: any PendingPythonConvertible] = [
 let dict = try await interpreter.convertToPython(dictionary: values)
 ```
 
+Use ``PythonInterpreter/convertToPython(keyValuePairs:)`` when insertion order matters or when duplicate Swift keys should use Python dictionary overwrite semantics:
+
+```swift
+let values: KeyValuePairs<String, any PendingPythonConvertible> = [
+    "name": "Ada",
+    "count": 3,
+    "name": "Grace"
+]
+let dict = try await interpreter.convertToPython(keyValuePairs: values)
+```
+
+Swift `KeyValuePairs` also conform to ``PendingPythonConvertible`` when their keys and values are convertible:
+
+```swift
+let values: KeyValuePairs<String, Int> = ["one": 1, "one": 2]
+let dict = try await values.toPythonObject(interpreter: interpreter)
+```
+
 ## Checking and Counting
 
 Use ``PythonObject/isDict()`` to test whether an object is a Python dictionary:
@@ -198,6 +216,7 @@ try await interpreter.withIsolatedContext { context in
 ## Choosing an API
 
 - Use ``PythonInterpreter/convertToPython(dictionary:)`` to create Python dictionaries from Swift dictionaries.
+- Use ``PythonInterpreter/convertToPython(keyValuePairs:)`` when insertion order or duplicate-key overwrite behavior matters.
 - Use ``PythonObject/dictKeys()``, ``PythonObject/dictValues()``, and ``PythonObject/dictItems()`` when you want Swift arrays.
 - Use Python's `keys()`, `values()`, and `items()` when you want Python view objects.
 - Use ``PythonObject/getItem(key:)`` and ``PythonObject/setItem(key:newValue:)`` for generic mapping access.

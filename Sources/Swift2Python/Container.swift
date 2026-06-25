@@ -120,6 +120,28 @@ extension Dictionary : PendingPythonConvertible where Key : PendingPythonConvert
     }
 }
 
+extension KeyValuePairs: PendingPythonConvertible where Key: PendingPythonConvertible, Value: PendingPythonConvertible {
+    /// Converts these Swift key-value pairs to a Python dictionary.
+    ///
+    /// This conformance lets `KeyValuePairs` be passed directly to async
+    /// Swift2Python APIs that accept `PendingPythonConvertible` values. It is useful
+    /// when insertion order matters or when duplicate Swift keys should follow
+    /// Python dictionary overwrite semantics.
+    ///
+    /// ```swift
+    /// let values: KeyValuePairs<String, Int> = ["one": 1, "one": 2]
+    /// let dict = try await values.toPythonObject(interpreter: interpreter)
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - interpreter: The interpreter that owns the created Python dictionary.
+    /// - Returns: A `PythonObject` representing a Python dictionary.
+    /// - Throws: `PythonError` if dictionary creation, key conversion, value conversion, or item insertion fails.
+    public func toPythonObject(interpreter: PythonInterpreter) async throws -> PythonObject {
+        try await interpreter.convertToPython(keyValuePairs: self)
+    }
+}
+
 extension Dictionary : SafePythonConvertible where Key : SafePythonConvertible & Hashable, Value : SafePythonConvertible {
     /// Converts this Swift dictionary to a safe Python dictionary.
     ///
@@ -141,6 +163,32 @@ extension Dictionary : SafePythonConvertible where Key : SafePythonConvertible &
     public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
         try interpreter.assumeIsolated {
             try $0.convertToSafePython(dictionary: self)
+        }
+    }
+}
+
+extension KeyValuePairs: SafePythonConvertible where Key: SafePythonConvertible, Value: SafePythonConvertible {
+    /// Converts these Swift key-value pairs to a safe Python dictionary.
+    ///
+    /// This conformance lets `KeyValuePairs` be passed directly to safe
+    /// Swift2Python APIs inside `withIsolatedContext`. It is useful when insertion
+    /// order matters or when duplicate Swift keys should follow Python dictionary
+    /// overwrite semantics.
+    ///
+    /// ```swift
+    /// try await interpreter.withIsolatedContext { context in
+    ///     let values: KeyValuePairs<String, Int> = ["one": 1, "one": 2]
+    ///     let dict = try values.toSafePythonObject(interpreter: context)
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - interpreter: The isolated interpreter context that owns the created Python dictionary.
+    /// - Returns: A `SafePythonObject` representing a Python dictionary.
+    /// - Throws: `PythonError` if dictionary creation, key conversion, value conversion, or item insertion fails.
+    public func toSafePythonObject(interpreter: PythonInterpreter) throws -> PythonInterpreter.SafePythonObject {
+        try interpreter.assumeIsolated {
+            try $0.convertToSafePython(keyValuePairs: self)
         }
     }
 }
