@@ -5,23 +5,6 @@
 //  Created by Ben White on 3/2/26.
 //
 
-// TODO: More
-//
-// TODO: numpy conversions?
-// DONE: UInt
-// DONE: Int8
-// DONE: Int16
-// DONE: Int32
-// DONE: Int64
-// DONE: UInt8
-// DONE: UInt16
-// DONE: UInt32
-// DONE: UInt64
-// DONE: Float  (but improvement possible)
-// DONE: Float16   (but improvement possible)
-// TODO: Complex number
-// TODO: Dates and Times
-
 
 // MARK: Asynchronous Mode Conversions
 

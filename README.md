@@ -35,3 +35,4 @@ This is my first Swift project and my first public software release. Codex wrote
 - Runtime configuration is documented in the DocC page `Runtime Configuration`. Set environment variable `SWIFT2PYTHON_LIBRARY` to choose a specific libpython shared library, and set environment variable `SWIFT2PYTHON_PYTHONPATH` to provide Python module search paths before initialization.
 - Operators, throwing alternatives, and async alternatives are documented in the DocC page `Operators`.
 - AI/code-generation guidance is documented in `docs/AI_USAGE.md`.
+- Deferred work and validation targets are tracked in `ROADMAP.md`.

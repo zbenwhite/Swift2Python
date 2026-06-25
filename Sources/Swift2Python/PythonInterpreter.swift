@@ -7,17 +7,6 @@
 
 // TODO: PythonKit Python.swift line 1470: ExpressibleByArrayLiteral, ExpressibleByDictionaryLiteral
 
-// [2026-04-05]: DONE: Make C API lookups happen at initialize and stop checking for validity all the time
-// TODO: handle exceptions from python in a nice swift way
-// [2026-04-26]: DONE: true/false checking in python objects
-// TODO: python dict and sequence APIs
-// [2026-04-18]: DONE: exponent operator
-// [2026-04-18]: DONE: modulus operator
-// TODO: custom ENV variables to find python
-// [2026-04-25]: DONE: unbind or something to let SafePythonObject become a PythonObject at the end of the isolated closure
-// TODO: understand free threaded python
-// [2026-04-25]: DONE: Use the InPlace Python APIs for InPlace just in case the operators are overloaded in python.
-
 import Logging
 import Foundation
 import Collections
