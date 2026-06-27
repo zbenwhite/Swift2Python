@@ -55,7 +55,7 @@ Do not generate examples that call `PythonInterpreter()` directly, call `PythonR
 
 For local Python modules, tell users to set `SWIFT2PYTHON_PYTHONPATH` before startup. For third-party packages, tell users to install packages into the Python environment selected by Swift2Python; do not imply Swift Package Manager installs Python packages.
 
-Use `withIsolatedContext` only after showing the normal async API. Inside isolated-context examples, use `try context.import("module")` and explicit throwing APIs for recoverable failures.
+Use `withIsolatedContext` only after showing the normal async API. Inside isolated-context examples, use `try context.import("module")` and explicit throwing APIs for recoverable failures. When bringing an existing async `PythonObject` into an isolated context, generate `try context.bind(pythonObject: object)`.
 
 ## Conversions
 
@@ -191,6 +191,8 @@ try await interpreter.withIsolatedContext { context in
 
 It is fine to catch `safePythonException` inside the isolated-context closure. If a safe exception escapes the closure, `withIsolatedContext` must convert it to `PythonError.pythonException` automatically and preserve the same `PythonExceptionInfo`. Do not generate code that expects `SafePythonObject` exception payloads to remain usable outside the closure.
 
+`context.bind(pythonObject:)` is throwing. It can fail with `PythonError.objectUsedWithWrongInterpreter` when generated code tries to bind a `PythonObject` created by a different interpreter. Always include `try` at bind call sites.
+
 ### Tracebacks And Chained Exceptions
 
 Swift2Python should format Python tracebacks through Python's own `traceback.format_exception` behavior. Do not replace it with ad hoc string formatting. Python's formatter preserves stack frames, explicit causes from `raise ... from ...`, implicit exception context, and exception notes:
@@ -209,6 +211,7 @@ Generated tests and examples that validate Python exception display should check
 
 - Prefer throwing APIs in examples that demonstrate recoverable failures.
 - Use safe dynamic-member properties and safe operators only when failure is a programmer error; those APIs can trap because Swift does not let those syntactic forms throw.
+- Use `try context.bind(pythonObject: object)` when converting an async `PythonObject` reference for synchronous safe use.
 - Preserve `PythonExceptionInfo` when wrapping conversion failures with an underlying Python error.
 - Do not discard `__cause__`, `__context__`, traceback frames, or exception notes.
 - Do not inspect or stringify Python exception objects after leaving the GIL or `withIsolatedContext`; capture a Swift snapshot first.

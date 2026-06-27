@@ -93,7 +93,7 @@ struct InterpreterTests {
         let myObject = try await types.SimpleNamespace()
         
         try await interpreter.withIsolatedContext { interpreter in
-            var safeObj = interpreter.bind(pythonObject: myObject)
+            var safeObj = try interpreter.bind(pythonObject: myObject)
             
             // --- TEST 1: SETTING & GETTING ATTRIBUTES (Dynamic Member Lookup) ---
             safeObj.name = "Swift-Python-Bridge"

@@ -432,7 +432,7 @@ struct ListTests {
         #expect(try await asyncInts(from: list) == [1, 2, 3])
         
         try await interpreter.withIsolatedContext { isolatedInterpreter in
-            var safeList = isolatedInterpreter.bind(pythonObject: list)
+            var safeList = try isolatedInterpreter.bind(pythonObject: list)
             
             #expect(try safeInts(from: safeList) == [1, 2, 3])
             try safeList.listSetItem(at: 0, to: 10)

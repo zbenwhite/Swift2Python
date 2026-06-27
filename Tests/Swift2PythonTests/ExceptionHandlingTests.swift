@@ -309,7 +309,7 @@ struct ExceptionHandlingTests {
         let object = try await interpreter.convertToPython(dictionary: ["exists": 1])
 
         try await interpreter.withIsolatedContext { isolatedInterpreter in
-            let safeObject = isolatedInterpreter.bind(pythonObject: object)
+            let safeObject = try isolatedInterpreter.bind(pythonObject: object)
 
             let thrownError = #expect(throws: PythonError.self) {
                 _ = try safeObject.get(attr: "swift2python_missing_attribute")

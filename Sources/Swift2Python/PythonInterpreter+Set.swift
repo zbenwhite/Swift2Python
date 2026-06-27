@@ -33,7 +33,7 @@ extension PythonInterpreter {
         
         for element in set {
             let valuePythonObject = try await element.toPythonObject(interpreter: self)
-            let valuePtr = getRegisteredPointer(forPythonObject: valuePythonObject)!
+            let valuePtr = try requirePythonPointer(forObject: valuePythonObject)
             try await withGIL {
                 try addItem(valuePtr, toSet: setPtr, orElse: { try throwPythonError() })
             }
@@ -64,7 +64,7 @@ extension PythonInterpreter {
         
         for element in frozenSet {
             let valuePythonObject = try await element.toPythonObject(interpreter: self)
-            let valuePtr = getRegisteredPointer(forPythonObject: valuePythonObject)!
+            let valuePtr = try requirePythonPointer(forObject: valuePythonObject)
             try await withGIL {
                 try addItem(valuePtr, toSet: frozenSetPtr, orElse: { try throwPythonError() })
             }
@@ -136,22 +136,22 @@ extension PythonInterpreter {
     // MARK: Async Set Support
     
     internal func isSet(_ obj: PythonObject) async throws -> Bool {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL { try isSet(objPtr, onError: { try throwPythonError() }) }
     }
     
     internal func isFrozenSet(_ obj: PythonObject) async throws -> Bool {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL { try isFrozenSet(objPtr, onError: { try throwPythonError() }) }
     }
     
     internal func isAnySet(_ obj: PythonObject) async throws -> Bool {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL { try isAnySet(objPtr, onError: { try throwPythonError() }) }
     }
     
     internal func getSetCount(_ obj: PythonObject) async throws -> Int {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL {
             guard try isAnySet(objPtr, onError: { try throwPythonError() }) else {
                 throw PythonError.setConversionFailed(expected: "set or frozenset", actual: nil)
@@ -170,9 +170,9 @@ extension PythonInterpreter {
     }
     
     internal func setContains(_ item: any PendingPythonConvertible, in obj: PythonObject) async throws -> Bool {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         let itemObj = try await item.toPythonObject(interpreter: self)
-        let itemPtr = getRegisteredPointer(forPythonObject: itemObj)!
+        let itemPtr = try requirePythonPointer(forObject: itemObj)
         return try await withGIL {
             guard try isAnySet(objPtr, onError: { try throwPythonError() }) else {
                 throw PythonError.setConversionFailed(expected: "set or frozenset", actual: nil)
@@ -182,9 +182,9 @@ extension PythonInterpreter {
     }
     
     internal func addSetItem(_ item: any PendingPythonConvertible, to obj: PythonObject) async throws {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         let itemObj = try await item.toPythonObject(interpreter: self)
-        let itemPtr = getRegisteredPointer(forPythonObject: itemObj)!
+        let itemPtr = try requirePythonPointer(forObject: itemObj)
         try await withGIL {
             guard try isSet(objPtr, onError: { try throwPythonError() }) else {
                 throw PythonError.setConversionFailed(expected: "set", actual: nil)
@@ -194,9 +194,9 @@ extension PythonInterpreter {
     }
     
     internal func discardSetItem(_ item: any PendingPythonConvertible, from obj: PythonObject) async throws {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         let itemObj = try await item.toPythonObject(interpreter: self)
-        let itemPtr = getRegisteredPointer(forPythonObject: itemObj)!
+        let itemPtr = try requirePythonPointer(forObject: itemObj)
         try await withGIL {
             guard try isSet(objPtr, onError: { try throwPythonError() }) else {
                 throw PythonError.setConversionFailed(expected: "set", actual: nil)

@@ -176,7 +176,7 @@ extension PythonInterpreter {
     }
     
     public func convertToDouble(_ obj: PythonObject) async throws -> Double {
-        let objPtr = getRegisteredPointer(forPythonObject:obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         do {
             return try await withGIL {
                 return try asDouble(objPtr, onError: { try throwPythonError() } )
@@ -464,7 +464,7 @@ extension PythonInterpreter {
             throw PythonError.conversionOverflow(value: objStr, sourceType: "PythonObject", targetType: "Int64")
         }
         
-        let objPtr = getRegisteredPointer(forPythonObject:obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         
         do {
             return try await withGIL {
@@ -809,7 +809,7 @@ extension PythonInterpreter {
             throw PythonError.conversionOverflow(value: objStr, sourceType: "PythonObject", targetType: "UInt64")
         }
         
-        let objPtr = getRegisteredPointer(forPythonObject:obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         
         do {
             return try await withGIL {
@@ -899,7 +899,7 @@ extension PythonInterpreter {
     }
     
     public func convertToString(_ obj: PythonObject) async throws -> String {
-        let objPtr = getRegisteredPointer(forPythonObject:obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         
         return try await withGIL {
             do {

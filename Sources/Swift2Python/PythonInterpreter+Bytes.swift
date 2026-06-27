@@ -475,27 +475,27 @@ extension PythonInterpreter {
     }
     
     internal func isBytes(_ obj: PythonObject) async throws -> Bool {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL { try isBytes(objPtr, onError: { try throwPythonError() }) }
     }
     
     internal func isByteArray(_ obj: PythonObject) async throws -> Bool {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL { try isByteArray(objPtr, onError: { try throwPythonError() }) }
     }
     
     internal func isBytesLike(_ obj: PythonObject) async throws -> Bool {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL { try isBytesLike(objPtr) }
     }
     
     internal func copiedBytes(_ obj: PythonObject) async throws -> [UInt8] {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL { try copiedBytes(from: objPtr) }
     }
     
     internal func bytesObjectSize(_ obj: PythonObject) async throws -> Int {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL {
             guard try isBytes(objPtr, onError: { try throwPythonError() }) else {
                 throw PythonError.bytesConversionFailed(expected: "bytes", actual: nil)
@@ -505,7 +505,7 @@ extension PythonInterpreter {
     }
     
     internal func byteArrayObjectSize(_ obj: PythonObject) async throws -> Int {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL {
             guard try isByteArray(objPtr, onError: { try throwPythonError() }) else {
                 throw PythonError.bytesConversionFailed(expected: "bytearray", actual: nil)
@@ -529,7 +529,7 @@ extension PythonInterpreter {
     ///   or `PythonError.unsupportedPythonFeature` if direct buffer symbols are missing.
     public func withUnsafeBytes<R>(_ obj: PythonObject, body: @Sendable (UnsafeBufferPointer<UInt8>) throws -> R) async throws -> R {
         try await withGIL {
-            let objPtr = getRegisteredPointer(forPythonObject: obj)!
+            let objPtr = try requirePythonPointer(forObject: obj)
             let bufferAPI = try requireBufferProtocolSymbols()
             
             var view = Py_buffer()

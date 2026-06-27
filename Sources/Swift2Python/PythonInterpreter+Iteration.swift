@@ -7,9 +7,7 @@
 
 extension PythonInterpreter {
     internal func makeIterator(for obj: PythonObject) async throws -> PythonObject {
-        guard let objPtr = getRegisteredPointer(forPythonObject: obj) else {
-            throw PythonError.nullPointer("Object pointer not found")
-        }
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL {
             guard let iteratorPtr = api.pythonObject_GetIter(objPtr) else {
                 try throwPythonError()
@@ -19,9 +17,7 @@ extension PythonInterpreter {
     }
 
     internal func iteratorNext(_ iterator: PythonObject) async throws -> PythonObject? {
-        guard let iteratorPtr = getRegisteredPointer(forPythonObject: iterator) else {
-            throw PythonError.nullPointer("Iterator pointer not found")
-        }
+        let iteratorPtr = try requirePythonPointer(forObject: iterator)
         return try await withGIL {
             if let itemPtr = api.pythonIter_Next(iteratorPtr) {
                 return newPythonObject(fromReturnedPointer: itemPtr)

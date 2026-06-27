@@ -55,9 +55,9 @@ extension PythonInterpreter {
     
     public func equal(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
         logger.trace("Equal comparison for PythonObject (async)")
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
         let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
+        let rhsPtr = try requirePythonPointer(forObject: rhsPyObj)
         
         return try await withGIL {
             try richCompareBool(lhsPtr, rhsPtr, .equal, orElse: { try throwPythonError() } )
@@ -66,9 +66,9 @@ extension PythonInterpreter {
     
     public func notEqual(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
         logger.trace("Not equal comparison for PythonObject (async)")
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
         let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
+        let rhsPtr = try requirePythonPointer(forObject: rhsPyObj)
         
         return try await withGIL {
             try richCompareBool(lhsPtr, rhsPtr, .notEqual, orElse: { try throwPythonError() } )
@@ -77,9 +77,9 @@ extension PythonInterpreter {
     
     public func lessThan(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
         logger.trace("Less than comparison for PythonObject (async)")
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
         let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
+        let rhsPtr = try requirePythonPointer(forObject: rhsPyObj)
         
         return try await withGIL {
             try richCompareBool(lhsPtr, rhsPtr, .lessThan, orElse: { try throwPythonError() } )
@@ -88,9 +88,9 @@ extension PythonInterpreter {
     
     public func lessThanOrEqual(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
         logger.trace("Less than or equal comparison for PythonObject (async)")
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
         let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
+        let rhsPtr = try requirePythonPointer(forObject: rhsPyObj)
         
         return try await withGIL {
             try richCompareBool(lhsPtr, rhsPtr, .lessThanOrEqual, orElse: { try throwPythonError() } )
@@ -98,9 +98,9 @@ extension PythonInterpreter {
     }
     public func greaterThan(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
         logger.trace("Greater than comparison for PythonObject (async)")
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
         let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
+        let rhsPtr = try requirePythonPointer(forObject: rhsPyObj)
         
         return try await withGIL {
             try richCompareBool(lhsPtr, rhsPtr, .greaterThan, orElse: { try throwPythonError() } )
@@ -109,9 +109,9 @@ extension PythonInterpreter {
     
     public func greaterThanOrEqual(lhs: PythonObject, rhs: PendingPythonConvertible) async throws -> Bool {
         logger.trace("Greater than or equal comparison for PythonObject (async)")
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
         let rhsPyObj = try await rhs.toPythonObject(interpreter: self)
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhsPyObj)!
+        let rhsPtr = try requirePythonPointer(forObject: rhsPyObj)
         
         return try await withGIL {
             try richCompareBool(lhsPtr, rhsPtr, .greaterThanOrEqual, orElse: { try throwPythonError() } )

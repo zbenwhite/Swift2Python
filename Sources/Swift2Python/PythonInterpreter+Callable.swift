@@ -60,9 +60,7 @@ extension PythonInterpreter {
         // Build kwargs dict (if any)
         let kwDictPtr: UnsafeMutableRawPointer? = try await createKwargsDictAsync(kwargs)
         
-        guard let callablePtr = getRegisteredPointer(forPythonObject:callable) else {
-            throw PythonError.nullPointer("Callable pointer not found")
-        }
+        let callablePtr = try requirePythonPointer(forObject: callable)
         return try await withGIL {
             // Use PyObject_Call (most flexible)
             let resultPtr = try callCallable(callablePtr, args: argTuplePtr!, kwargs: kwDictPtr, onError: { try throwPythonError() } )
@@ -79,9 +77,7 @@ extension PythonInterpreter {
         // Build kwargs dict (if any)
         let kwDictPtr: UnsafeMutableRawPointer? = try await createKwargsDictAsync(kwargs)
         
-        guard let callablePtr = getRegisteredPointer(forPythonObject:callable) else {
-            throw PythonError.nullPointer("Callable pointer not found")
-        }
+        let callablePtr = try requirePythonPointer(forObject: callable)
         return try await withGIL {
             // Use PyObject_Call (most flexible)
             let resultPtr = try callCallable(callablePtr, args: argTuplePtr!, kwargs: kwDictPtr, onError: { try throwPythonError() } )
@@ -120,9 +116,7 @@ extension PythonInterpreter {
         let argTuplePtr: UnsafeMutableRawPointer? = try await createTupleAsync(args)
         let kwDictPtr: UnsafeMutableRawPointer? = try await createKwargsDictAsync(keywordPairs)
         
-        guard let callablePtr = getRegisteredPointer(forPythonObject:callable) else {
-            throw PythonError.nullPointer("Callable pointer not found")
-        }
+        let callablePtr = try requirePythonPointer(forObject: callable)
         return try await withGIL {
             let resultPtr = try callCallable(callablePtr, args: argTuplePtr!, kwargs: kwDictPtr, onError: { try throwPythonError() } )
             return newPythonObject(fromReturnedPointer: resultPtr)
@@ -134,7 +128,7 @@ extension PythonInterpreter {
             return nil
         } else {
             let dict = try await convertToPython(dictionary:kwargs)
-            return getRegisteredPointer(forPythonObject:dict)
+            return try requirePythonPointer(forObject: dict)
         }
     }
     
@@ -143,7 +137,7 @@ extension PythonInterpreter {
             return nil
         } else {
             let dict = try await convertKeywordArgumentsToPython(kwargs)
-            return getRegisteredPointer(forPythonObject:dict)
+            return try requirePythonPointer(forObject: dict)
         }
     }
     
@@ -156,7 +150,7 @@ extension PythonInterpreter {
             dictionary[key] = value
         }
         let dict = try await convertToPython(dictionary: dictionary)
-        return getRegisteredPointer(forPythonObject:dict)
+        return try requirePythonPointer(forObject: dict)
     }
     
     /// Looks up and calls a Python method with positional and dictionary keyword arguments.
@@ -176,9 +170,7 @@ extension PythonInterpreter {
     ///   conversion fails, the attribute is not callable, or Python raises during the call.
     public func callPythonMethod(object: PythonObject, methodName: String, collectedArgs: [any PendingPythonConvertible],
                                  kwargs: [String: any PendingPythonConvertible]) async throws -> PythonObject {
-        guard let objPtr = getRegisteredPointer(forPythonObject:object) else {
-            throw PythonError.nullPointer("Object pointer not found")
-        }
+        let objPtr = try requirePythonPointer(forObject: object)
         let methodPtr = try await withGIL {
             try getAttr(methodName, onObject: objPtr, orElse: { try throwPythonError() })
         }
@@ -202,9 +194,7 @@ extension PythonInterpreter {
     ///   if lookup, conversion, or the Python call fails.
     public func callPythonMethod(object: PythonObject, methodName: String, collectedArgs: [any PendingPythonConvertible],
                                  kwargs: KeyValuePairs<String, any PendingPythonConvertible>) async throws -> PythonObject {
-        guard let objPtr = getRegisteredPointer(forPythonObject:object) else {
-            throw PythonError.nullPointer("Object pointer not found")
-        }
+        let objPtr = try requirePythonPointer(forObject: object)
         let methodPtr = try await withGIL {
             try getAttr(methodName, onObject: objPtr, orElse: { try throwPythonError() })
         }
@@ -226,9 +216,7 @@ extension PythonInterpreter {
     public func callPythonMethod(object: PythonObject, methodName: String,
                                  collectedArgs: [any PendingPythonConvertible]) async throws -> PythonObject {
         
-        guard let objPtr = getRegisteredPointer(forPythonObject:object) else {
-            throw PythonError.nullPointer("Object pointer not found")
-        }
+        let objPtr = try requirePythonPointer(forObject: object)
         let methodPtr = try await withGIL {
             try getAttr(methodName, onObject: objPtr, orElse: { try throwPythonError() })
         }

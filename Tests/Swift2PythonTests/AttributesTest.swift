@@ -152,7 +152,7 @@ struct AttributesTests {
         let object = try await makeNamespace()
         
         try await interpreter.withIsolatedContext { context in
-            let safeObject = context.bind(pythonObject: object)
+            let safeObject = try context.bind(pythonObject: object)
             
             try safeObject.set(attr: "name", value: "Ada")
             try safeObject.set(attr: "count", value: 3)
@@ -170,7 +170,7 @@ struct AttributesTests {
         let object = try await makeNamespace()
         
         try await interpreter.withIsolatedContext { context in
-            var safeObject = context.bind(pythonObject: object)
+            var safeObject = try context.bind(pythonObject: object)
             
             safeObject.name = "Ada"
             safeObject.numVal = 3
@@ -189,7 +189,7 @@ struct AttributesTests {
         let object = try await makeNamespace()
         
         try await interpreter.withIsolatedContext { context in
-            let safeObject = context.bind(pythonObject: object)
+            let safeObject = try context.bind(pythonObject: object)
             
             let thrownError = #expect(throws: PythonError.self) {
                 _ = try safeObject.get(attr: "missing")
@@ -208,7 +208,7 @@ struct AttributesTests {
         let value = try await interpreter.convertToPython(int: 42)
         
         try await interpreter.withIsolatedContext { context in
-            let safeValue = context.bind(pythonObject: value)
+            let safeValue = try context.bind(pythonObject: value)
             
             let thrownError = #expect(throws: PythonError.self) {
                 try safeValue.set(attr: "real", value: 10)
@@ -227,7 +227,7 @@ struct AttributesTests {
         let object = try await makeNamespace()
         
         try await interpreter.withIsolatedContext { context in
-            let safeObject = context.bind(pythonObject: object)
+            let safeObject = try context.bind(pythonObject: object)
             
             try safeObject.set(attr: "name", value: "Ada")
             
@@ -244,7 +244,7 @@ struct AttributesTests {
         let object = try await makeNamespace()
         
         try await interpreter.withIsolatedContext { context in
-            let safeObject = context.bind(pythonObject: object)
+            let safeObject = try context.bind(pythonObject: object)
             
             try safeObject.set(attr: "name", value: "Ada")
             #expect(try Bool(context.builtins.hasattr(safeObject, "name")))
@@ -270,7 +270,7 @@ struct AttributesTests {
         let object = try await makeNamespace()
         
         try await interpreter.withIsolatedContext { context in
-            let safeObject = context.bind(pythonObject: object)
+            let safeObject = try context.bind(pythonObject: object)
             
             let thrownError = #expect(throws: PythonError.self) {
                 _ = try context.builtins.delattr(safeObject, "missing")

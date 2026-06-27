@@ -22,7 +22,7 @@ extension PythonInterpreter {
     }
     
     internal func positive(_ operand: PythonObject) async throws -> PythonObject {
-        let operandPtr = getRegisteredPointer(forPythonObject: operand)!
+        let operandPtr = try requirePythonPointer(forObject: operand)
         
         logger.trace("CPython API call in async mode: PyNumber_Positive")
         return try await withGIL {
@@ -50,7 +50,7 @@ extension PythonInterpreter {
     }
     
     internal func negative(_ operand: PythonObject) async throws -> PythonObject {
-        let operandPtr = getRegisteredPointer(forPythonObject: operand)!
+        let operandPtr = try requirePythonPointer(forObject: operand)
         
         logger.trace("CPython API call in async mode: PyNumber_Negative")
         return try await withGIL {
@@ -78,7 +78,7 @@ extension PythonInterpreter {
     }
     
     internal func absolute(_ operand: PythonObject) async throws -> PythonObject {
-        let operandPtr = getRegisteredPointer(forPythonObject: operand)!
+        let operandPtr = try requirePythonPointer(forObject: operand)
         
         logger.trace("CPython API call in async mode: PyNumber_Absolute")
         return try await withGIL {
@@ -107,8 +107,8 @@ extension PythonInterpreter {
     }
     
     internal func add(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
-        let lhsPtr = getRegisteredPointer(forPythonObject:lhs)!
-        let rhsPtr = getRegisteredPointer(forPythonObject:rhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
+        let rhsPtr = try requirePythonPointer(forObject: rhs)
         
         logger.trace("CPython API call in async mode: PyNumber_Add")
         return try await withGIL {
@@ -135,8 +135,8 @@ extension PythonInterpreter {
     }
     
     internal func addInPlace(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
-        let lhsPtr = getRegisteredPointer(forPythonObject:lhs)!
-        let rhsPtr = getRegisteredPointer(forPythonObject:rhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
+        let rhsPtr = try requirePythonPointer(forObject: rhs)
         
         logger.trace("CPython API call in async mode: PyNumber_InPlaceAdd")
         return try await withGIL {
@@ -165,8 +165,8 @@ extension PythonInterpreter {
     }
     
     internal func subtract(minuend: PythonObject, subtrahend: PythonObject) async throws -> PythonObject {
-        let minuendPtr = getRegisteredPointer(forPythonObject:minuend)!
-        let subtrahendPtr = getRegisteredPointer(forPythonObject:subtrahend)!
+        let minuendPtr = try requirePythonPointer(forObject: minuend)
+        let subtrahendPtr = try requirePythonPointer(forObject: subtrahend)
         
         logger.trace("CPython API call in async mode: PyNumber_Subtract")
         return try await withGIL {
@@ -193,8 +193,8 @@ extension PythonInterpreter {
     }
     
     internal func subtractInPlace(minuend: PythonObject, subtrahend: PythonObject) async throws -> PythonObject {
-        let minuendPtr = getRegisteredPointer(forPythonObject:minuend)!
-        let subtrahendPtr = getRegisteredPointer(forPythonObject:subtrahend)!
+        let minuendPtr = try requirePythonPointer(forObject: minuend)
+        let subtrahendPtr = try requirePythonPointer(forObject: subtrahend)
         
         logger.trace("CPython API call in async mode: PyNumber_InPlaceSubtract")
         return try await withGIL {
@@ -223,8 +223,8 @@ extension PythonInterpreter {
     }
     
     internal func multiply(_ lhs: PythonObject, _ rhs: PythonObject) async throws -> PythonObject {
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
+        let rhsPtr = try requirePythonPointer(forObject: rhs)
         
         logger.trace("CPython API call in async mode: PyNumber_Multiply")
         return try await withGIL {
@@ -251,8 +251,8 @@ extension PythonInterpreter {
     }
     
     internal func multiplyInPlace(_ lhs: PythonObject, _ rhs: PythonObject) async throws -> PythonObject {
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
+        let rhsPtr = try requirePythonPointer(forObject: rhs)
         
         logger.trace("CPython API call in async mode: PyNumber_InPlaceMultiply")
         return try await withGIL {
@@ -281,8 +281,8 @@ extension PythonInterpreter {
     }
     
     internal func divide(dividend: PythonObject, divisor: PythonObject) async throws -> PythonObject {
-        let dividendPtr = getRegisteredPointer(forPythonObject: dividend)!
-        let divisorPtr = getRegisteredPointer(forPythonObject: divisor)!
+        let dividendPtr = try requirePythonPointer(forObject: dividend)
+        let divisorPtr = try requirePythonPointer(forObject: divisor)
         
         logger.trace("CPython API call in async mode: PyNumber_TrueDivide")
         return try await withGIL {
@@ -309,8 +309,8 @@ extension PythonInterpreter {
     }
     
     internal func divideInPlace(_ lhs: PythonObject, _ divisor: PythonObject) async throws -> PythonObject {
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let divisorPtr = getRegisteredPointer(forPythonObject: divisor)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
+        let divisorPtr = try requirePythonPointer(forObject: divisor)
         
         logger.trace("CPython API call in async mode: PyNumber_InPlaceTrueDivide")
         return try await withGIL {
@@ -339,8 +339,8 @@ extension PythonInterpreter {
     }
     
     internal func modulus(dividend: PythonObject, divisor: PythonObject) async throws -> PythonObject {
-        let dividendPtr = getRegisteredPointer(forPythonObject: dividend)!
-        let divisorPtr = getRegisteredPointer(forPythonObject: divisor)!
+        let dividendPtr = try requirePythonPointer(forObject: dividend)
+        let divisorPtr = try requirePythonPointer(forObject: divisor)
         
         logger.trace("CPython API call in async mode: PyNumber_Remainder")
         return try await withGIL {
@@ -367,8 +367,8 @@ extension PythonInterpreter {
     }
     
     internal func modulusInPlace(_ lhs: PythonObject, _ divisor: PythonObject) async throws -> PythonObject {
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let divisorPtr = getRegisteredPointer(forPythonObject: divisor)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
+        let divisorPtr = try requirePythonPointer(forObject: divisor)
         
         logger.trace("CPython API call in async mode: PyNumber_InPlaceRemainder")
         return try await withGIL {
@@ -397,8 +397,8 @@ extension PythonInterpreter {
     }
     
     internal func power(base: PythonObject, exponent: PythonObject) async throws -> PythonObject {
-        let basePtr = getRegisteredPointer(forPythonObject: base)!
-        let exponentPtr = getRegisteredPointer(forPythonObject: exponent)!
+        let basePtr = try requirePythonPointer(forObject: base)
+        let exponentPtr = try requirePythonPointer(forObject: exponent)
         
         logger.trace("CPython API call in async mode: PyNumber_Power")
         return try await withGIL {
@@ -425,8 +425,8 @@ extension PythonInterpreter {
     }
     
     internal func powerInPlace(_ lhs: PythonObject, _ exponent: PythonObject) async throws -> PythonObject {
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let exponentPtr = getRegisteredPointer(forPythonObject: exponent)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
+        let exponentPtr = try requirePythonPointer(forObject: exponent)
         
         logger.trace("CPython API call in async mode: PyNumber_InPlacePower")
         return try await withGIL {
@@ -455,8 +455,8 @@ extension PythonInterpreter {
     }
     
     internal func bitwiseAnd(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
+        let rhsPtr = try requirePythonPointer(forObject: rhs)
         
         logger.trace("CPython API call in async mode: PyNumber_And")
         return try await withGIL {
@@ -483,8 +483,8 @@ extension PythonInterpreter {
     }
     
     internal func bitwiseAndInPlace(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
+        let rhsPtr = try requirePythonPointer(forObject: rhs)
         
         logger.trace("CPython API call in async mode: PyNumber_InPlaceAnd")
         return try await withGIL {
@@ -513,8 +513,8 @@ extension PythonInterpreter {
     }
     
     internal func bitwiseOr(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
+        let rhsPtr = try requirePythonPointer(forObject: rhs)
         
         logger.trace("CPython API call in async mode: PyNumber_Or")
         return try await withGIL {
@@ -541,8 +541,8 @@ extension PythonInterpreter {
     }
     
     internal func bitwiseOrInPlace(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
+        let rhsPtr = try requirePythonPointer(forObject: rhs)
         
         logger.trace("CPython API call in async mode: PyNumber_InPlaceOr")
         return try await withGIL {
@@ -571,8 +571,8 @@ extension PythonInterpreter {
     }
     
     internal func bitwiseXor(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
+        let rhsPtr = try requirePythonPointer(forObject: rhs)
         
         logger.trace("CPython API call in async mode: PyNumber_Xor")
         return try await withGIL {
@@ -599,8 +599,8 @@ extension PythonInterpreter {
     }
     
     internal func bitwiseXorInPlace(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
+        let rhsPtr = try requirePythonPointer(forObject: rhs)
         
         logger.trace("CPython API call in async mode: PyNumber_InPlaceXor")
         return try await withGIL {
@@ -629,8 +629,8 @@ extension PythonInterpreter {
     }
     
     internal func bitShiftLeft(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
+        let rhsPtr = try requirePythonPointer(forObject: rhs)
         
         logger.trace("CPython API call in async mode: PyNumber_Lshift")
         return try await withGIL {
@@ -657,8 +657,8 @@ extension PythonInterpreter {
     }
     
     internal func bitShiftLeftInPlace(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
+        let rhsPtr = try requirePythonPointer(forObject: rhs)
         
         logger.trace("CPython API call in async mode: PyNumber_InPlaceLshift")
         return try await withGIL {
@@ -687,8 +687,8 @@ extension PythonInterpreter {
     }
     
     internal func bitShiftRight(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
+        let rhsPtr = try requirePythonPointer(forObject: rhs)
         
         logger.trace("CPython API call in async mode: PyNumber_Rshift")
         return try await withGIL {
@@ -715,8 +715,8 @@ extension PythonInterpreter {
     }
     
     internal func bitShiftRightInPlace(lhs: PythonObject, rhs: PythonObject) async throws -> PythonObject {
-        let lhsPtr = getRegisteredPointer(forPythonObject: lhs)!
-        let rhsPtr = getRegisteredPointer(forPythonObject: rhs)!
+        let lhsPtr = try requirePythonPointer(forObject: lhs)
+        let rhsPtr = try requirePythonPointer(forObject: rhs)
         
         logger.trace("CPython API call in async mode: PyNumber_InPlaceRshift")
         return try await withGIL {
@@ -744,7 +744,7 @@ extension PythonInterpreter {
     }
     
     internal func bitwiseInvert(_ operand: PythonObject) async throws -> PythonObject {
-        let operandPtr = getRegisteredPointer(forPythonObject: operand)!
+        let operandPtr = try requirePythonPointer(forObject: operand)
         
         logger.trace("CPython API call in async mode: PyNumber_Invert")
         return try await withGIL {

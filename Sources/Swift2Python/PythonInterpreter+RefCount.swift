@@ -23,9 +23,14 @@ extension PythonInterpreter {
     // A new python object came from python.  Python incremented the reference count
     // itself.  S2P starts the count at 1 so Py_DecRef gets called later
     internal func newPythonObject(fromReturnedPointer: UnsafeMutableRawPointer) -> PythonObject {
-        let id = PythonObjectUniqueID(fromReturnedPointer)
-        let record = PyObjectLifecycleRecord(referenceCount: 1, objectPtr: fromReturnedPointer)
-        pythonObjectRegistry[id] = record
+        let id = makePythonObjectID(for: fromReturnedPointer)
+        if var record = pythonObjectRegistry[id] {
+            record.referenceCount += 1
+            pythonObjectRegistry[id] = record
+        } else {
+            let record = PyObjectLifecycleRecord(referenceCount: 1, objectPtr: fromReturnedPointer)
+            pythonObjectRegistry[id] = record
+        }
         return PythonObject(id: id, interpreter: self)
     }
     
@@ -39,17 +44,32 @@ extension PythonInterpreter {
         return newPythonObject(fromReturnedPointer: fromReturnedPointer)
     }
     
-    internal func getRegisteredPointer(forPythonObject: PythonObject) -> UnsafeMutableRawPointer? {
-        return getRegisteredPointer(forPythonObjectID: forPythonObject.id)
+    internal func getPythonPointer(forPythonObject: PythonObject) -> UnsafeMutableRawPointer? {
+        return getPythonPointer(forPythonObjectID: forPythonObject.id)
     }
     
-    internal func getRegisteredPointer(forPythonObjectID: PythonObjectUniqueID) -> UnsafeMutableRawPointer? {
-        let record = getRegisteredRecord(forPythonObjectID: forPythonObjectID)!
-        return record.objectPtr
+    internal func getPythonPointer(forPythonObjectID: PythonObjectUniqueID) -> UnsafeMutableRawPointer? {
+        return decodePythonObjectPointer(from: forPythonObjectID)
+    }
+    
+    internal func requirePythonPointer(forObject object: PythonObject) throws -> UnsafeMutableRawPointer {
+        let pointer = try requirePythonPointer(forID: object.id)
+        assert(
+            pythonObjectRegistry[object.id] != nil,
+            "Decoded a PythonObject pointer whose lifecycle record is missing."
+        )
+        return pointer
+    }
+    
+    internal func requirePythonPointer(forID id: PythonObjectUniqueID) throws -> UnsafeMutableRawPointer {
+        guard let pointer = getPythonPointer(forPythonObjectID: id) else {
+            throw PythonError.objectUsedWithWrongInterpreter
+        }
+        return pointer
     }
     
     internal func getRegisteredRecord(forPythonObjectID: PythonObjectUniqueID) -> PyObjectLifecycleRecord? {
-        return pythonObjectRegistry[forPythonObjectID]!
+        return pythonObjectRegistry[forPythonObjectID]
     }
     
     internal func releasePythonObject(forPythonObjectID: PythonObjectUniqueID) async throws {
@@ -102,7 +122,7 @@ extension PythonInterpreter {
     
     internal func getRefCount(forPythonObj: PythonObject) async throws -> Int {
         return try await self.withGIL {
-            let objPtr = getRegisteredPointer(forPythonObject:forPythonObj)!
+            let objPtr = try requirePythonPointer(forObject: forPythonObj)
             return try Int(api.pythonReferenceCount(objPtr))
         }
     }
@@ -174,9 +194,11 @@ extension PythonInterpreter {
         guard let currentContext = isolatedContextStack.last else {
             fatalError("Attempted to register a SafePythonPython but the isolatedContextStack was empty!")
         }
-        let id = PythonObjectUniqueID(ptr)
-        let record = PyObjectLifecycleRecord(referenceCount: 0, objectPtr: ptr)
-        currentContext.registry[id] = record
+        let id = makePythonObjectID(for: ptr)
+        if currentContext.registry[id] == nil {
+            let record = PyObjectLifecycleRecord(referenceCount: 0, objectPtr: ptr)
+            currentContext.registry[id] = record
+        }
         return id
     }
     
@@ -199,22 +221,31 @@ extension PythonInterpreter {
     }
     
     // Make a private version of this so I can call it
-    internal func _bind(pythonObject: PythonObject) -> PythonInterpreter.SafePythonObject {
-        let pythonObjectPtr = getRegisteredPointer(forPythonObject: pythonObject)!
+    internal func _bind(pythonObject: PythonObject) throws -> PythonInterpreter.SafePythonObject {
+        let pythonObjectPtr = try requirePythonPointer(forObject: pythonObject)
         let safeObjID = registerSafePythonObject(pythonObjectPtr)
         let safeObj = SafePythonObject(interpreter: self, id: safeObjID)                     // SafePythonObject refCount starts at zero
         incrementHousekeepingRefCount(forSafeObj: safeObj, andAlsoPythonsRefCount: true)     // Make it 1, incref because it's a copy
         return safeObj
     }
     
-    // Copy a PythonObject (reference) into a SafePythonObject
+    /// Binds an async `PythonObject` for synchronous use inside `withIsolatedContext`.
+    ///
+    /// Use this when an object created by async APIs needs to participate in safe
+    /// synchronous operations. The returned `SafePythonObject` is valid only inside the
+    /// active isolated context.
+    ///
+    /// - Parameter pythonObject: The object to bind to this interpreter's isolated context.
+    /// - Returns: A safe object referencing the same Python value.
+    /// - Throws: `PythonError.objectUsedWithWrongInterpreter` if `pythonObject` belongs
+    ///   to a different interpreter.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
-    public func bind(pythonObject: PythonObject) -> PythonInterpreter.SafePythonObject {
+    public func bind(pythonObject: PythonObject) throws -> PythonInterpreter.SafePythonObject {
         
         // At the end of the withIsolatedContext block, Py_DecRef will be called on the object.
         // So call Py_IncRef on it here
         
-        return _bind(pythonObject: pythonObject)
+        return try _bind(pythonObject: pythonObject)
     }
                                            
     internal func cleanupSafePythonObjects() {

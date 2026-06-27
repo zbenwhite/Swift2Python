@@ -50,14 +50,14 @@ extension PythonInterpreter {
     }
     
     internal func isTrue(_ obj: PythonObject) async throws -> Bool {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL {
             return try isTrue(objPtr, onError: { try throwPythonError() } )
         }
     }
     
     internal func isNotTrue(_ obj: PythonObject) async throws -> Bool {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL {
             return try isNotTrue(objPtr, onError: { try throwPythonError() } )
         }

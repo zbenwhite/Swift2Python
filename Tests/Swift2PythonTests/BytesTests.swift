@@ -103,9 +103,9 @@ struct BytesTests {
         
         let results = try await interpreter.withGIL {
             try interpreter.assumeIsolated { isolatedInterpreter in
-                guard let bytesPtr = isolatedInterpreter.getRegisteredPointer(forPythonObject: bytes),
-                      let memoryViewPtr = isolatedInterpreter.getRegisteredPointer(forPythonObject: memoryView),
-                      let listPtr = isolatedInterpreter.getRegisteredPointer(forPythonObject: list)
+                guard let bytesPtr = isolatedInterpreter.getPythonPointer(forPythonObject: bytes),
+                      let memoryViewPtr = isolatedInterpreter.getPythonPointer(forPythonObject: memoryView),
+                      let listPtr = isolatedInterpreter.getPythonPointer(forPythonObject: list)
                 else {
                     throw PythonError.nullPointer("Test object pointer not found")
                 }
@@ -132,9 +132,9 @@ struct BytesTests {
         
         let copied = try await interpreter.withGIL {
             try interpreter.assumeIsolated { isolatedInterpreter in
-                guard let bytesPtr = isolatedInterpreter.getRegisteredPointer(forPythonObject: bytes),
-                      let memoryViewPtr = isolatedInterpreter.getRegisteredPointer(forPythonObject: memoryView),
-                      let listPtr = isolatedInterpreter.getRegisteredPointer(forPythonObject: list)
+                guard let bytesPtr = isolatedInterpreter.getPythonPointer(forPythonObject: bytes),
+                      let memoryViewPtr = isolatedInterpreter.getPythonPointer(forPythonObject: memoryView),
+                      let listPtr = isolatedInterpreter.getPythonPointer(forPythonObject: list)
                 else {
                     throw PythonError.nullPointer("Test object pointer not found")
                 }

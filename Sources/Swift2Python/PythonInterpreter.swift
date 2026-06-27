@@ -13,19 +13,8 @@ import Collections
 
 public actor PythonInterpreter {
     
-    public struct PythonObjectUniqueID: Sendable, Hashable, CustomStringConvertible {
-        // Currently using UUID, but can be changed to Int64 or UInt without
-        // changing any public method signatures later.
-        private let rawValue: UUID
-        
-        internal init(_ ptr: UnsafeMutableRawPointer) {
-            self.rawValue = UUID()
-        }
-        
-        public var description: String {
-            return "PyID(\(rawValue.uuidString.prefix(8)))"
-        }
-    }
+    internal let interpreterID: UInt64
+    internal let pointerEncodingKey: UInt
     
     private let runtime = PythonRuntime.shared
     internal let logger: Logger = Logger(label: "swift2python.PythonInterpreter")
@@ -36,6 +25,9 @@ public actor PythonInterpreter {
     
     
     init() async throws {
+        self.interpreterID = PythonInterpreter.randomNonZeroUInt64()
+        self.pointerEncodingKey = PythonInterpreter.randomNonZeroUInt()
+        
         logger.trace("Preload all Python C API symbols.")
         self.api = try await Self.loadAllSymbols(using: runtime, logger)
         
@@ -219,7 +211,7 @@ public actor PythonInterpreter {
     ///   attributes, or another `PythonError` if the object cannot be accessed.
     public func get(object: PythonObject, attribute: String) async throws -> PythonObject {
         logger.trace("get: 'object.attribute' called for PythonObject (async)")
-        let objPtr = getRegisteredPointer(forPythonObject: object)!
+        let objPtr = try requirePythonPointer(forObject: object)
         
         return try await withGIL {
             let valuePtr = try getAttr(attribute, onObject: objPtr, orElse: { try throwPythonError() })
@@ -241,8 +233,8 @@ public actor PythonInterpreter {
     ///   attribute errors, or another `PythonError` if either object cannot be accessed.
     public func set(object: PythonObject, attribute: String, value: PythonObject) async throws {
         logger.trace("set: 'object.attribute = value' called for PythonObject (async)")
-        let objPtr = getRegisteredPointer(forPythonObject: object)!
-        let valuePtr = getRegisteredPointer(forPythonObject: value)!
+        let objPtr = try requirePythonPointer(forObject: object)
+        let valuePtr = try requirePythonPointer(forObject: value)
         
         try await withGIL {
             try setAttr(attribute, to: valuePtr, onObject: objPtr, onError: { try throwPythonError() })
@@ -266,8 +258,8 @@ public actor PythonInterpreter {
     ///   `KeyError`, `IndexError`, or custom `__getitem__` failures.
     public func getItem(object: PythonObject, key: PythonObject) async throws -> PythonObject {
         logger.trace("getItem: 'object[key]' called for PythonObject (async)")
-        let keyPtr = getRegisteredPointer(forPythonObject: key)!
-        let objPtr = getRegisteredPointer(forPythonObject: object)!
+        let keyPtr = try requirePythonPointer(forObject: key)
+        let objPtr = try requirePythonPointer(forObject: object)
         
         return try await withGIL {
             let resultPtr = try getItemWith(key:keyPtr, fromObject: objPtr, onError: { try throwPythonError() })
@@ -291,9 +283,9 @@ public actor PythonInterpreter {
     ///   `__setitem__` failures.
     public func setItem(object: PythonObject, key: PythonObject, newValue: PythonObject) async throws {
         logger.trace("setItem: 'object[key] = newValue' called for PythonObject (async)")
-        let keyPtr = getRegisteredPointer(forPythonObject: key)!
-        let newValuePtr = getRegisteredPointer(forPythonObject: newValue)!
-        let objPtr = getRegisteredPointer(forPythonObject: object)!
+        let keyPtr = try requirePythonPointer(forObject: key)
+        let newValuePtr = try requirePythonPointer(forObject: newValue)
+        let objPtr = try requirePythonPointer(forObject: object)
         
         try await withGIL {
             try setItemWith(key: keyPtr, onObject: objPtr, to: newValuePtr, onError: { try throwPythonError() } )
@@ -341,10 +333,10 @@ public actor PythonInterpreter {
     }
     
     private func setupGlobals() throws {
-        self.main = _bind(pythonObject: _main!)
-        self.builtins = _bind(pythonObject: _builtins!)
-        self.sys = _bind(pythonObject: _sys!)
-        self.globals = _bind(pythonObject: _globals!)
+        self.main = try _bind(pythonObject: _main!)
+        self.builtins = try _bind(pythonObject: _builtins!)
+        self.sys = try _bind(pythonObject: _sys!)
+        self.globals = try _bind(pythonObject: _globals!)
     }
     
     private func clearGlobals() {

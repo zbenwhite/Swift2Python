@@ -107,6 +107,17 @@ do {
 
 Do not store or return ``PythonInterpreter/SafePythonObject`` values for use outside `withIsolatedContext`. Convert values to ``PythonObject`` or Swift values before leaving the closure.
 
+Binding an async ``PythonObject`` into an isolated context is also a throwing operation:
+
+```swift
+try await interpreter.withIsolatedContext { context in
+    let safeObject = try context.bind(pythonObject: object)
+    print(try String(safeObject))
+}
+```
+
+``PythonInterpreter/bind(pythonObject:)`` throws ``PythonError/objectUsedWithWrongInterpreter`` when `object` was created by a different interpreter.
+
 ## Swift2Python Validation Errors
 
 Not every ``PythonError`` is a Python exception. Swift2Python also throws validation and conversion errors before or after calling Python, such as ``PythonError/valueError(_:)``, ``PythonError/typeError(operation:opType1:opType2:)``, ``PythonError/tupleArityMismatch(expected:actual:)``, and collection conversion failures.
@@ -119,5 +130,6 @@ These errors do not have ``PythonExceptionInfo`` because they are Swift2Python d
 - Use `error.pythonExceptionInfo` when Python traceback details matter.
 - Use ``PythonError/pythonException(_:info:)`` for exceptions caught outside isolated contexts.
 - Use ``PythonError/safePythonException(_:info:)`` only inside `withIsolatedContext`.
+- Use `try context.bind(pythonObject:)` when bringing an async ``PythonObject`` into an isolated context.
 - Use explicit throwing safe APIs, such as ``PythonInterpreter/SafePythonObject/get(attr:)``, when a safe operation may fail recoverably.
 - Avoid non-throwing safe dynamic-member properties and operators in examples that demonstrate error handling; those APIs trap when failure is treated as a programmer error.

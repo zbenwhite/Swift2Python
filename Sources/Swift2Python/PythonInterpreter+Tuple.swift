@@ -160,7 +160,7 @@ extension PythonInterpreter {
         
         for (index, element) in args.enumerated() {
             let pyObj = try await element.toPythonObject(interpreter: self)
-            let itemPtr = getRegisteredPointer(forPythonObject:pyObj)!
+            let itemPtr = try requirePythonPointer(forObject: pyObj)
             _ = try await withGIL {
                 try setItem(itemPtr, onTuple: tuplePtr, atIndex: index, orElse: { try throwPythonError() })
             }
@@ -187,7 +187,7 @@ extension PythonInterpreter {
     // MARK: Is Python Tuple ?
     
     internal func isTuple(_ obj: PythonObject) async throws -> Bool {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL { try isTuple(objPtr, onError: { try throwPythonError() } ) }
     }
     
@@ -200,7 +200,7 @@ extension PythonInterpreter {
     // MARK: Python Tuple Count
     
     internal func getTupleCount(_ obj: PythonObject) async throws -> Int {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL {
             let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
             guard isTuple else {
@@ -223,7 +223,7 @@ extension PythonInterpreter {
     // MARK: Python Tuple Indexing
     
     internal func tupleItem(at index: Int, in obj: PythonObject) async throws -> PythonObject {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL {
             let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
             guard isTuple else {
@@ -250,7 +250,7 @@ extension PythonInterpreter {
     // MARK: Convert To Swift Array
     
     internal func toTupleArray(_ obj: PythonObject) async throws -> [PythonObject] {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL {
             let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
             guard isTuple else {
@@ -282,38 +282,8 @@ extension PythonInterpreter {
     
     // MARK: Convert To Swift Tuples
     
-    
-//    // This requires the GIL
-//    internal func toTuple2<K>(fromObjectPointer objPtr: UnsafeMutableRawPointer,
-//                              onError throwError: () throws -> Never,
-//                              handleEachItem: (UnsafeMutableRawPointer) throws -> K) throws -> (K, K) {
-//        let isTuple = try isTuple(objPtr, onError: throwError )
-//        guard isTuple else {
-//            throw PythonError.tupleConversionFailed(expected: "tuple", actual: nil)
-//        }
-//        
-//        let size = try getSizeOf(tuple: objPtr, onError: throwError )
-//        guard size == 2 else {
-//            throw PythonError.tupleArityMismatch(expected: 2, actual: size)
-//        }
-//        let ptr0 = try getItemAt(index: 0, fromTuple: objPtr, onError: throwError )
-//        let ptr1 = try getItemAt(index: 1, fromTuple: objPtr, onError: throwError )
-//        return (
-//            try handleEachItem(ptr0),
-//            try handleEachItem(ptr1)
-//        )
-//    }
-//    
-//    internal func toTuple2(_ obj: PythonObject) async throws -> (PythonObject, PythonObject) {
-//        let objPtr = getRegisteredPointer(forPythonObject: obj)!
-//        return try await withGIL {
-//            return try toTuple2(fromObjectPointer: objPtr, onError: { try throwPythonError() }, handleEachItem:
-//                                { ptr in borrowedPythonObject(fromReturnedPointer: ptr) } )
-//        }
-//    }
-    
     internal func toTuple2(_ obj: PythonObject) async throws -> (PythonObject, PythonObject) {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL {
             let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
             guard isTuple else {
@@ -335,7 +305,7 @@ extension PythonInterpreter {
     }
     
     internal func toTuple3(_ obj: PythonObject) async throws -> (PythonObject, PythonObject, PythonObject) {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL {
             let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
             guard isTuple else {
@@ -359,7 +329,7 @@ extension PythonInterpreter {
     }
     
     internal func toTuple4(_ obj: PythonObject) async throws -> (PythonObject, PythonObject, PythonObject, PythonObject) {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL {
             let isTuple = try isTuple(objPtr, onError: { try throwPythonError() } )
             guard isTuple else {

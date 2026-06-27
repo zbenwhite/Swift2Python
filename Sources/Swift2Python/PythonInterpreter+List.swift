@@ -35,7 +35,7 @@ extension PythonInterpreter {
         }
         for (index, element) in array.enumerated() {
             let valuePythonObject = try await element.toPythonObject(interpreter: self)
-            let valuePtr = getRegisteredPointer(forPythonObject:valuePythonObject)!
+            let valuePtr = try requirePythonPointer(forObject: valuePythonObject)
             _ = try await withGIL {
                 try setItem(valuePtr, onList: listPtr, atIndex: index, orElse: { try throwPythonError() })
             }
@@ -186,7 +186,7 @@ extension PythonInterpreter {
     }
     
     internal func toArray(_ obj: PythonObject) async throws -> [PythonObject] {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL {
             try toArray(fromPythonListPointer: objPtr,
                         onError: { try throwPythonError() },
@@ -197,7 +197,7 @@ extension PythonInterpreter {
     // MARK: Is Python List ?
     
     internal func isList(_ obj: PythonObject) async throws -> Bool {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL { try isList(objPtr, onError: { try throwPythonError() } ) }
     }
     
@@ -210,7 +210,7 @@ extension PythonInterpreter {
     // MARK: Python List Count
     
     internal func getListCount(_ obj: PythonObject) async throws -> Int {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL {
             let isList = try isList(objPtr, onError: { try throwPythonError() } )
             guard isList else {
@@ -233,9 +233,9 @@ extension PythonInterpreter {
     // MARK: Python List Mutation
     
     internal func appendListItem(_ item: PendingPythonConvertible, to list: PythonObject) async throws {
-        let listPtr = getRegisteredPointer(forPythonObject: list)!
+        let listPtr = try requirePythonPointer(forObject: list)
         let itemObj = try await item.toPythonObject(interpreter: self)
-        let itemPtr = getRegisteredPointer(forPythonObject: itemObj)!
+        let itemPtr = try requirePythonPointer(forObject: itemObj)
         return try await withGIL {
             let isList = try isList(listPtr, onError: { try throwPythonError() } )
             guard isList else {
@@ -258,9 +258,9 @@ extension PythonInterpreter {
     }
     
     internal func insertListItem(_ item: PendingPythonConvertible, at index: Int, to list: PythonObject) async throws {
-        let listPtr = getRegisteredPointer(forPythonObject: list)!
+        let listPtr = try requirePythonPointer(forObject: list)
         let itemObj = try await item.toPythonObject(interpreter: self)
-        let itemPtr = getRegisteredPointer(forPythonObject: itemObj)!
+        let itemPtr = try requirePythonPointer(forObject: itemObj)
         return try await withGIL {
             let isList = try isList(listPtr, onError: { try throwPythonError() } )
             guard isList else {
@@ -285,7 +285,7 @@ extension PythonInterpreter {
     // MARK: Python List Indexing
     
     internal func listItem(at index: Int, in obj: PythonObject) async throws -> PythonObject {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL {
             let isList = try isList(objPtr, onError: { try throwPythonError() } )
             guard isList else {
@@ -312,9 +312,9 @@ extension PythonInterpreter {
     }
     
     internal func setListItem(_ item: PendingPythonConvertible, at index: Int, in list: PythonObject) async throws {
-        let listPtr = getRegisteredPointer(forPythonObject: list)!
+        let listPtr = try requirePythonPointer(forObject: list)
         let itemObj = try await item.toPythonObject(interpreter: self)
-        let itemPtr = getRegisteredPointer(forPythonObject: itemObj)!
+        let itemPtr = try requirePythonPointer(forObject: itemObj)
         return try await withGIL {
             let isList = try isList(listPtr, onError: { try throwPythonError() } )
             guard isList else {
@@ -339,9 +339,9 @@ extension PythonInterpreter {
     }
     
     internal func delListItem(at index: Int, from list: PythonObject) async throws {
-        let listPtr = getRegisteredPointer(forPythonObject: list)!
+        let listPtr = try requirePythonPointer(forObject: list)
         let indexObj = try await index.toPythonObject(interpreter: self)
-        let indexPtr = getRegisteredPointer(forPythonObject: indexObj)!
+        let indexPtr = try requirePythonPointer(forObject: indexObj)
         return try await withGIL {
             let isList = try isList(listPtr, onError: { try throwPythonError() } )
             guard isList else {

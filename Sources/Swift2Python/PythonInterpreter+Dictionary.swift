@@ -35,8 +35,8 @@ extension PythonInterpreter {
         for (key, value) in dictionary {
             let keyObj = try await key.toPythonObject(interpreter: self)
             let valueObj = try await value.toPythonObject(interpreter: self)
-            let keyPtr = getRegisteredPointer(forPythonObject:keyObj)!
-            let valuePtr = getRegisteredPointer(forPythonObject:valueObj)!
+            let keyPtr = try requirePythonPointer(forObject: keyObj)
+            let valuePtr = try requirePythonPointer(forObject: valueObj)
             _ = try await withGIL { try setValue(valuePtr, onDict: dictPtr, atKey: keyPtr, orElse: { try throwPythonError() }) }
         }
         return newPythonObject(fromReturnedPointer: dictPtr)
@@ -65,8 +65,8 @@ extension PythonInterpreter {
         for (key, value) in dictionary {
             let keyObj = try await key.toPythonObject(interpreter: self)
             let valueObj = try await value.toPythonObject(interpreter: self)
-            let keyPtr = getRegisteredPointer(forPythonObject:keyObj)!
-            let valuePtr = getRegisteredPointer(forPythonObject:valueObj)!
+            let keyPtr = try requirePythonPointer(forObject: keyObj)
+            let valuePtr = try requirePythonPointer(forObject: valueObj)
             _ = try await withGIL { try setValue(valuePtr, onDict: dictPtr, atKey: keyPtr, orElse: { try throwPythonError() }) }
         }
         return newPythonObject(fromReturnedPointer: dictPtr)
@@ -96,8 +96,8 @@ extension PythonInterpreter {
         for (key, value) in keyValuePairs {
             let keyObj = try await key.toPythonObject(interpreter: self)
             let valueObj = try await value.toPythonObject(interpreter: self)
-            let keyPtr = getRegisteredPointer(forPythonObject:keyObj)!
-            let valuePtr = getRegisteredPointer(forPythonObject:valueObj)!
+            let keyPtr = try requirePythonPointer(forObject: keyObj)
+            let valuePtr = try requirePythonPointer(forObject: valueObj)
             _ = try await withGIL { try setValue(valuePtr, onDict: dictPtr, atKey: keyPtr, orElse: { try throwPythonError() }) }
         }
         return newPythonObject(fromReturnedPointer: dictPtr)
@@ -125,8 +125,8 @@ extension PythonInterpreter {
         for (key, value) in keyValuePairs {
             let keyObj = try await key.toPythonObject(interpreter: self)
             let valueObj = try await value.toPythonObject(interpreter: self)
-            let keyPtr = getRegisteredPointer(forPythonObject:keyObj)!
-            let valuePtr = getRegisteredPointer(forPythonObject:valueObj)!
+            let keyPtr = try requirePythonPointer(forObject: keyObj)
+            let valuePtr = try requirePythonPointer(forObject: valueObj)
             _ = try await withGIL { try setValue(valuePtr, onDict: dictPtr, atKey: keyPtr, orElse: { try throwPythonError() }) }
         }
         return newPythonObject(fromReturnedPointer: dictPtr)
@@ -144,8 +144,8 @@ extension PythonInterpreter {
             }
             let keyObj = try await key.toPythonObject(interpreter: self)
             let valueObj = try await value.toPythonObject(interpreter: self)
-            let keyPtr = getRegisteredPointer(forPythonObject:keyObj)!
-            let valuePtr = getRegisteredPointer(forPythonObject:valueObj)!
+            let keyPtr = try requirePythonPointer(forObject: keyObj)
+            let valuePtr = try requirePythonPointer(forObject: valueObj)
             _ = try await withGIL { try setValue(valuePtr, onDict: dictPtr, atKey: keyPtr, orElse: { try throwPythonError() }) }
         }
         return newPythonObject(fromReturnedPointer: dictPtr)
@@ -404,7 +404,7 @@ extension PythonInterpreter {
     // MARK: Is Python Dict ?
     
     internal func isDict(_ obj: PythonObject) async throws -> Bool {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL { try isDict(objPtr, onError: { try throwPythonError() } ) }
     }
     
@@ -417,7 +417,7 @@ extension PythonInterpreter {
     // MARK: Python Dict Count
     
     internal func getDictCount(_ obj: PythonObject) async throws -> Int {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL {
             let isDict = try isDict(objPtr, onError: { try throwPythonError() } )
             guard isDict else {
@@ -438,8 +438,8 @@ extension PythonInterpreter {
     }
     
     internal func containsKey(_ key: PythonObject, inDict obj: PythonObject) async throws -> Bool {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
-        let keyPtr = getRegisteredPointer(forPythonObject: key)!
+        let objPtr = try requirePythonPointer(forObject: obj)
+        let keyPtr = try requirePythonPointer(forObject: key)
         return try await withGIL {
             let isDict = try isDict(objPtr, onError: { try throwPythonError() } )
             guard isDict else {
@@ -450,8 +450,8 @@ extension PythonInterpreter {
     }
     
     internal func deleteItem(fromDict obj: PythonObject, key: PythonObject) async throws {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
-        let keyPtr = getRegisteredPointer(forPythonObject: key)!
+        let objPtr = try requirePythonPointer(forObject: obj)
+        let keyPtr = try requirePythonPointer(forObject: key)
         try await withGIL {
             let isDict = try isDict(objPtr, onError: { try throwPythonError() } )
             guard isDict else {
@@ -486,7 +486,7 @@ extension PythonInterpreter {
     // MARK: Convert Dict Views To Swift Arrays
     
     internal func dictKeys(_ obj: PythonObject) async throws -> [PythonObject] {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL {
             let isDict = try isDict(objPtr, onError: { try throwPythonError() } )
             guard isDict else {
@@ -502,7 +502,7 @@ extension PythonInterpreter {
     }
     
     internal func dictValues(_ obj: PythonObject) async throws -> [PythonObject] {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL {
             let isDict = try isDict(objPtr, onError: { try throwPythonError() } )
             guard isDict else {
@@ -518,7 +518,7 @@ extension PythonInterpreter {
     }
     
     internal func dictItems(_ obj: PythonObject) async throws -> [(key: PythonObject, value: PythonObject)] {
-        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        let objPtr = try requirePythonPointer(forObject: obj)
         return try await withGIL {
             let isDict = try isDict(objPtr, onError: { try throwPythonError() } )
             guard isDict else {

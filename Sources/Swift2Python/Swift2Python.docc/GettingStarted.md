@@ -129,6 +129,21 @@ try await python.withIsolatedContext { context in
 
 Inside the isolated context, values are ``PythonInterpreter/SafePythonObject``. Prefer explicit throwing methods when failures should be recoverable. Convenience syntax such as dynamic members, operators, and subscripts can trap if Python raises.
 
+If you already have an async ``PythonObject`` and need to use it inside an isolated context, bind it to the context first:
+
+```swift
+let types = try await python.import("types")
+let object = try await types.SimpleNamespace()
+
+try await python.withIsolatedContext { context in
+    let safeObject = try context.bind(pythonObject: object)
+    safeObject.name = "Ada"
+    print(try String(safeObject.name))
+}
+```
+
+``PythonInterpreter/bind(pythonObject:)`` throws if the object belongs to a different ``PythonInterpreter``. Do not store ``PythonInterpreter/SafePythonObject`` values after the isolated closure returns.
+
 ## Platform And Version Status
 
 The current release is developed and tested on macOS with current GIL-enabled Python. Swift2Python is intended to be capable of running on Linux and iOS, with free-threaded Python, and with older supported Python versions, but those combinations are not tested yet.
