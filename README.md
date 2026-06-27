@@ -43,8 +43,7 @@ Swift2Python's user documentation is written as DocC pages in `Sources/Swift2Pyt
 - `Operators` and `Logical Operations` cover arithmetic, comparison, bitwise, and logical APIs, including throwing alternatives where Swift operator syntax cannot throw.
 - `Errors` covers Python exception capture, traceback formatting, and Swift error behavior.
 
-AI/code-generation guidance is in `docs/AI_USAGE.md`. AIs will not reliably find that file automatically, so prompts and project instructions should mention it when generated Swift2Python code needs to follow the intended API patterns.
-
+AI/code-generation guidance is in `docs/AI_USAGE.md`.
 Deferred work and validation targets are tracked in `ROADMAP.md`.
 
 ## License
