@@ -31,11 +31,15 @@ struct TupleTests {
         let second = try await tuple.tupleItem(at: 1)
         let third = try await tuple.tupleItem(at: 2)
         let fourth = try await tuple.tupleItem(at: 3)
+        let last = try await tuple.tupleItem(at: -1)
+        let nextToLast = try await tuple.tupleItem(at: -2)
         
         #expect(try await Int(first) == 10)
         #expect(try await String(second) == "two")
         #expect(try await Double(third) == 3.5)
         #expect(try await Bool(fourth) == true)
+        #expect(try await Bool(last) == true)
+        #expect(try await Double(nextToLast) == 3.5)
     }
     
     @Test("TUP_002: PythonObject tupleContentsOf and asTupleArray")
@@ -101,6 +105,14 @@ struct TupleTests {
             Issue.record("Expected .pythonException for out-of-bounds tupleItem, but got \(itemError)")
         }
         
+        let negativeItemError = await #expect(throws: PythonError.self) {
+            _ = try await tuple3.tupleItem(at: -4)
+        }
+        if case .pythonException = negativeItemError {
+        } else {
+            Issue.record("Expected .pythonException for negative out-of-bounds tupleItem, but got \(negativeItemError)")
+        }
+        
         let arityError = await #expect(throws: PythonError.self) {
             _ = try await tuple3.asTuple2()
         }
@@ -124,11 +136,15 @@ struct TupleTests {
             let second = try tuple.tupleItem(at: 1)
             let third = try tuple.tupleItem(at: 2)
             let fourth = try tuple.tupleItem(at: 3)
+            let last = try tuple.tupleItem(at: -1)
+            let nextToLast = try tuple.tupleItem(at: -2)
             
             #expect(try Int(first) == 10)
             #expect(try String(second) == "two")
             #expect(try Double(third) == 3.5)
             #expect(try Bool(fourth) == true)
+            #expect(try Bool(last) == true)
+            #expect(try Double(nextToLast) == 3.5)
         }
     }
     
@@ -209,6 +225,14 @@ struct TupleTests {
             if case .safePythonException = boundsError {
             } else {
                 Issue.record("Expected .safePythonException for out-of-bounds tupleItem, but got \(boundsError)")
+            }
+            
+            let negativeBoundsError = #expect(throws: PythonError.self) {
+                _ = try tuple3.tupleItem(at: -4)
+            }
+            if case .safePythonException = negativeBoundsError {
+            } else {
+                Issue.record("Expected .safePythonException for negative out-of-bounds tupleItem, but got \(negativeBoundsError)")
             }
             
             let arity2Error = #expect(throws: PythonError.self) {

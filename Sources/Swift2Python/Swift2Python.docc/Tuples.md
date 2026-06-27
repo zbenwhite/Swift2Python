@@ -52,9 +52,10 @@ Use ``PythonObject/tupleItem(at:)`` to read one element:
 ```swift
 let first = try await tuple.tupleItem(at: 0)
 let second = try await tuple.tupleItem(at: 1)
+let last = try await tuple.tupleItem(at: -1)
 ```
 
-Tuple indexing uses zero-based Python indexes. Negative indexing is not currently documented as supported by the tuple helpers; call Python directly if you need Python's full indexing behavior.
+Tuple indexing uses zero-based Python indexes and supports Python-style negative indexes. Use `-1` for the last element, `-2` for the next-to-last element, and so on. Out-of-range positive or negative indexes throw the Python indexing error.
 
 ## Converting to a Swift Array
 
@@ -105,7 +106,8 @@ try interpreter.withIsolatedContext { context in
     let first = try Int(values.0)
     let second = try String(values.1)
     let third = try Double(values.2)
-    print(first, second, third)
+    let last = try tuple.tupleItem(at: -1)
+    print(first, second, third, try Double(last))
 }
 ```
 

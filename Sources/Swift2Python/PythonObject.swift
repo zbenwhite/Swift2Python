@@ -867,16 +867,17 @@ public struct PythonObject: Sendable, PendingPythonConvertible, CustomReflectabl
     
     /// Returns the tuple element at the specified index.
     ///
-    /// Tuple indexing is zero-based. Negative indexing is not currently documented as
-    /// supported by this helper; call Python directly if you need full Python indexing
-    /// behavior.
+    /// Tuple indexing is zero-based and supports Python-style negative indexes.
+    /// For example, `-1` returns the last element and `-2` returns the next-to-last
+    /// element.
     ///
     /// ```swift
     /// let first = try await tuple.tupleItem(at: 0)
+    /// let last = try await tuple.tupleItem(at: -1)
     /// ```
     ///
     /// - Parameters:
-    ///   - index: The zero-based tuple index to read.
+    ///   - index: The tuple index to read. Negative indexes count backward from the end.
     /// - Returns: The tuple element at `index` as a `PythonObject`.
     /// - Throws: `PythonError.tupleConversionFailed` if this object is not a tuple,
     ///   or `PythonError` if Python raises while reading the element.

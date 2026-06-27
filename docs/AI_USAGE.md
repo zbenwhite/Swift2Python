@@ -889,6 +889,7 @@ Safe tuple APIs inside `withIsolatedContext`:
 try tuple.isTuple
 try tuple.tupleCount
 try tuple.tupleItem(at: 0)
+try tuple.tupleItem(at: -1)
 try tuple.tupleArray
 try tuple.tuple2
 try tuple.tuple3
@@ -919,12 +920,15 @@ let values = [1, 2, 3, 4]
 let tuple = try await interpreter.convertToPython(tupleContentsOf: values)
 ```
 
-Read one item by zero-based index:
+Read one item by zero-based index or Python-style negative index:
 
 ```swift
 let first = try await tuple.tupleItem(at: 0)
+let last = try await tuple.tupleItem(at: -1)
 let value = try await Int(first)
 ```
+
+`tupleItem(at:)` supports negative indexes like Python tuples. Use `-1` for the last element and `-2` for the next-to-last element. Out-of-range positive or negative indexes throw the Python indexing error.
 
 Convert a dynamic-length Python tuple to an array:
 
@@ -962,8 +966,9 @@ try await interpreter.withIsolatedContext { context in
     let first = try Int(values.0)
     let second = try String(values.1)
     let third = try Double(values.2)
+    let last = try tuple.tupleItem(at: -1)
 
-    print(first, second, third)
+    print(first, second, third, try Double(last))
 }
 ```
 

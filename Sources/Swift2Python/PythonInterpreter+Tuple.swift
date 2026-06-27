@@ -5,12 +5,7 @@
 //  Created by Ben White on 5/9/26.
 //
 
-import Foundation
 import Logging
-
-// TODO: tupleArray returns nil but toTupleArray throws.  This should be consistent or the reason should be documented
-// TODO: Same for getTupleCount versus tupleCount
-// TODO: Python negative indexing -- either support it or document that it's not supported.
 
 extension PythonInterpreter {
     
@@ -138,8 +133,17 @@ extension PythonInterpreter {
     }
     
     // This requires the GIL
+    private func normalizedTupleIndex(_ index: Int, forTuple tuple: UnsafeMutableRawPointer, onError throwError: () throws -> Never) throws -> Int {
+        guard index < 0 else { return index }
+        let size = try getSizeOf(tuple: tuple, onError: throwError)
+        let (normalizedIndex, overflow) = size.addingReportingOverflow(index)
+        return overflow ? index : normalizedIndex
+    }
+    
+    // This requires the GIL
     private func getItemAt(index: Int, fromTuple tuple: UnsafeMutableRawPointer, onError throwError: () throws -> Never ) throws -> UnsafeMutableRawPointer {
-        try api.pythonTuple_GetItem(tuple, index) ?? {
+        let normalizedIndex = try normalizedTupleIndex(index, forTuple: tuple, onError: throwError)
+        return try api.pythonTuple_GetItem(tuple, normalizedIndex) ?? {
             try throwError()
         } ()
     }
