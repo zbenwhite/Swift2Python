@@ -5,8 +5,6 @@
 //  Created by Ben White on 4/26/26.
 //
 
-import Foundation
-
 
 extension PythonInterpreter {
     

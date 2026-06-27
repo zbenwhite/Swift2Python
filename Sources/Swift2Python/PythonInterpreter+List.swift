@@ -5,7 +5,6 @@
 //  Created by Ben White on 5/13/26.
 //
 
-import Foundation
 
 // TODO: The stuff with Python 3.13 and free threading for PyList_GetItem()
 

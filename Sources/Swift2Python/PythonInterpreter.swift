@@ -8,7 +8,6 @@
 // TODO: PythonKit Python.swift line 1470: ExpressibleByArrayLiteral, ExpressibleByDictionaryLiteral
 
 import Logging
-import Foundation
 import Collections
 
 public actor PythonInterpreter {

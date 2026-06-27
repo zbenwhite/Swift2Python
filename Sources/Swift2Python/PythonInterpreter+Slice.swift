@@ -5,7 +5,6 @@
 //  Created by Ben White on 6/7/26.
 //
 
-import Foundation
 
 /// A Swift representation of a Python `slice` object.
 ///
