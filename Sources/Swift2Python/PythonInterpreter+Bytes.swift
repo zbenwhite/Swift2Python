@@ -114,26 +114,194 @@ extension PythonInterpreter {
         }
     }
     
+    private typealias PyObjectGetBuffer = @convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer, Int32) -> Int32
+    private typealias PyBufferRelease = @convention(c) (UnsafeMutableRawPointer) -> Void
+    
+    private func requireBufferProtocolSymbols() throws -> (getBuffer: PyObjectGetBuffer, release: PyBufferRelease) {
+        guard let getBuffer = api.PyObject_GetBuffer,
+              let release = api.PyBuffer_Release
+        else {
+            throw PythonError.unsupportedPythonFeature(
+                feature: "Python buffer protocol access",
+                requiredSymbols: ["PyObject_GetBuffer", "PyBuffer_Release"]
+            )
+        }
+        return (getBuffer, release)
+    }
+    
+    private func bufferProtocolSymbols() -> (getBuffer: PyObjectGetBuffer, release: PyBufferRelease)? {
+        guard let getBuffer = api.PyObject_GetBuffer,
+              let release = api.PyBuffer_Release
+        else {
+            return nil
+        }
+        return (getBuffer, release)
+    }
+    
     // This requires the GIL
     private func isBytesLike(_ objPtr: UnsafeMutableRawPointer) throws -> Bool {
-        var view = Py_buffer()
-        guard api.PyObject_GetBuffer(objPtr, &view, PyBUF_SIMPLE) == 0 else {
+        if let bufferAPI = bufferProtocolSymbols() {
+            var view = Py_buffer()
+            guard bufferAPI.getBuffer(objPtr, &view, PyBUF_SIMPLE) == 0 else {
+                try api.pythonErr_Clear()
+                return false
+            }
+            bufferAPI.release(&view)
+            return true
+        }
+        
+        return try isBytesLikeUsingMemoryView(objPtr)
+    }
+    
+    // This requires the GIL
+    private func callPythonObject(_ callable: UnsafeMutableRawPointer, withSingleArgument argument: UnsafeMutableRawPointer) throws -> UnsafeMutableRawPointer? {
+        guard let args = api.PyTuple_New(1) else {
             try api.pythonErr_Clear()
+            throw PythonError.allocationFailed("Could not allocate single-argument tuple")
+        }
+        defer { api.Py_DecRef(args) }
+        
+        api.Py_IncRef(argument)
+        if api.PyTuple_SetItem(args, 0, argument) != 0 {
+            api.Py_DecRef(argument)
+            try api.pythonErr_Clear()
+            throw PythonError.allocationFailed("Could not set single-argument tuple item")
+        }
+        
+        return api.PyObject_Call(callable, args, nil)
+    }
+    
+    // This requires the GIL
+    private func newMemoryView(from objPtr: UnsafeMutableRawPointer) throws -> UnsafeMutableRawPointer? {
+        guard let builtins = api.pythonImport_ImportModule("builtins") else {
+            try api.pythonErr_Clear()
+            throw PythonError.symbolNotFound("builtins")
+        }
+        defer { api.Py_DecRef(builtins) }
+        
+        guard let memoryView = api.pythonObject_GetAttrString(builtins, "memoryview") else {
+            try api.pythonErr_Clear()
+            return nil
+        }
+        defer { api.Py_DecRef(memoryView) }
+        
+        guard let view = try callPythonObject(memoryView, withSingleArgument: objPtr) else {
+            try api.pythonErr_Clear()
+            return nil
+        }
+        return view
+    }
+    
+    // This requires the GIL
+    internal func isBytesLikeUsingMemoryView(_ objPtr: UnsafeMutableRawPointer) throws -> Bool {
+        guard let view = try newMemoryView(from: objPtr) else {
             return false
         }
-        api.PyBuffer_Release(&view)
+        api.Py_DecRef(view)
         return true
+    }
+    
+    // This requires the GIL
+    private func copiedBytes(from objPtr: UnsafeMutableRawPointer) throws -> [UInt8] {
+        if let bufferAPI = bufferProtocolSymbols() {
+            return try copiedBytesUsingBufferProtocol(objPtr, bufferAPI: bufferAPI)
+        }
+        
+        return try copiedBytesUsingMemoryView(objPtr)
+    }
+    
+    // This requires the GIL
+    private func copiedBytesUsingBufferProtocol(
+        _ objPtr: UnsafeMutableRawPointer,
+        bufferAPI: (getBuffer: PyObjectGetBuffer, release: PyBufferRelease)
+    ) throws -> [UInt8] {
+        var view = Py_buffer()
+        
+        guard bufferAPI.getBuffer(objPtr, &view, PyBUF_SIMPLE) == 0 else {
+            try api.pythonErr_Clear()
+            throw PythonError.bytesConversionFailed(expected: "bytes-like object", actual: nil)
+        }
+        defer { bufferAPI.release(&view) }
+        
+        guard view.len >= 0 else {
+            throw PythonError.bytesConversionFailed(expected: "non-negative buffer length", actual: nil)
+        }
+        guard view.len > 0 else {
+            return []
+        }
+        guard let base = view.buf else {
+            throw PythonError.nullPointer("Buffer pointer is null")
+        }
+        
+        let ptr = base.assumingMemoryBound(to: UInt8.self)
+        let buffer = UnsafeBufferPointer(start: ptr, count: view.len)
+        return Array(buffer)
+    }
+    
+    // This requires the GIL
+    internal func copiedBytesUsingMemoryView(_ objPtr: UnsafeMutableRawPointer) throws -> [UInt8] {
+        guard let view = try newMemoryView(from: objPtr) else {
+            throw PythonError.bytesConversionFailed(expected: "bytes-like object", actual: nil)
+        }
+        defer { api.Py_DecRef(view) }
+        
+        guard let toBytes = api.pythonObject_GetAttrString(view, "tobytes") else {
+            try api.pythonErr_Clear()
+            throw PythonError.bytesConversionFailed(expected: "memoryview.tobytes", actual: nil)
+        }
+        defer { api.Py_DecRef(toBytes) }
+        
+        let pythonBytes: UnsafeMutableRawPointer?
+        if let callNoArgs = api.PyObject_CallNoArgs {
+            pythonBytes = callNoArgs(toBytes)
+        } else {
+            pythonBytes = api.pythonObject_CallObject(toBytes)
+        }
+        guard let pythonBytes else {
+            try api.pythonErr_Clear()
+            throw PythonError.bytesConversionFailed(expected: "memoryview bytes", actual: nil)
+        }
+        defer { api.Py_DecRef(pythonBytes) }
+        
+        return try copiedBytesFromExactPythonBytes(pythonBytes)
+    }
+    
+    // This requires the GIL
+    private func copiedBytesFromExactPythonBytes(_ bytesPtr: UnsafeMutableRawPointer) throws -> [UInt8] {
+        var bytePointer: UnsafeMutablePointer<CChar>?
+        var length: Py_ssize_t = 0
+        
+        guard api.pythonBytes_AsStringAndSize(bytesPtr, &bytePointer, &length) == 0 else {
+            try api.pythonErr_Clear()
+            throw PythonError.bytesConversionFailed(expected: "bytes", actual: nil)
+        }
+        
+        guard length >= 0 else {
+            throw PythonError.bytesConversionFailed(expected: "non-negative bytes length", actual: nil)
+        }
+        guard length > 0 else {
+            return []
+        }
+        guard let bytePointer else {
+            throw PythonError.nullPointer("Bytes pointer is null")
+        }
+        
+        let count = Int(length)
+        let ptr = UnsafeRawPointer(bytePointer).assumingMemoryBound(to: UInt8.self)
+        let buffer = UnsafeBufferPointer(start: ptr, count: count)
+        return Array(buffer)
     }
     
     // MARK: Synchronous bytes
     
-    /// Create a safe Python `bytes` object from Swift bytes.
+    /// Creates a safe Python `bytes` object by copying Swift bytes.
     ///
-    /// Only for use inside the synchronous, GIL-managed, reference-managed local
-    /// `withIsolatedContext` environment.
+    /// Use this explicit API when `[UInt8]` represents binary data and should become
+    /// Python `bytes` instead of a Python list. Only call this method inside
+    /// `withIsolatedContext`.
     ///
-    /// - Parameter bytes: The Swift bytes to copy into a Python `bytes` object.
-    /// - Returns: A `SafePythonObject` representing Python `bytes`.
+    /// - Parameter bytes: The Swift bytes to copy into the new Python `bytes` object.
+    /// - Returns: A safe Python object representing immutable Python `bytes`.
     /// - Throws: `PythonError` if Python cannot allocate the object.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func convertToSafePython(bytes: [UInt8]) throws -> SafePythonObject {
@@ -141,13 +309,12 @@ extension PythonInterpreter {
         return newSafePythonObject(fromReturnedPointer: bytesPtr)
     }
     
-    /// Create a safe Python `bytes` object from Swift `Data`.
+    /// Creates a safe Python `bytes` object by copying Swift `Data`.
     ///
-    /// Only for use inside the synchronous, GIL-managed, reference-managed local
-    /// `withIsolatedContext` environment.
+    /// Only call this method inside `withIsolatedContext`.
     ///
-    /// - Parameter bytes: The Swift data to copy into a Python `bytes` object.
-    /// - Returns: A `SafePythonObject` representing Python `bytes`.
+    /// - Parameter bytes: The Swift data to copy into the new Python `bytes` object.
+    /// - Returns: A safe Python object representing immutable Python `bytes`.
     /// - Throws: `PythonError` if Python cannot allocate the object.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func convertToSafePython(bytes: Data) throws -> SafePythonObject {
@@ -155,13 +322,14 @@ extension PythonInterpreter {
         return newSafePythonObject(fromReturnedPointer: bytesPtr)
     }
     
-    /// Create a safe Python `bytearray` object from Swift bytes.
+    /// Creates a safe Python `bytearray` object by copying Swift bytes.
     ///
-    /// Only for use inside the synchronous, GIL-managed, reference-managed local
-    /// `withIsolatedContext` environment.
+    /// Use this explicit API when `[UInt8]` represents mutable binary data and should
+    /// become Python `bytearray` instead of a Python list. Only call this method inside
+    /// `withIsolatedContext`.
     ///
-    /// - Parameter byteArray: The Swift bytes to copy into a Python `bytearray` object.
-    /// - Returns: A `SafePythonObject` representing Python `bytearray`.
+    /// - Parameter byteArray: The Swift bytes to copy into the new Python `bytearray` object.
+    /// - Returns: A safe Python object representing mutable Python `bytearray`.
     /// - Throws: `PythonError` if Python cannot allocate the object.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func convertToSafePython(byteArray: [UInt8]) throws -> SafePythonObject {
@@ -169,13 +337,12 @@ extension PythonInterpreter {
         return newSafePythonObject(fromReturnedPointer: byteArrayPtr)
     }
     
-    /// Create a safe Python `bytearray` object from Swift `Data`.
+    /// Creates a safe Python `bytearray` object by copying Swift `Data`.
     ///
-    /// Only for use inside the synchronous, GIL-managed, reference-managed local
-    /// `withIsolatedContext` environment.
+    /// Only call this method inside `withIsolatedContext`.
     ///
-    /// - Parameter byteArray: The Swift data to copy into a Python `bytearray` object.
-    /// - Returns: A `SafePythonObject` representing Python `bytearray`.
+    /// - Parameter byteArray: The Swift data to copy into the new Python `bytearray` object.
+    /// - Returns: A safe Python object representing mutable Python `bytearray`.
     /// - Throws: `PythonError` if Python cannot allocate the object.
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     public func convertToSafePython(byteArray: Data) throws -> SafePythonObject {
@@ -202,6 +369,12 @@ extension PythonInterpreter {
     }
     
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+    internal func copiedBytes(_ obj: SafePythonObject) throws -> [UInt8] {
+        let objPtr = getRegisteredPointer(forSafeObj: obj)
+        return try copiedBytes(from: objPtr)
+    }
+    
+    @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func bytesObjectSize(_ obj: SafePythonObject) throws -> Int {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
         guard try isBytes(objPtr, onError: { try throwSafePythonError() }) else {
@@ -222,15 +395,16 @@ extension PythonInterpreter {
     @available(*, noasync, message: "Only safe inside withIsolatedContext()")
     internal func withUnsafeBytes<R>(_ obj: SafePythonObject, body: @Sendable (UnsafeBufferPointer<UInt8>) throws -> R) throws -> R {
         let objPtr = getRegisteredPointer(forSafeObj: obj)
+        let bufferAPI = try requireBufferProtocolSymbols()
         
         var view = Py_buffer()
         
-        guard api.PyObject_GetBuffer(objPtr, &view, PyBUF_SIMPLE) == 0 else {
+        guard bufferAPI.getBuffer(objPtr, &view, PyBUF_SIMPLE) == 0 else {
             try api.pythonErr_Clear()
             throw PythonError.bytesConversionFailed(expected: "bytes-like object", actual: nil)
         }
         defer {
-            api.PyBuffer_Release(&view)
+            bufferAPI.release(&view)
         }
         
         guard let base = view.buf else {
@@ -246,13 +420,13 @@ extension PythonInterpreter {
     
     // MARK: Asynchronous bytes
     
-    /// Create a Python `bytes` object from Swift bytes.
+    /// Creates a Python `bytes` object by copying Swift bytes.
     ///
-    /// Use this explicit API when `[UInt8]` should become binary `bytes` instead of
-    /// a Python list.
+    /// Use this explicit API when `[UInt8]` represents binary data and should become
+    /// Python `bytes` instead of a Python list.
     ///
-    /// - Parameter bytes: The Swift bytes to copy into a Python `bytes` object.
-    /// - Returns: A `PythonObject` representing Python `bytes`.
+    /// - Parameter bytes: The Swift bytes to copy into the new Python `bytes` object.
+    /// - Returns: A Python object representing immutable Python `bytes`.
     /// - Throws: `PythonError` if Python cannot allocate the object.
     public func convertToPython(bytes: [UInt8]) async throws -> PythonObject {
         let bytesPtr = try await withGIL {
@@ -261,10 +435,10 @@ extension PythonInterpreter {
         return newPythonObject(fromReturnedPointer: bytesPtr)
     }
     
-    /// Create a Python `bytes` object from Swift `Data`.
+    /// Creates a Python `bytes` object by copying Swift `Data`.
     ///
-    /// - Parameter bytes: The Swift data to copy into a Python `bytes` object.
-    /// - Returns: A `PythonObject` representing Python `bytes`.
+    /// - Parameter bytes: The Swift data to copy into the new Python `bytes` object.
+    /// - Returns: A Python object representing immutable Python `bytes`.
     /// - Throws: `PythonError` if Python cannot allocate the object.
     public func convertToPython(bytes: Data) async throws -> PythonObject {
         let bytesPtr = try await withGIL {
@@ -273,13 +447,13 @@ extension PythonInterpreter {
         return newPythonObject(fromReturnedPointer: bytesPtr)
     }
     
-    /// Create a Python `bytearray` object from Swift bytes.
+    /// Creates a Python `bytearray` object by copying Swift bytes.
     ///
-    /// Use this explicit API when `[UInt8]` should become mutable binary data instead
-    /// of a Python list.
+    /// Use this explicit API when `[UInt8]` represents mutable binary data and should
+    /// become Python `bytearray` instead of a Python list.
     ///
-    /// - Parameter byteArray: The Swift bytes to copy into a Python `bytearray` object.
-    /// - Returns: A `PythonObject` representing Python `bytearray`.
+    /// - Parameter byteArray: The Swift bytes to copy into the new Python `bytearray` object.
+    /// - Returns: A Python object representing mutable Python `bytearray`.
     /// - Throws: `PythonError` if Python cannot allocate the object.
     public func convertToPython(byteArray: [UInt8]) async throws -> PythonObject {
         let byteArrayPtr = try await withGIL {
@@ -288,10 +462,10 @@ extension PythonInterpreter {
         return newPythonObject(fromReturnedPointer: byteArrayPtr)
     }
     
-    /// Create a Python `bytearray` object from Swift `Data`.
+    /// Creates a Python `bytearray` object by copying Swift `Data`.
     ///
-    /// - Parameter byteArray: The Swift data to copy into a Python `bytearray` object.
-    /// - Returns: A `PythonObject` representing Python `bytearray`.
+    /// - Parameter byteArray: The Swift data to copy into the new Python `bytearray` object.
+    /// - Returns: A Python object representing mutable Python `bytearray`.
     /// - Throws: `PythonError` if Python cannot allocate the object.
     public func convertToPython(byteArray: Data) async throws -> PythonObject {
         let byteArrayPtr = try await withGIL {
@@ -315,6 +489,11 @@ extension PythonInterpreter {
         return try await withGIL { try isBytesLike(objPtr) }
     }
     
+    internal func copiedBytes(_ obj: PythonObject) async throws -> [UInt8] {
+        let objPtr = getRegisteredPointer(forPythonObject: obj)!
+        return try await withGIL { try copiedBytes(from: objPtr) }
+    }
+    
     internal func bytesObjectSize(_ obj: PythonObject) async throws -> Int {
         let objPtr = getRegisteredPointer(forPythonObject: obj)!
         return try await withGIL {
@@ -335,20 +514,32 @@ extension PythonInterpreter {
         }
     }
     
-    // REMOVED DUPLICATE async withUnsafeBytes that manually handled bytes and bytearray here
-    
+    /// Provides temporary zero-copy access to a Python object's readable buffer.
+    ///
+    /// The buffer pointer is valid only for the duration of `body`. This API requires
+    /// the loaded libpython to export `PyObject_GetBuffer` and `PyBuffer_Release`; use
+    /// `PythonObject.asCopiedData()` or `PythonObject.asCopiedBytes()` when a copied
+    /// Python 3.9-compatible extraction is sufficient.
+    ///
+    /// - Parameters:
+    ///   - obj: The Python object that must support the readable buffer protocol.
+    ///   - body: A closure that receives the temporary readable byte buffer.
+    /// - Returns: The value returned by `body`.
+    /// - Throws: `PythonError.bytesConversionFailed` if `obj` is not bytes-like,
+    ///   or `PythonError.unsupportedPythonFeature` if direct buffer symbols are missing.
     public func withUnsafeBytes<R>(_ obj: PythonObject, body: @Sendable (UnsafeBufferPointer<UInt8>) throws -> R) async throws -> R {
         try await withGIL {
             let objPtr = getRegisteredPointer(forPythonObject: obj)!
+            let bufferAPI = try requireBufferProtocolSymbols()
             
             var view = Py_buffer()
             
-            guard api.PyObject_GetBuffer(objPtr, &view, PyBUF_SIMPLE) == 0 else {
+            guard bufferAPI.getBuffer(objPtr, &view, PyBUF_SIMPLE) == 0 else {
                 try api.pythonErr_Clear()
                 throw PythonError.bytesConversionFailed(expected: "bytes-like object", actual: nil)
             }
             defer {
-                api.PyBuffer_Release(&view)
+                bufferAPI.release(&view)
             }
             
             guard let base = view.buf else {

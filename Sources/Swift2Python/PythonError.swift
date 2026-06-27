@@ -57,6 +57,7 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
     case allocationFailed(String)
     case nullPointer(String)
     case stringConversionFailed(String)
+    case unsupportedPythonFeature(feature: String, requiredSymbols: [String])
     
     // ── Finalization-specific case ───────────────────────────────────────────
     /// `Py_FinalizeEx()` returned a non-zero status during shutdown.
@@ -114,6 +115,8 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
             return "Python C API returned NULL pointer: \(context)"
         case .stringConversionFailed(let context):
             return "Failed to convert Python string (wchar_t*) to Swift String: \(context)"
+        case .unsupportedPythonFeature(let feature, let requiredSymbols):
+            return "Unsupported Python feature: \(feature) requires CPython symbols not available in the loaded libpython: \(requiredSymbols.joined(separator: ", "))"
         case .finalizationFailed(let status):
             if status < 0 {
                 return "Py_FinalizeEx failed with error status \(status) (serious shutdown error)"
@@ -198,6 +201,8 @@ public enum PythonError: Error, CustomStringConvertible, LocalizedError {
         switch self {
         case .finalizationFailed:
             return "Call finalize() earlier in a controlled manner (e.g. on app exit). Check Python logs or stderr for details on pending exceptions."
+        case .unsupportedPythonFeature:
+            return "Use a Python runtime that exports the required Stable ABI symbols, or avoid this feature with the selected runtime."
         default:
             return nil
         }

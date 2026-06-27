@@ -94,6 +94,70 @@ struct BytesTests {
         #expect(try await list.isBytesLike() == false)
     }
     
+    @Test("BYT_004b: memoryview fallback detects bytes-like objects")
+    func memoryViewFallbackDetectsBytesLikeObjects() async throws {
+        let builtins = try await interpreter.getBuiltins()
+        let bytes = try await interpreter.convertToPython(bytes: [1, 2, 3])
+        let memoryView = try await builtins.memoryview(bytes)
+        let list = try await interpreter.convertToPython(array: [1, 2, 3])
+        
+        let results = try await interpreter.withGIL {
+            try interpreter.assumeIsolated { isolatedInterpreter in
+                guard let bytesPtr = isolatedInterpreter.getRegisteredPointer(forPythonObject: bytes),
+                      let memoryViewPtr = isolatedInterpreter.getRegisteredPointer(forPythonObject: memoryView),
+                      let listPtr = isolatedInterpreter.getRegisteredPointer(forPythonObject: list)
+                else {
+                    throw PythonError.nullPointer("Test object pointer not found")
+                }
+                
+                return (
+                    bytes: try isolatedInterpreter.isBytesLikeUsingMemoryView(bytesPtr),
+                    memoryView: try isolatedInterpreter.isBytesLikeUsingMemoryView(memoryViewPtr),
+                    list: try isolatedInterpreter.isBytesLikeUsingMemoryView(listPtr)
+                )
+            }
+        }
+        
+        #expect(results.bytes)
+        #expect(results.memoryView)
+        #expect(results.list == false)
+    }
+    
+    @Test("BYT_004c: memoryview fallback copies bytes-like objects")
+    func memoryViewFallbackCopiesBytesLikeObjects() async throws {
+        let builtins = try await interpreter.getBuiltins()
+        let bytes = try await interpreter.convertToPython(bytes: [1, 2, 3])
+        let memoryView = try await builtins.memoryview(bytes)
+        let list = try await interpreter.convertToPython(array: [1, 2, 3])
+        
+        let copied = try await interpreter.withGIL {
+            try interpreter.assumeIsolated { isolatedInterpreter in
+                guard let bytesPtr = isolatedInterpreter.getRegisteredPointer(forPythonObject: bytes),
+                      let memoryViewPtr = isolatedInterpreter.getRegisteredPointer(forPythonObject: memoryView),
+                      let listPtr = isolatedInterpreter.getRegisteredPointer(forPythonObject: list)
+                else {
+                    throw PythonError.nullPointer("Test object pointer not found")
+                }
+                
+                let listCopyError = #expect(throws: PythonError.self) {
+                    _ = try isolatedInterpreter.copiedBytesUsingMemoryView(listPtr)
+                }
+                if case .bytesConversionFailed = listCopyError {
+                } else {
+                    Issue.record("Expected .bytesConversionFailed for list memoryview copy fallback, but got \(listCopyError)")
+                }
+                
+                return (
+                    bytes: try isolatedInterpreter.copiedBytesUsingMemoryView(bytesPtr),
+                    memoryView: try isolatedInterpreter.copiedBytesUsingMemoryView(memoryViewPtr)
+                )
+            }
+        }
+        
+        #expect(copied.bytes == [1, 2, 3])
+        #expect(copied.memoryView == [1, 2, 3])
+    }
+    
     @Test("BYT_005: PythonObject bytes error handling")
     func asyncBytesErrorHandling() async throws {
         let notBytes = try await 123.toPythonObject(interpreter: interpreter)

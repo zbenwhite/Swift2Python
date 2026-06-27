@@ -18,8 +18,8 @@ extension PythonInterpreter {
         let Py_DecRef: (@convention(c) (UnsafeMutableRawPointer) -> Void)
         let Py_IncRef: (@convention(c) (UnsafeMutableRawPointer) -> Void)
         let PyBool_FromLong: (@convention(c) (Int) -> UnsafeMutableRawPointer?)
-        let PyBuffer_Release: (@convention(c) (UnsafeMutableRawPointer) -> Void)
         let PyBytes_FromStringAndSize: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?)
+        let PyBytes_AsStringAndSize: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?, UnsafeMutablePointer<Py_ssize_t>?) -> Int32)
         let PyBytes_Size: (@convention(c) (UnsafeMutableRawPointer) -> Int32)
         let PyByteArray_FromStringAndSize: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?)
         let PyByteArray_Size: (@convention(c) (UnsafeMutableRawPointer) -> Int32)
@@ -81,7 +81,6 @@ extension PythonInterpreter {
         let PyObject_CallObject: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer?) -> UnsafeMutableRawPointer?)
         let PyObject_DelItem: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32)
         let PyObject_GetAttrString: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?)
-        let PyObject_GetBuffer: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer, Int32) -> Int32)
         let PyObject_GetItem: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyObject_GetIter: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)
         let PyObject_IsInstance: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> Int32)
@@ -108,6 +107,10 @@ extension PythonInterpreter {
 
         // Optional (only present on Python >= 3.9)
         let PyObject_CallNoArgs: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?)?
+        
+        // Optional (only present on Python >= 3.11)
+        let PyObject_GetBuffer: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer, Int32) -> Int32)?
+        let PyBuffer_Release: (@convention(c) (UnsafeMutableRawPointer) -> Void)?
         
         // Optional (only present on Python >= 3.12)
         let PyErr_GetRaisedException: (@convention(c) () -> UnsafeMutableRawPointer?)?
@@ -149,6 +152,11 @@ extension PythonInterpreter {
         internal func pythonBytes_FromStringAndSize(_ bytes: UnsafePointer<CChar>?, _ size: Int) -> UnsafeMutableRawPointer? {
             logger.trace("CPython API Call: PyBytes_FromStringAndSize")
             return PyBytes_FromStringAndSize(bytes, size)
+        }
+        
+        internal func pythonBytes_AsStringAndSize(_ pointer: UnsafeMutableRawPointer, _ buffer: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?, _ length: UnsafeMutablePointer<Py_ssize_t>?) -> Int32 {
+            logger.trace("CPython API Call: PyBytes_AsStringAndSize")
+            return PyBytes_AsStringAndSize(pointer, buffer, length)
         }
         
         internal func pythonBytes_Size(_ pointer: UnsafeMutableRawPointer) -> Int {
@@ -547,10 +555,10 @@ extension PythonInterpreter {
                 "Py_IncRef", as: (@convention(c) (UnsafeMutableRawPointer) -> Void).self).function,
             PyBool_FromLong: try await runtime.loadSendableSymbol(
                 "PyBool_FromLong", as: (@convention(c) (Int) -> UnsafeMutableRawPointer?).self).function,
-            PyBuffer_Release: try await runtime.loadSendableSymbol(
-                "PyBuffer_Release", as: (@convention(c) (UnsafeMutableRawPointer) -> Void).self).function,
             PyBytes_FromStringAndSize: try await runtime.loadSendableSymbol(
                 "PyBytes_FromStringAndSize", as: (@convention(c) (UnsafePointer<CChar>?, Int) -> UnsafeMutableRawPointer?).self).function,
+            PyBytes_AsStringAndSize: try await runtime.loadSendableSymbol(
+                "PyBytes_AsStringAndSize", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?, UnsafeMutablePointer<Py_ssize_t>?) -> Int32).self).function,
             PyBytes_Size: try await runtime.loadSendableSymbol(
                 "PyBytes_Size", as: (@convention(c) (UnsafeMutableRawPointer) -> Int32).self).function,
             PyByteArray_FromStringAndSize: try await runtime.loadSendableSymbol(
@@ -673,8 +681,6 @@ extension PythonInterpreter {
                 "PyObject_DelItem", as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer?) -> Int32).self).function,
             PyObject_GetAttrString: try await runtime.loadSendableSymbol(
                 "PyObject_GetAttrString", as: (@convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> UnsafeMutableRawPointer?).self).function,
-            PyObject_GetBuffer: try await runtime.loadSendableSymbol(
-                "PyObject_GetBuffer", as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer, Int32) -> Int32).self).function,
             PyObject_GetItem: try await runtime.loadSendableSymbol(
                 "PyObject_GetItem", as: (@convention(c) (UnsafeMutableRawPointer, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function,
             PyObject_GetIter: try await runtime.loadSendableSymbol(
@@ -725,6 +731,10 @@ extension PythonInterpreter {
             // The ones below may be missing
             PyObject_CallNoArgs: (try? await runtime.loadSendableSymbol(
                 "PyObject_CallNoArgs", as: (@convention(c) (UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?).self).function),
+            PyObject_GetBuffer: try? await runtime.loadSendableSymbol(
+                "PyObject_GetBuffer", as: (@convention(c) (UnsafeMutableRawPointer?, UnsafeMutableRawPointer, Int32) -> Int32).self).function,
+            PyBuffer_Release: try? await runtime.loadSendableSymbol(
+                "PyBuffer_Release", as: (@convention(c) (UnsafeMutableRawPointer) -> Void).self).function,
             PyErr_GetRaisedException: (try? await runtime.loadSendableSymbol(
                 "PyErr_GetRaisedException", as: (@convention(c) () -> UnsafeMutableRawPointer?).self).function),
             Py_GetConstant: try? await runtime.loadSendableSymbol(

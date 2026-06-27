@@ -437,10 +437,14 @@ extension PythonInterpreter {
         
         // MARK: Bytes support
         
-        /// Returns true if this safe Python object is a `bytes` instance.
+        /// Returns whether this safe Python object is a `bytes` instance.
         ///
-        /// Only use this property inside the synchronous, GIL-managed, reference-managed
-        /// local `withIsolatedContext` environment.
+        /// This checks the concrete Python type. Use ``isBytesLike`` when you want to
+        /// accept any object that supports Python's readable buffer protocol. Only use
+        /// this property inside `withIsolatedContext`.
+        ///
+        /// - Returns: `true` when this object is a Python `bytes`; otherwise `false`.
+        /// - Throws: `PythonError` if Python raises while checking the object type.
         @available(*, noasync, message: "Only safe inside withIsolatedContext()")
         public var isBytes: Bool {
             get throws {
@@ -450,10 +454,14 @@ extension PythonInterpreter {
             }
         }
         
-        /// Returns true if this safe Python object is a `bytearray` instance.
+        /// Returns whether this safe Python object is a `bytearray` instance.
         ///
-        /// Only use this property inside the synchronous, GIL-managed, reference-managed
-        /// local `withIsolatedContext` environment.
+        /// This checks the concrete Python type. Use ``isBytesLike`` when you want to
+        /// accept `bytes`, `bytearray`, `memoryview`, or other readable buffer objects.
+        /// Only use this property inside `withIsolatedContext`.
+        ///
+        /// - Returns: `true` when this object is a Python `bytearray`; otherwise `false`.
+        /// - Throws: `PythonError` if Python raises while checking the object type.
         @available(*, noasync, message: "Only safe inside withIsolatedContext()")
         public var isByteArray: Bool {
             get throws {
@@ -463,10 +471,15 @@ extension PythonInterpreter {
             }
         }
         
-        /// Returns true if this safe Python object supports Python's buffer protocol.
+        /// Returns whether this safe Python object supports Python's readable buffer protocol.
         ///
-        /// This includes `bytes`, `bytearray`, `memoryview`, and other objects that can
-        /// provide a simple readable buffer.
+        /// This includes Python `bytes`, `bytearray`, `memoryview`, and other objects that
+        /// can provide a simple readable buffer. Swift2Python uses direct CPython buffer
+        /// symbols when the loaded libpython exports them; otherwise it probes by creating
+        /// `memoryview(self)`. Only use this property inside `withIsolatedContext`.
+        ///
+        /// - Returns: `true` when this object can be read as bytes; otherwise `false`.
+        /// - Throws: `PythonError` if Python raises unexpectedly while checking support.
         @available(*, noasync, message: "Only safe inside withIsolatedContext()")
         public var isBytesLike: Bool {
             get throws {
@@ -478,10 +491,11 @@ extension PythonInterpreter {
         
         /// Returns the number of bytes in this safe Python `bytes` object.
         ///
-        /// Only use this property inside the synchronous, GIL-managed, reference-managed
-        /// local `withIsolatedContext` environment.
+        /// This property requires the object to be an exact Python `bytes` value. It
+        /// does not accept `bytearray` or general buffer-protocol objects. Only use this
+        /// property inside `withIsolatedContext`.
         ///
-        /// - Returns: The `bytes` length.
+        /// - Returns: The Python `bytes` length.
         /// - Throws: `PythonError.bytesConversionFailed` if this object is not `bytes`,
         ///   or `PythonError` if Python raises while reading the size.
         @available(*, noasync, message: "Only safe inside withIsolatedContext()")
@@ -495,10 +509,11 @@ extension PythonInterpreter {
         
         /// Returns the number of bytes in this safe Python `bytearray` object.
         ///
-        /// Only use this property inside the synchronous, GIL-managed, reference-managed
-        /// local `withIsolatedContext` environment.
+        /// This property requires the object to be an exact Python `bytearray` value. It
+        /// does not accept `bytes` or general buffer-protocol objects. Only use this
+        /// property inside `withIsolatedContext`.
         ///
-        /// - Returns: The `bytearray` length.
+        /// - Returns: The Python `bytearray` length.
         /// - Throws: `PythonError.bytesConversionFailed` if this object is not `bytearray`,
         ///   or `PythonError` if Python raises while reading the size.
         @available(*, noasync, message: "Only safe inside withIsolatedContext()")
@@ -510,29 +525,79 @@ extension PythonInterpreter {
             }
         }
         
-        /// Safe copy of Python bytes → Swift Data
-        public func asCopiedData() throws -> Data {
-            try withUnsafeBytes { Data($0) }
-        }
-        
-        /// Safe copy of Python bytes → Swift byte array.
-        public func asCopiedBytes() throws -> [UInt8] {
-            try withUnsafeBytes { Array($0) }
-        }
-        
-        /// Safe copy of Python bytes → Swift byte array.
+        /// Copies this safe bytes-like object's contents into Swift `Data`.
         ///
-        /// This is an alias for `asCopiedBytes()` for callers working with Python `bytearray`.
+        /// The source may be `bytes`, `bytearray`, `memoryview`, or another readable
+        /// buffer-protocol object. When direct CPython buffer symbols are unavailable,
+        /// Swift2Python falls back to `memoryview(self).tobytes()`, so copied extraction
+        /// works on Python 3.9 and newer. Only call this method inside `withIsolatedContext`.
+        ///
+        /// - Returns: A Swift `Data` value containing a copy of the Python bytes.
+        /// - Throws: `PythonError.bytesConversionFailed` if this object is not bytes-like.
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+        public func asCopiedData() throws -> Data {
+            Data(try asCopiedBytes())
+        }
+        
+        /// Copies this safe bytes-like object's contents into a Swift byte array.
+        ///
+        /// The source may be `bytes`, `bytearray`, `memoryview`, or another readable
+        /// buffer-protocol object. When direct CPython buffer symbols are unavailable,
+        /// Swift2Python falls back to `memoryview(self).tobytes()`, so copied extraction
+        /// works on Python 3.9 and newer. Only call this method inside `withIsolatedContext`.
+        ///
+        /// - Returns: A Swift `[UInt8]` containing a copy of the Python bytes.
+        /// - Throws: `PythonError.bytesConversionFailed` if this object is not bytes-like.
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
+        public func asCopiedBytes() throws -> [UInt8] {
+            let localInterpreter = interpreter
+            return try localInterpreter.assumeIsolated {
+                try $0.copiedBytes(self)
+            }
+        }
+        
+        /// Copies this safe bytes-like object's contents into a Swift byte array.
+        ///
+        /// This is an alias for ``asCopiedBytes()`` for callers working with Python
+        /// `bytearray` values. Only call this method inside `withIsolatedContext`.
+        ///
+        /// - Returns: A Swift `[UInt8]` containing a copy of the Python bytes.
+        /// - Throws: `PythonError.bytesConversionFailed` if this object is not bytes-like.
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
         public func asCopiedByteArray() throws -> [UInt8] {
             try asCopiedBytes()
         }
         
-        /// Safe copy of Python bytes → Swift `String` (recommended for SVG, JSON, text)
+        /// Copies and decodes this safe bytes-like object as a Swift `String`.
+        ///
+        /// The source may be `bytes`, `bytearray`, `memoryview`, or another readable
+        /// buffer-protocol object. Only call this method inside `withIsolatedContext`.
+        ///
+        /// - Parameter encoding: The Swift string encoding to use. The default is UTF-8.
+        /// - Returns: A decoded Swift `String`.
+        /// - Throws: `PythonError.bytesConversionFailed` if this object is not bytes-like
+        ///   or if the copied bytes cannot be decoded with `encoding`.
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
         public func asCopiedString(encoding: String.Encoding = .utf8) throws -> String {
-            try withUnsafeBytesString(encoding: encoding) { $0 }
+            let bytes = try asCopiedBytes()
+            guard let string = String(bytes: bytes, encoding: encoding) else {
+                throw PythonError.bytesConversionFailed(expected: "bytes decodable as \(encoding)", actual: nil)
+            }
+            return string
         }
         
-        /// Do something with the bytes before the closure ends
+        /// Provides temporary zero-copy access to this safe bytes-like object's readable buffer.
+        ///
+        /// The buffer pointer is valid only for the duration of `body`. Copy bytes with
+        /// ``asCopiedData()`` or ``asCopiedBytes()`` when data must outlive the closure.
+        /// This API requires the loaded libpython to export `PyObject_GetBuffer` and
+        /// `PyBuffer_Release` (Python >= 3.11); copied extraction has a Python-level fallback, but temporary
+        /// pointer access does not. Only call this method inside `withIsolatedContext`.
+        ///
+        /// - Parameter body: A closure that receives the temporary readable byte buffer.
+        /// - Returns: The value returned by `body`.
+        /// - Throws: `PythonError.bytesConversionFailed` if this object is not bytes-like,
+        ///   or `PythonError.unsupportedPythonFeature` if direct buffer symbols are missing.
         @available(*, noasync, message: "Only safe inside withIsolatedContext()")
         public func withUnsafeBytes<R : Sendable>(_ body: @Sendable (UnsafeBufferPointer<UInt8>) throws -> R) throws -> R {
             let localInterpreter = interpreter
@@ -541,7 +606,20 @@ extension PythonInterpreter {
             }
         }
         
-        /// Do something with the bytes before the closure ends
+        /// Provides temporary zero-copy access to this safe bytes-like object as a decoded string.
+        ///
+        /// The decoded string is created inside the closure from the temporary buffer.
+        /// Use ``asCopiedString(encoding:)`` when you just need the copied string result.
+        /// Like ``withUnsafeBytes(_:)``, this API requires direct CPython buffer symbols.
+        /// Only call this method inside `withIsolatedContext`.
+        ///
+        /// - Parameters:
+        ///   - encoding: The Swift string encoding to use. The default is UTF-8.
+        ///   - body: A closure that receives the decoded string.
+        /// - Returns: The value returned by `body`.
+        /// - Throws: `PythonError.bytesConversionFailed` if this object is not bytes-like
+        ///   or if the bytes cannot be decoded with `encoding`.
+        @available(*, noasync, message: "Only safe inside withIsolatedContext()")
         public func withUnsafeBytesString<R : Sendable>( encoding: String.Encoding = .utf8, _ body: @Sendable (String) throws -> R ) throws -> R {
             try withUnsafeBytes { buffer in
                 guard let str = String(bytes: buffer, encoding: encoding) else {

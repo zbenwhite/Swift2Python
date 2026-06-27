@@ -124,6 +124,8 @@ if try await object.isBytesLike() {
 
 `isBytesLike()` returns true for `bytes`, `bytearray`, `memoryview`, and other readable buffer-protocol objects.
 
+Buffer-protocol checks use `PyObject_GetBuffer` and `PyBuffer_Release` when the loaded libpython exports those symbols. CPython exposes those functions in the Stable ABI starting with Python 3.11. Swift2Python checks for the symbols at runtime instead of checking the Python version; if they are missing, `isBytesLike()` falls back to probing `memoryview(object)` through Python.
+
 Use safe equivalents inside `withIsolatedContext`:
 
 ```swift
@@ -181,6 +183,10 @@ let checksum = try await bytes.withUnsafeBytes { buffer in
 
 The buffer pointer is valid only for the duration of the closure. Copy the bytes out with `asCopiedData()` or `asCopiedBytes()` when you need to keep them.
 
+Copied extraction uses `PyObject_GetBuffer` and `PyBuffer_Release` when the loaded libpython exports those symbols. If they are missing, Swift2Python falls back to `memoryview(object).tobytes()` and then copies the resulting Python `bytes`, so `asCopiedData()`, `asCopiedBytes()`, and `asCopiedString(encoding:)` work with bytes-like objects on Python 3.9 and newer.
+
+Unlike copied extraction, `withUnsafeBytes` requires `PyObject_GetBuffer` and `PyBuffer_Release` because it exposes a temporary zero-copy pointer. On a loaded libpython that does not export those symbols, it throws ``PythonError/unsupportedPythonFeature(feature:requiredSymbols:)``.
+
 ## Mutating Bytearrays
 
 Swift2Python does not wrap every Python `bytearray` method. Call Python methods directly:
@@ -224,7 +230,7 @@ let count = try await object.byteArraySize()   // requires bytearray
 let data = try await object.asCopiedData()     // requires bytes-like object
 ```
 
-`withUnsafeBytes` and the copied extraction helpers require a bytes-like object. If the object does not support Python's readable buffer protocol, they throw `bytesConversionFailed`.
+`withUnsafeBytes` and the copied extraction helpers require a bytes-like object. If the object does not support Python's readable buffer protocol, they throw `bytesConversionFailed`. If the loaded libpython does not export the required buffer-protocol C API symbols, copied extraction falls back to `memoryview(object).tobytes()` while `withUnsafeBytes` throws ``PythonError/unsupportedPythonFeature(feature:requiredSymbols:)``.
 
 String decoding also throws `bytesConversionFailed` when the bytes cannot be decoded with the requested encoding:
 

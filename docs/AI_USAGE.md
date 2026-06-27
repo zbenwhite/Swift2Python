@@ -1724,6 +1724,8 @@ Set support should be considered complete for a 1.0 release when it has async AP
 
 Bytes support has explicit helpers for Python `bytes`, Python `bytearray`, and readable buffer-protocol objects. Prefer these helpers when the user is working with binary data. Do not rely on generic array conversion for binary data.
 
+Readable buffer-protocol pointer access depends on the loaded libpython exporting `PyObject_GetBuffer` and `PyBuffer_Release`. CPython documents those functions as Stable ABI starting in Python 3.11. Swift2Python must check for the symbols at runtime, not compare version strings. `isBytesLike` falls back to a Python-level `memoryview(object)` probe when those symbols are unavailable. Copied extraction falls back to `memoryview(object).tobytes()` plus `PyBytes_AsStringAndSize`, so `asCopiedData`, `asCopiedBytes`, and `asCopiedString` should work for bytes-like objects on Python 3.9 and newer. APIs that expose temporary pointers through `withUnsafeBytes` should throw `PythonError.unsupportedPythonFeature(feature:requiredSymbols:)` if the direct buffer symbols are missing.
+
 ### What Bytes APIs Exist
 
 Async ``PythonObject`` bytes APIs:
@@ -1876,6 +1878,7 @@ if try await object.isBytesLike() {
 
 Use `isBytes` or `isByteArray` only when exact concrete Python type matters.
 
+Do not load `PyObject_GetBuffer` or `PyBuffer_Release` as required startup symbols. They are optional capability symbols. `isBytesLike` should use them when available and otherwise probe `memoryview(object)`. Copied extraction should use them when available and otherwise copy through `memoryview(object).tobytes()` followed by `PyBytes_AsStringAndSize`. Code paths that need temporary pointer access through `withUnsafeBytes` should guard both symbols immediately before use and throw `unsupportedPythonFeature` if either is unavailable.
 
 ### Error Behavior
 
@@ -1883,10 +1886,11 @@ Async bytes helpers throw:
 
 - `PythonError.bytesConversionFailed(expected:actual:)` when the object is not the expected bytes shape, such as calling `bytesSize()` on a non-`bytes` object or `byteArraySize()` on a non-`bytearray` object.
 - `PythonError.bytesConversionFailed(expected:actual:)` when `withUnsafeBytes`, `asCopiedData`, or `asCopiedBytes` is used on a non-buffer object.
+- `PythonError.unsupportedPythonFeature(feature:requiredSymbols:)` when temporary pointer access through `withUnsafeBytes` is requested but the loaded libpython does not export `PyObject_GetBuffer` and `PyBuffer_Release`.
 - `PythonError.bytesConversionFailed(expected:actual:)` when `asCopiedString(encoding:)` cannot decode the bytes.
 - `PythonError.pythonException` when Python raises during Python-native method calls.
 
-Safe bytes helpers throw the same Swift conversion error for Swift2Python validation failures and `PythonError.safePythonException` for Python-raised failures.
+Safe bytes helpers throw the same Swift conversion error for Swift2Python validation failures, `PythonError.unsupportedPythonFeature` for unavailable buffer-protocol symbols, and `PythonError.safePythonException` for Python-raised failures.
 
 ### What Not To Add For Bytes
 
