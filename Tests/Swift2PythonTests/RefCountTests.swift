@@ -95,6 +95,23 @@ struct RefCountTests {
         }
     }
     
+    @Test("RefCount: SafePythonObject escapes isolation by copying its Python reference")
+    func safeObjectEscapesIsolationByCopyingReference() async throws {
+        let escaped = try await interpreter.withIsolatedContext { isolatedInterpreter in
+            let safeList = try isolatedInterpreter.convertToSafePython(array: [1, 2, 3])
+            let refCountBeforeEscape = try isolatedInterpreter.getRefCount(forSafeObj: safeList)
+            let escaped = isolatedInterpreter.escapeFromIsolation(forSafeObj: safeList)
+            let refCountAfterEscape = try isolatedInterpreter.getRefCount(forSafeObj: safeList)
+            
+            #expect(refCountAfterEscape == refCountBeforeEscape + 1)
+            #expect(try safeList.listCount == 3)
+            
+            return escaped
+        }
+        
+        #expect(try await escaped.listCount() == 3)
+    }
+    
     @Test("RefCount: safe variadic subscript get releases synthesized tuple key")
     func safeVariadicSubscriptGetReleasesSynthesizedTupleKey() async throws {
         let tupleKeyHandle: PythonInterpreter.ReferenceCountTestHandle = try await interpreter.withIsolatedContext { isolatedInterpreter in

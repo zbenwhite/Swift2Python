@@ -144,6 +144,20 @@ try await python.withIsolatedContext { context in
 
 ``PythonInterpreter/bind(pythonObject:)`` throws if the object belongs to a different ``PythonInterpreter``. Do not store ``PythonInterpreter/SafePythonObject`` values after the isolated closure returns.
 
+When an isolated-context result needs to remain a Python value after the closure exits, use ``PythonInterpreter/escapeFromIsolation(forSafeObj:)`` to copy the safe object into an async ``PythonObject``:
+
+```swift
+let names = try await python.withIsolatedContext { context in
+    let builtins = context.builtins
+    let safeNames = try builtins.list(["Ada", "Grace", "Katherine"])
+    return context.escapeFromIsolation(forSafeObj: safeNames)
+}
+
+print(try await names.listCount())
+```
+
+The returned ``PythonObject`` owns its own Python reference. The original ``PythonInterpreter/SafePythonObject`` remains usable until the isolated closure exits, and is cleaned up with the rest of the isolated context.
+
 ## Platform And Version Status
 
 The current release is developed and tested on macOS with current GIL-enabled Python. Swift2Python is intended to be capable of running on Linux and iOS, with free-threaded Python, and with older supported Python versions, but those combinations are not tested yet.

@@ -105,7 +105,9 @@ do {
 }
 ```
 
-Do not store or return ``PythonInterpreter/SafePythonObject`` values for use outside `withIsolatedContext`. Convert values to ``PythonObject`` or Swift values before leaving the closure.
+Do not store or return ``PythonInterpreter/SafePythonObject`` values for use outside `withIsolatedContext`. Convert values to Swift values before leaving the closure, or use ``PythonInterpreter/escapeFromIsolation(forSafeObj:)`` when you intentionally need to return a ``PythonObject``.
+
+``PythonInterpreter/escapeFromIsolation(forSafeObj:)`` copies the Python reference for the returned ``PythonObject``. It does not consume the original safe object, which remains valid until the isolated context exits.
 
 Binding an async ``PythonObject`` into an isolated context is also a throwing operation:
 

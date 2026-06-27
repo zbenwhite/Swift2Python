@@ -167,21 +167,25 @@ extension PythonInterpreter {
         guard let currentContext = isolatedContextStack.last, var record = currentContext.registry[forSafeObj.id] else {
             fatalError("Attempted to reference count a SafePythonObject that was not in the registry!")
         }
-        record.referenceCount -= 1                           // update the housekeeping rreference count
+        record.referenceCount -= 1                           // update the housekeeping reference count
+        assert(
+            record.referenceCount >= 0,
+            "SafePythonObject housekeeping reference count went negative."
+        )
         currentContext.registry[forSafeObj.id] = record      // write it back because it's a struct
         if andAlsoPythonsRefCount {
             api.Py_DecRef(record.objectPtr)
         }
     }
     
+    /// Copies a safe object reference out of the active isolated context.
+    ///
+    /// The returned `PythonObject` owns a new Python reference. The original
+    /// `SafePythonObject` remains registered in the isolated context and can continue to
+    /// be used until that context exits.
     public func escapeFromIsolation(forSafeObj: SafePythonObject) -> PythonObject {
-        // Code is duplicated here because this is a special case
-        guard let currentContext = isolatedContextStack.last, var record = currentContext.registry[forSafeObj.id] else {
-            fatalError("Attempted to reference count a SafePythonObject that was not in the registry!")
-        }
-        record.referenceCount -= 1                           // update the reference count
-        currentContext.registry[forSafeObj.id] = record      // write it back because it's a struct
-        let ptr = record.objectPtr
+        let ptr = getRegisteredPointer(forSafeObj: forSafeObj)
+        api.Py_IncRef(ptr)
         return newPythonObject(fromReturnedPointer: ptr)
     }
     

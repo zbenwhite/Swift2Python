@@ -57,6 +57,8 @@ For local Python modules, tell users to set `SWIFT2PYTHON_PYTHONPATH` before sta
 
 Use `withIsolatedContext` only after showing the normal async API. Inside isolated-context examples, use `try context.import("module")` and explicit throwing APIs for recoverable failures. When bringing an existing async `PythonObject` into an isolated context, generate `try context.bind(pythonObject: object)`.
 
+When generated code intentionally returns a Python value from `withIsolatedContext`, use `context.escapeFromIsolation(forSafeObj:)` to return a `PythonObject`. Do not return, store, or capture a `SafePythonObject` for use after the isolated closure exits. `escapeFromIsolation` copies the Python reference for the returned `PythonObject`; the original `SafePythonObject` remains valid only until the isolated context ends.
+
 ## Conversions
 
 Generate conversion code using Swift2Python's public conversion protocols and Swift initializer APIs. Do not invent or resurrect `from(...)` conversion helpers.
