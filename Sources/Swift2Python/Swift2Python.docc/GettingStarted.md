@@ -7,7 +7,7 @@ Add Swift2Python to a Swift package, choose a Python runtime, and call Python fr
 Add Swift2Python as a package dependency:
 
 ```swift
-// swift-tools-version: 6.2
+// swift-tools-version: 6.0
 import PackageDescription
 
 let package = Package(
@@ -16,7 +16,7 @@ let package = Package(
         .macOS(.v15)
     ],
     dependencies: [
-        .package(url: "https://github.com/your-org/Swift2Python.git", from: "1.0.0")
+        .package(url: "https://github.com/your-org/Swift2Python.git", from: "v0.9.0")
     ],
     targets: [
         .executableTarget(

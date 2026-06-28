@@ -221,7 +221,7 @@ Generated tests and examples that validate Python exception display should check
 
 ## Callables
 
-Callable support is release-ready. Generate Swift2Python callable code using direct `@dynamicCallable` syntax for normal calls and explicit `call(...)` methods when arguments are already collected.
+Generate Swift2Python callable code using direct `@dynamicCallable` syntax for normal calls and explicit `call(...)` methods when arguments are already collected.
 
 ### Async PythonObject Calls
 
@@ -1028,20 +1028,6 @@ let first = try await tuple.tupleItem(at: 0)
 
 Do not assume negative indexes are part of the tuple helper contract. If Python-style negative indexing is required, call Python directly using the generic item access APIs or Python code.
 
-### What Not To Add For Tuples
-
-Do not add these unless the user explicitly requests them:
-
-- Fixed tuple helpers beyond 4 elements.
-- Tuple mutation APIs. Python tuples are immutable.
-- `listAsTuple()` or `tupleFromList()` wrappers.
-- namedtuple-specific APIs. Attribute access and tuple indexing cover normal namedtuple use.
-- Duplicate optional safe tuple helpers. The main safe tuple API throws.
-
-### Release Completeness
-
-Tuple support should be considered complete for a 1.0 release. It has async APIs, safe APIs, tuple creation, tuple inspection, fixed-size unpacking, dynamic array conversion, tuple-specific errors, unit tests, and DocC documentation.
-
 ## Dictionaries
 
 Dictionary support has explicit stable-ABI helpers for dictionary creation, inspection, key/value/item extraction, membership, and deletion. Prefer those helpers when the user is working with dictionaries as dictionaries. Use normal Python method calls when the user needs Python-native dict view objects or Python methods such as `get`, `pop`, or `update`.
@@ -1269,20 +1255,6 @@ let keysView = try await dict.keys()
 
 Do not treat these as interchangeable. The helper eagerly returns Swift arrays of Swift2Python objects; Python methods return live Python view objects.
 
-### What Not To Add For Dictionaries
-
-Do not add these unless the user explicitly requests them:
-
-- Wrapper APIs for every Python dict method.
-- A `clear()` wrapper. Users can call Python's `dict.clear()` directly, and `PyDict_Clear` is not needed for the core API.
-- A `pop()` wrapper. Users can call `try await dict.pop("key")` or `try dict.pop("key")` in safe context.
-- Dedicated wrappers for `keys()`, `values()`, or `items()` view objects. Existing Python method calls cover this.
-- Optional safe dictionary helpers. The main safe dictionary API throws.
-
-### Release Completeness
-
-Dictionary support should be considered close to release-ready when it has async APIs, safe APIs, dictionary creation, dictionary inspection, key/value/item extraction, membership, deletion, Python-native method examples, unit tests, and DocC documentation.
-
 ## Lists
 
 List support has explicit helpers for list creation, inspection, length, array conversion, item access, and item mutation. Prefer those helpers when the user is treating an object as a list. Use normal Python method calls for Python-native list behavior such as `pop`, `reverse`, `sort`, `copy`, `clear`, `count`, `index`, `remove`, and `extend`.
@@ -1508,23 +1480,6 @@ Use ``PythonSlice`` when a Swift range cannot express the slice:
 ```swift
 let reversed = list[.slice(nil, nil, step: -1)]
 try list.setItem(key: PythonSlice(1, 3), newValue: replacement)
-```
-
-### What Not To Add For Lists
-
-Do not add these unless the user explicitly requests them:
-
-- Wrapper APIs for every Python list method.
-- `listAsTuple()` or `tupleFromList()` wrappers.
-- A `reverse()` wrapper. Users can call `list.reverse()` directly.
-- A `pop()` wrapper. Users can call `list.pop()` directly.
-- A `sort()` wrapper. Users can call `list.sort()` directly.
-- Separate async subscript slicing for `PythonObject`; use Swift range keys or `PythonSlice` with `getItem`/`setItem` because Swift cannot use `await` with subscript syntax.
-- Optional safe list helpers. The main safe list API throws.
-
-### Release Completeness
-
-List support should be considered complete for a 1.0 release when it has async APIs, safe APIs, list creation, list inspection, array conversion, item access and mutation, negative indexing, Swift range slicing, `PythonSlice` support for stepped slices, Python-native method examples, unit tests, and DocC documentation.
 
 ## Sets
 
@@ -1644,8 +1599,6 @@ try await set.clear()
 let copy = try await set.copy()
 ```
 
-Do not create wrapper APIs for every Python set method by default. Python-native calls cover methods such as `clear`, `copy`, `difference`, `difference_update`, `intersection`, `intersection_update`, `isdisjoint`, `issubset`, `issuperset`, `pop`, `symmetric_difference`, `symmetric_difference_update`, `union`, and `update`.
-
 ### Preferred Safe Patterns
 
 Use safe set APIs only inside `withIsolatedContext`:
@@ -1714,21 +1667,6 @@ Safe set helpers throw:
 `setRemove` follows Python `remove` semantics and throws for missing items. `setDiscard` follows Python `discard` semantics and does not throw for missing items.
 
 Avoid using deliberately unhashable values, such as a Python list inserted into a Python set, as ordinary set-support tests. That path is useful for reference-counting/error-bridge regression tests, but it can expose lower-level exception wrapping issues unrelated to set API behavior.
-
-### What Not To Add For Sets
-
-Do not add these unless the user explicitly requests them:
-
-- Wrapper APIs for every Python set method.
-- Separate Swift wrapper methods for set algebra operations such as `union`, `intersection`, and `difference`; direct Python calls cover them.
-- A `pop()` wrapper. Users can call `set.pop()` directly.
-- A `clear()` wrapper. Users can call `set.clear()` directly.
-- Mutation helpers for frozenset. Python frozensets are immutable.
-- Optional safe set helpers. The main safe set API throws.
-
-### Release Completeness
-
-Set support should be considered complete for a 1.0 release when it has async APIs, safe APIs, mutable set creation, frozenset creation, type inspection, count, membership, mutation helpers for mutable sets, array conversion, Python-native method examples, unit tests, and DocC documentation.
 
 ## Bytes And Bytearray
 
@@ -1901,16 +1839,3 @@ Async bytes helpers throw:
 - `PythonError.pythonException` when Python raises during Python-native method calls.
 
 Safe bytes helpers throw the same Swift conversion error for Swift2Python validation failures, `PythonError.unsupportedPythonFeature` for unavailable buffer-protocol symbols, and `PythonError.safePythonException` for Python-raised failures.
-
-### What Not To Add For Bytes
-
-Do not add these unless the user explicitly requests them:
-
-- A generic `[UInt8]` conversion that produces Python `bytes`; use explicit `bytes:` labels instead.
-- Wrapper APIs for every Python `bytearray` method. Direct Python calls cover `append`, `extend`, `pop`, `reverse`, `clear`, and related methods.
-- Persistent storage of pointers from `withUnsafeBytes`; copy to `Data` or `[UInt8]` when data must outlive the closure.
-- Mutation helpers for Python `bytes`. Python `bytes` are immutable.
-
-### Release Completeness
-
-Bytes support should be considered complete for a 1.0 release when it has async APIs, safe APIs, `bytes` creation, `bytearray` creation, `Data` conversion, type inspection, size helpers, buffer-protocol copying, string decoding, unit tests, and DocC documentation.
